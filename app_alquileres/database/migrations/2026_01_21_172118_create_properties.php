@@ -21,8 +21,9 @@ return new class extends Migration
 
             // Ubicación
             $table->string('location_text');
-            $table->decimal('location_lat', 10, 7)->nullable();
-            $table->decimal('location_lng', 10, 7)->nullable();
+            $table->enum('location_province', ['Cartago', 'San José', 'Alajuela', 'Heredia', 'Puntarenas', 'Limón', 'Guanacaste']);
+            $table->string('location_canton');
+            $table->string('location_district');
 
             // Servicio
             $table->enum('service_type', ['event', 'home', 'lodging']);

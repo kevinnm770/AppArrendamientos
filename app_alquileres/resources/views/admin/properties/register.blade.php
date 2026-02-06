@@ -24,7 +24,7 @@
             @csrf
 
             <div class="card-header">
-                <h4 class="card-title mb-0">Registrar propiedad</h4>
+                <h5 class="card-title mb-0">Registrar propiedad</h5>
             </div>
 
             <div class="card-body">
@@ -50,22 +50,47 @@
                             placeholder="Describe los espacios, reglas y beneficios de la propiedad"></textarea>
                     </div>
 
-                    <div class="col-12 col-lg-6">
-                        <label class="form-label" for="location_text">Ubicación (texto) *</label>
+                    <div class="col-4">
+                        <label class="form-label" for="location_province">Provincia</label>
+                        <select class="form-control" name="location_province" id="location_province">
+                            <option value="Cartago">Cartago</option>
+                            <option value="San José">San José</option>
+                            <option value="Alajuela">Alajuela</option>
+                            <option value="Heredia">Heredia</option>
+                            <option value="Limón">Limón</option>
+                            <option value="Puntarenas">Puntarenas</option>
+                            <option value="Guanacaste">Guanacaste</option>
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label" for="location_canton">Cantón</label>
+                        <select class="form-control" name="location_canton" id="location_canton">
+                            <option value="Cartago">Cartago</option>
+                            <option value="San José">San José</option>
+                            <option value="Alajuela">Alajuela</option>
+                            <option value="Heredia">Heredia</option>
+                            <option value="Limón">Limón</option>
+                            <option value="Puntarenas">Puntarenas</option>
+                            <option value="Guanacaste">Guanacaste</option>
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label" for="location_district">Districto</label>
+                        <select class="form-control" name="location_district" id="location_district">
+                            <option value="Cartago">Cartago</option>
+                            <option value="San José">San José</option>
+                            <option value="Alajuela">Alajuela</option>
+                            <option value="Heredia">Heredia</option>
+                            <option value="Limón">Limón</option>
+                            <option value="Puntarenas">Puntarenas</option>
+                            <option value="Guanacaste">Guanacaste</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label" for="location_text">Diracción exacta *</label>
                         <input type="text" class="form-control" id="location_text" name="location_text"
-                            placeholder="Ej: La Lima, Cartago, Costa Rica" required>
-                    </div>
-
-                    <div class="col-6 col-lg-3">
-                        <label class="form-label" for="location_lat">Latitud</label>
-                        <input type="number" class="form-control" id="location_lat" name="location_lat" step="0.0000001"
-                            placeholder="9.9876543">
-                    </div>
-
-                    <div class="col-6 col-lg-3">
-                        <label class="form-label" for="location_lng">Longitud</label>
-                        <input type="number" class="form-control" id="location_lng" name="location_lng" step="0.0000001"
-                            placeholder="-84.1234567">
+                            placeholder="Ej: Del boulevard, 300m este, 3ra casa" required>
                     </div>
 
                     <div class="col-6 col-md-4 col-lg-2">
@@ -106,7 +131,7 @@
                         <label class="form-label" for="included_objects_input">Objetos incluidos (tags)</label>
                         <input type="text" class="form-control tag-source" id="included_objects_input"
                             data-target="included_objects_tags" placeholder="Escribe y presiona Enter (ej: refrigeradora)">
-                        <small class="text-muted">Se almacenan como lista en formato JSON.</small>
+                        <small class="text-muted">Presiona Enter o coma para crear cada objeto.</small>
                         <input type="hidden" name="included_objects" id="included_objects_tags">
                         <div class="tag-list mt-2" data-list-for="included_objects_tags"></div>
                     </div>
@@ -125,7 +150,6 @@
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <div>
                                 <h5 class="mb-0">Fotografías de la propiedad</h5>
-                                <small class="text-muted">El orden de las filas define la posición de la foto (campo <code>position</code>).</small>
                             </div>
                             <button type="button" class="btn btn-outline-primary" id="add-photo-row">
                                 <i class="fa-solid fa-plus"></i> Agregar foto
@@ -145,28 +169,32 @@
     </section>
 
     <template id="photo-row-template">
-        <div class="border rounded p-3 mb-3 photo-row">
-            <div class="row g-3 align-items-end">
-                <div class="col-12 col-lg-4">
-                    <label class="form-label">Archivo de imagen *</label>
-                    <input type="file" class="form-control" name="photos[][file]" accept="image/*" required>
+        <div class="p-3 mb-3 photo-row">
+            <input type="number" style="display:none;" class="form-control photo-position" name="photos[][position]" min="1" readonly>
+            <div class="row g-3">
+                <div class="col-xl-3 col-12 text-center">
+                    <img class="photo_img" src="{{ asset('storage/photos_properties/photoDefault_property.png') }}" alt="" style="width:70%;max-width:250px;max-height:250px;">
                 </div>
-                <div class="col-12 col-lg-3">
-                    <label class="form-label">Posición</label>
-                    <input type="number" class="form-control photo-position" name="photos[][position]" min="1" readonly>
-                </div>
-                <div class="col-12 col-lg-3">
-                    <label class="form-label">Fecha de toma</label>
-                    <input type="datetime-local" class="form-control" name="photos[][taken_at]">
-                </div>
-                <div class="col-12 col-lg-2 text-lg-end">
-                    <button type="button" class="btn btn-outline-danger remove-photo-row w-100">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Descripción / caption</label>
-                    <input type="text" class="form-control" name="photos[][caption]" placeholder="Ej: Vista de sala principal">
+                <div class="col-xl-9 col-12 photo-row-content">
+                    <div class="row" style="height: min-content;">
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label">Archivo de imagen *</label>
+                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*" data-photo-number="" onchange="previewPhoto(this,event)" required>
+                        </div>
+                        <div class="col-12 col-lg-3 mt-xl-0 mt-3">
+                            <label class="form-label">Fecha de toma</label>
+                            <input type="datetime-local" class="form-control" name="photos[][taken_at]">
+                        </div>
+                        <div class="col-12 mt-3">
+                            <label class="form-label">Descripción / caption</label>
+                            <input type="text" class="form-control" name="photos[][caption]" placeholder="Ej: Vista de sala principal">
+                        </div>
+                        <div class="col-12 mt-3">
+                            <button type="button" class="btn btn-outline-danger remove-photo-row w-100" style="max-width:max-content;">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -196,6 +224,12 @@
             color: inherit;
             padding: 0;
             line-height: 1;
+        }
+
+        .photo-row-content{
+            display: flex;
+            align-items:center;
+            justify-content: center;
         }
     </style>
 
@@ -265,6 +299,8 @@
             const updatePhotoPositions = () => {
                 photoRowsContainer.querySelectorAll('.photo-row').forEach((row, index) => {
                     row.querySelector('.photo-position').value = index + 1;
+                    row.querySelector('.photo_img').id="photo"+(index+1);
+                    row.querySelector('.input_img').setAttribute('data-photo-number',index+1);
                 });
             };
 
@@ -281,5 +317,12 @@
             document.getElementById('add-photo-row').addEventListener('click', addPhotoRow);
             addPhotoRow();
         });
+
+        function previewPhoto(btn,e) {
+            const file = e.target.files?.[0];
+            const numPhoto = btn.getAttribute('data-photo-number');
+            if (!file) return;
+            document.getElementById('photo'+numPhoto).src = URL.createObjectURL(file);
+        }
     </script>
 @endsection
