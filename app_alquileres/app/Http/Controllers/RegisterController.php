@@ -32,7 +32,7 @@ class RegisterController extends Controller
             'role' => ['required', Rule::in(['lessor', 'roomer'])],
 
             // User
-            'fullname' => ['required', 'string', 'max:15', Rule::unique('users', 'name')],
+            'username' => ['required', 'string', 'max:15', Rule::unique('users', 'name')],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
 

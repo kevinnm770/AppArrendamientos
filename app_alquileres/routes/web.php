@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
+use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\roomerController;
 use App\Http\Controllers\UserController;
@@ -44,5 +45,14 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
         Route::patch('/lessor', [lessorController::class, 'update'])->name('lessor.update');
 
         Route::patch('/roomer', [roomerController::class, 'update'])->name('roomer.update');
+    });
+
+    // Admin de propiedades
+    Route::prefix('properties')->name('properties.')->middleware('auth')->group(function () {
+        //Ventana de propiedades
+        Route::get('/', [PropertyController::class, 'index'])->name('index');
+
+        //Registro de propiedad
+        Route::get('/register', [PropertyController::class, 'register'])->name('register');
     });
 });
