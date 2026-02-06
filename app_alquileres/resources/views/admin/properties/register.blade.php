@@ -51,8 +51,9 @@
                     </div>
 
                     <div class="col-4">
-                        <label class="form-label" for="location_province">Provincia</label>
-                        <select class="form-control" name="location_province" id="location_province">
+                        <label class="form-label" for="location_province">Provincia *</label>
+                        <select class="form-select" name="location_province" id="location_province" required>
+                            <option value="" selected disabled>Selecciona una provincia</option>
                             <option value="Cartago">Cartago</option>
                             <option value="San José">San José</option>
                             <option value="Alajuela">Alajuela</option>
@@ -63,32 +64,20 @@
                         </select>
                     </div>
                     <div class="col-4">
-                        <label class="form-label" for="location_canton">Cantón</label>
-                        <select class="form-control" name="location_canton" id="location_canton">
-                            <option value="Cartago">Cartago</option>
-                            <option value="San José">San José</option>
-                            <option value="Alajuela">Alajuela</option>
-                            <option value="Heredia">Heredia</option>
-                            <option value="Limón">Limón</option>
-                            <option value="Puntarenas">Puntarenas</option>
-                            <option value="Guanacaste">Guanacaste</option>
+                        <label class="form-label" for="location_canton">Cantón *</label>
+                        <select class="form-select" name="location_canton" id="location_canton" required>
+                            <option value="" selected disabled>Selecciona un cantón</option>
                         </select>
                     </div>
                     <div class="col-4">
-                        <label class="form-label" for="location_district">Districto</label>
-                        <select class="form-control" name="location_district" id="location_district">
-                            <option value="Cartago">Cartago</option>
-                            <option value="San José">San José</option>
-                            <option value="Alajuela">Alajuela</option>
-                            <option value="Heredia">Heredia</option>
-                            <option value="Limón">Limón</option>
-                            <option value="Puntarenas">Puntarenas</option>
-                            <option value="Guanacaste">Guanacaste</option>
+                        <label class="form-label" for="location_district">Distrito *</label>
+                        <select class="form-select" name="location_district" id="location_district" required>
+                            <option value="" selected disabled>Selecciona un distrito</option>
                         </select>
                     </div>
 
                     <div class="col-12">
-                        <label class="form-label" for="location_text">Diracción exacta *</label>
+                        <label class="form-label" for="location_text">Dirección exacta *</label>
                         <input type="text" class="form-control" id="location_text" name="location_text"
                             placeholder="Ej: Del boulevard, 300m este, 3ra casa" required>
                     </div>
@@ -235,6 +224,52 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const locationData = @json($locationData ?? []);
+            const provinceSelect = document.getElementById('location_province');
+            const cantonSelect = document.getElementById('location_canton');
+            const districtSelect = document.getElementById('location_district');
+
+            const resetSelect = (select, placeholder) => {
+                select.innerHTML = '';
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = placeholder;
+                option.disabled = true;
+                option.selected = true;
+                select.appendChild(option);
+            };
+
+            const populateSelect = (select, items, placeholder) => {
+                resetSelect(select, placeholder);
+                items.forEach((item) => {
+                    const option = document.createElement('option');
+                    option.value = item;
+                    option.textContent = item;
+                    select.appendChild(option);
+                });
+            };
+
+            const updateCantons = () => {
+                const province = provinceSelect.value;
+                const cantons = Object.keys(locationData[province] || {});
+                populateSelect(cantonSelect, cantons, 'Selecciona un cantón');
+                resetSelect(districtSelect, 'Selecciona un distrito');
+            };
+
+            const updateDistricts = () => {
+                const province = provinceSelect.value;
+                const canton = cantonSelect.value;
+                const districts = (locationData[province] && locationData[province][canton]) || [];
+                populateSelect(districtSelect, districts, 'Selecciona un distrito');
+            };
+
+            provinceSelect.addEventListener('change', updateCantons);
+            cantonSelect.addEventListener('change', updateDistricts);
+
+            if (provinceSelect.value) {
+                updateCantons();
+            }
+
             const parseTags = (value) => {
                 try {
                     const parsed = JSON.parse(value || '[]');
