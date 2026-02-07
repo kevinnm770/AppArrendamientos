@@ -267,7 +267,7 @@
                         </div>
                         <div class="col-12 mt-3">
                             <label class="form-label">Descripción / caption</label>
-                            <input type="text" class="form-control" name="photos[][caption]" placeholder="Ej: Vista de sala principal">
+                            <input type="text" class="form-control" name="photos[][caption]" placeholder="Ej: Vista de sala principal" required>
                         </div>
                         <div class="col-12 mt-3">
                             <button type="button" class="btn btn-outline-danger remove-photo-row w-100" style="max-width:max-content;">

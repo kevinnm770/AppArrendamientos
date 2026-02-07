@@ -56,7 +56,7 @@ class PropertyController extends Controller
             'photos' => ['nullable', 'array'],
             'photos.*.position' => ['required_with:photos.*.file', 'integer', 'min:1'],
             'photos.*.file' => ['required', 'image', 'max:5120'],
-            'photos.*.caption' => ['nullable', 'string', 'max:255'],
+            'photos.*.caption' => ['required', 'string', 'max:255'],
             'photos.*.taken_at' => ['nullable', 'date'],
         ]);
 
@@ -109,7 +109,7 @@ class PropertyController extends Controller
                     'property_id' => $property->id,
                     'path' => $path,
                     'position' => $photo['position'],
-                    'caption' => $photo['caption'] ?? null,
+                    'caption' => $photo['caption'],
                     'taken_at' => $photo['taken_at'] ?? null,
                     'created_by_user_id' => $user?->id,
                 ]);

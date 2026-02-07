@@ -18,7 +18,7 @@ return new class extends Migration
 
             $table->string('path'); // storage path
             $table->unsignedTinyInteger('position'); // 1..15
-            $table->string('caption')->nullable();
+            $table->string('caption');
             $table->dateTime('taken_at')->nullable();
 
             $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
