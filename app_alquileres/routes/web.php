@@ -60,6 +60,6 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
         //Editar propiedad
         Route::get('/edit/{id_prop}', [PropertyController::class, 'edit'])->name('edit');
 
-        Route::patch('/edit', [PropertyController::class, 'update'])->name('edit.update');
+        Route::patch('/edit/{id_prop}', [PropertyController::class, 'update'])->name('edit.update');
     });
 });

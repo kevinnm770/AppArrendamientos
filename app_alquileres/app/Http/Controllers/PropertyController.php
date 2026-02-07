@@ -7,6 +7,7 @@ use App\Models\PropertyPhoto;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class PropertyController extends Controller
@@ -162,14 +163,172 @@ class PropertyController extends Controller
         });
     }
 
-    public function edit(int $id_prop)
+    public function edit(Request $request, int $id_prop)
     {
+        $user = $request->user();
+        $lessor = $user?->lessor;
 
+        if (!$lessor) {
+            return redirect()
+                ->route('admin.properties.index')
+                ->withErrors(['lessor' => 'Debe completar su perfil de arrendador antes de editar una propiedad.']);
+        }
+
+        $property = Property::with(['photos' => function ($query) {
+            $query->orderBy('position');
+        }])
+            ->where('lessor_id', $lessor->id)
+            ->where('id', $id_prop)
+            ->firstOrFail();
+
+        return view('admin.properties.edit', [
+            'locationData' => $this->locationData(),
+            'property' => $property,
+        ]);
     }
 
-    public function update (int $id_prop, Request $request)
+    public function update(int $id_prop, Request $request)
     {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'service_type' => ['required', Rule::in(['home', 'lodging', 'event'])],
+            'description' => ['nullable', 'string'],
 
+            'location_province' => ['required', Rule::in(['Cartago', 'San José', 'Alajuela', 'Heredia', 'Limón', 'Puntarenas', 'Guanacaste'])],
+            'location_canton' => ['required', 'string', 'max:255'],
+            'location_district' => ['required', 'string', 'max:255'],
+            'location_text' => ['required', 'string', 'max:255'],
+
+            'rooms' => ['nullable', 'integer', 'min:0'],
+            'living_rooms' => ['nullable', 'integer', 'min:0'],
+            'kitchens' => ['nullable', 'integer', 'min:0'],
+            'bathrooms' => ['nullable', 'integer', 'min:0'],
+            'yards' => ['nullable', 'integer', 'min:0'],
+            'garages_capacity' => ['nullable', 'integer', 'min:0'],
+
+            'materials' => ['nullable', 'json'],
+            'included_objects' => ['nullable', 'json'],
+
+            'status' => ['required', Rule::in(['available', 'occupied', 'disabled'])],
+
+            'photos' => ['nullable', 'array'],
+            'photos.*.id' => ['nullable', 'integer', 'exists:propertyphotos,id'],
+            'photos.*.file' => ['nullable', 'image', 'max:5120', 'required_without:photos.*.id'],
+            'photos.*.position' => ['required', 'integer', 'min:1'],
+            'photos.*.caption' => ['required', 'string', 'max:255'],
+            'photos.*.taken_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
+        ]);
+
+        $user = $request->user();
+        $lessor = $user?->lessor;
+
+        if (!$lessor) {
+            return redirect()
+                ->route('admin.properties.index')
+                ->withErrors(['lessor' => 'Debe completar su perfil de arrendador antes de editar una propiedad.']);
+        }
+
+        $property = Property::with('photos')
+            ->where('lessor_id', $lessor->id)
+            ->where('id', $id_prop)
+            ->firstOrFail();
+
+        $materials = json_decode($validated['materials'] ?? '[]', true);
+        $includedObjects = json_decode($validated['included_objects'] ?? '[]', true);
+
+        $materials = is_array($materials) ? $materials : [];
+        $includedObjects = is_array($includedObjects) ? $includedObjects : [];
+
+        $photosInput = array_values($request->input('photos', []));
+        $existingPhotos = $property->photos->keyBy('id');
+
+        return DB::transaction(function () use ($property, $validated, $materials, $includedObjects, $photosInput, $existingPhotos, $request, $user) {
+            $property->update([
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'location_text' => $validated['location_text'],
+                'location_province' => $validated['location_province'],
+                'location_canton' => $validated['location_canton'],
+                'location_district' => $validated['location_district'],
+                'service_type' => $validated['service_type'],
+
+                'rooms' => $validated['rooms'] ?? 0,
+                'living_rooms' => $validated['living_rooms'] ?? 0,
+                'kitchens' => $validated['kitchens'] ?? 0,
+                'bathrooms' => $validated['bathrooms'] ?? 0,
+                'yards' => $validated['yards'] ?? 0,
+                'garages_capacity' => $validated['garages_capacity'] ?? 0,
+
+                'included_objects' => $includedObjects,
+                'materials' => $materials,
+
+                'status' => $validated['status'],
+            ]);
+
+            $submittedIds = [];
+
+            foreach ($photosInput as $i => $photo) {
+                $photoId = $photo['id'] ?? null;
+                $takenAt = !empty($photo['taken_at'])
+                    ? Carbon::createFromFormat('Y-m-d\TH:i', $photo['taken_at'])
+                    : null;
+
+                if ($photoId) {
+                    $existingPhoto = $existingPhotos->get($photoId);
+
+                    if (!$existingPhoto) {
+                        abort(403);
+                    }
+
+                    $updateData = [
+                        'position' => (int)($photo['position'] ?? ($i + 1)),
+                        'caption' => (string)($photo['caption'] ?? ''),
+                        'taken_at' => $takenAt,
+                    ];
+
+                    if ($request->hasFile("photos.$i.file")) {
+                        $file = $request->file("photos.$i.file");
+                        $path = $file->store('photos_properties', 'public');
+                        if ($existingPhoto->path) {
+                            Storage::disk('public')->delete($existingPhoto->path);
+                        }
+                        $updateData['path'] = $path;
+                        $updateData['created_by_user_id'] = $user?->id;
+                    }
+
+                    $existingPhoto->update($updateData);
+                    $submittedIds[] = $photoId;
+                } else {
+                    if (!$request->hasFile("photos.$i.file")) {
+                        continue;
+                    }
+
+                    $file = $request->file("photos.$i.file");
+                    $path = $file->store('photos_properties', 'public');
+
+                    PropertyPhoto::create([
+                        'property_id' => $property->id,
+                        'path' => $path,
+                        'position' => (int)($photo['position'] ?? ($i + 1)),
+                        'caption' => (string)($photo['caption'] ?? ''),
+                        'taken_at' => $takenAt,
+                        'created_by_user_id' => $user?->id,
+                    ]);
+                }
+            }
+
+            $photosToDelete = $existingPhotos->except($submittedIds);
+            foreach ($photosToDelete as $photo) {
+                if ($photo->path) {
+                    Storage::disk('public')->delete($photo->path);
+                }
+                $photo->delete();
+            }
+
+            return redirect()
+                ->route('admin.properties.index')
+                ->with('success', 'Propiedad actualizada correctamente.');
+        });
     }
 
     private function locationData(): array
