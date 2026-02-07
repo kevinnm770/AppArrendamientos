@@ -259,7 +259,7 @@
                     <div class="row" style="height: min-content;">
                         <div class="col-12 col-lg-4">
                             <label class="form-label">Archivo de imagen *</label>
-                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*" data-photo-number="" onchange="previewPhoto(this,event)" required>
+                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*" data-photo-number="" onchange="previewPhoto(this,event)">
                         </div>
                         <div class="col-12 col-lg-3 mt-xl-0 mt-3">
                             <label class="form-label">Fecha de toma</label>

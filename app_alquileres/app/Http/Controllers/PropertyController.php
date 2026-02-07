@@ -24,6 +24,17 @@ class PropertyController extends Controller
     }
 
     public function store(Request $request){
+        $photos = $request->input('photos', []);
+        $filteredPhotos = [];
+
+        foreach ($photos as $index => $photo) {
+            if ($request->file("photos.$index.file")) {
+                $filteredPhotos[] = $photo;
+            }
+        }
+
+        $request->merge(['photos' => $filteredPhotos]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'service_type' => ['required', Rule::in(['home', 'lodging', 'event'])],
@@ -42,8 +53,8 @@ class PropertyController extends Controller
             'included_objects' => ['nullable', 'json'],
             'status' => ['required', Rule::in(['active', 'inactive', 'archived'])],
             'photos' => ['nullable', 'array'],
-            'photos.*.position' => ['required_with:photos', 'integer', 'min:1'],
-            'photos.*.file' => ['required_with:photos', 'image', 'max:5120'],
+            'photos.*.position' => ['required_with:photos.*.file', 'integer', 'min:1'],
+            'photos.*.file' => ['nullable', 'image', 'max:5120'],
             'photos.*.caption' => ['nullable', 'string', 'max:255'],
             'photos.*.taken_at' => ['nullable', 'date'],
         ]);
