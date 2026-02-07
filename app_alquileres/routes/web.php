@@ -54,5 +54,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
 
         //Registro de propiedad
         Route::get('/register', [PropertyController::class, 'register'])->name('register');
+
+        Route::post('/register', [PropertyController::class, 'store'])->name('register');
     });
 });

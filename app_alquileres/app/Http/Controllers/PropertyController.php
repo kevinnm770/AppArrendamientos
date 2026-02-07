@@ -20,6 +20,10 @@ class PropertyController extends Controller
         ]);
     }
 
+    public function store(Request $request){
+
+    }
+
     private function locationData(): array
     {
         return [
