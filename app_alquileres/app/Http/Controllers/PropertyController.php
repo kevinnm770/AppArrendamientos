@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Property;
+use App\Models\PropertyPhoto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -104,15 +105,13 @@ class PropertyController extends Controller
 
                 $path = $file->store('photos_properties', 'public');
 
-                DB::table('propertyphotos')->insert([
+                PropertyPhoto::create([
                     'property_id' => $property->id,
                     'path' => $path,
                     'position' => $photo['position'],
                     'caption' => $photo['caption'] ?? null,
                     'taken_at' => $photo['taken_at'] ?? null,
                     'created_by_user_id' => $user?->id,
-                    'created_at' => now(),
-                    'updated_at' => now(),
                 ]);
             }
 

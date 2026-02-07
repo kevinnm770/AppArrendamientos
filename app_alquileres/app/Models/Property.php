@@ -35,4 +35,9 @@ class Property extends Model
     {
         return $this->belongsTo(Lessor::class);
     }
+
+    public function photos()
+    {
+        return $this->hasMany(PropertyPhoto::class);
+    }
 }
