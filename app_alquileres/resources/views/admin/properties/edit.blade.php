@@ -12,7 +12,7 @@
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="{{ route('admin.index') }}">Admin</a></li>
                         <li class="breadcrumb-item" aria-current="page"><a href="{{ route('admin.properties.index') }}">Properties</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Register</li>
+                        <li class="breadcrumb-item active" aria-current="page">Edit</li>
                     </ol>
                 </nav>
             </div>
@@ -315,17 +315,21 @@
         }
     </style>
 
+    @php
+    $existingPhotos = $property->photos->map(function ($photo) {
+        return [
+            'id' => $photo->id,
+            'path' => asset('storage/' . $photo->path),
+            'caption' => $photo->caption,
+            'taken_at' => optional($photo->taken_at)->format('Y-m-d\TH:i'),
+        ];
+    })->values();
+    @endphp
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const locationData = @json($locationData ?? []);
-            const existingPhotos = @json(
-                $property->photos->map(fn ($photo) => [
-                    'id' => $photo->id,
-                    'path' => asset('storage/' . $photo->path),
-                    'caption' => $photo->caption,
-                    'taken_at' => optional($photo->taken_at)->format('Y-m-d\\TH:i'),
-                ])->values()
-            );
+    const existingPhotos = @json($existingPhotos);
             const provinceSelect = document.getElementById('location_province');
             const cantonSelect = document.getElementById('location_canton');
             const districtSelect = document.getElementById('location_district');
