@@ -30,7 +30,7 @@ class PropertyController extends Controller
 
         foreach ($photos as $index => $photo) {
             if ($request->file("photos.$index.file")) {
-                $filteredPhotos[] = $photo;
+                $filteredPhotos[$index] = $photo;
             }
         }
 
@@ -96,7 +96,9 @@ class PropertyController extends Controller
                 'status' => $validated['status'],
             ]);
 
-            foreach ($request->input('photos', []) as $index => $photo) {
+            $validatedPhotos = $validated['photos'] ?? [];
+
+            foreach ($validatedPhotos as $index => $photo) {
                 $file = $request->file("photos.$index.file");
 
                 if (!$file) {
