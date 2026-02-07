@@ -11,10 +11,39 @@ use Illuminate\Validation\Rule;
 
 class PropertyController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $user = $request->user();
+        $lessor = $user?->lessor;
+
+        $properties = collect();
+
+        if ($lessor) {
+            $properties = Property::with(['photos' => function ($query) {
+                $query->orderBy('position');
+            }])
+                ->where('lessor_id', $lessor->id)
+                ->get();
+        }
+
         return view('admin.properties.index', [
             'locationData' => $this->locationData(),
+            'properties' => $properties,
+            'serviceTypeLabels' => [
+                'home' => 'Hogar',
+                'lodging' => 'Hospedaje',
+                'event' => 'Evento',
+            ],
+            'statusLabels' => [
+                'available' => 'Disponible',
+                'occupied' => 'Ocupada',
+                'disabled' => 'Deshabilitada',
+            ],
+            'statusClasses' => [
+                'available' => 'bg-success',
+                'occupied' => 'bg-primary',
+                'disabled' => 'bg-secondary',
+            ],
         ]);
     }
 
