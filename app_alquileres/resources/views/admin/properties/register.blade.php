@@ -20,7 +20,7 @@
     </div>
 
     <section class="section">
-        <form class="card" method="POST" action="#" enctype="multipart/form-data">
+        <form class="card" method="POST" action="{{ route('admin.properties.register') }}" enctype="multipart/form-data">
             @csrf
 
             <div class="card-header">
@@ -31,107 +31,188 @@
                 <div class="row g-3">
                     <div class="col-12 col-lg-6">
                         <label class="form-label" for="name">Nombre de la propiedad *</label>
-                        <input type="text" class="form-control" id="name" name="name" placeholder="Ej: Casa Los Robles" required>
+                        <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name"
+                            value="{{ old('name') }}" placeholder="Ej: Casa Los Robles" required>
+                        @error('name')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
 
                     <div class="col-12 col-lg-6">
                         <label class="form-label" for="service_type">Tipo de servicio *</label>
-                        <select class="form-select" id="service_type" name="service_type" required>
+                        <select class="form-select @error('service_type') is-invalid @enderror" id="service_type" name="service_type" required>
                             <option value="" selected disabled>Selecciona una opción</option>
-                            <option value="home">Hogar</option>
-                            <option value="lodging">Hospedaje</option>
-                            <option value="event">Evento</option>
+                            <option value="home" @selected(old('service_type') === 'home')>Hogar</option>
+                            <option value="lodging" @selected(old('service_type') === 'lodging')>Hospedaje</option>
+                            <option value="event" @selected(old('service_type') === 'event')>Evento</option>
                         </select>
+                        @error('service_type')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
 
                     <div class="col-12">
                         <label class="form-label" for="description">Descripción</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"
-                            placeholder="Describe los espacios, reglas y beneficios de la propiedad"></textarea>
+                        <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="3"
+                            placeholder="Describe los espacios, reglas y beneficios de la propiedad">{{ old('description') }}</textarea>
+                        @error('description')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
 
                     <div class="col-4">
                         <label class="form-label" for="location_province">Provincia *</label>
-                        <select class="form-select" name="location_province" id="location_province" required>
+                        <select class="form-select @error('location_province') is-invalid @enderror" name="location_province" id="location_province" required>
                             <option value="" selected disabled>Selecciona una provincia</option>
-                            <option value="Cartago">Cartago</option>
-                            <option value="San José">San José</option>
-                            <option value="Alajuela">Alajuela</option>
-                            <option value="Heredia">Heredia</option>
-                            <option value="Limón">Limón</option>
-                            <option value="Puntarenas">Puntarenas</option>
-                            <option value="Guanacaste">Guanacaste</option>
+                            <option value="Cartago" @selected(old('location_province') === 'Cartago')>Cartago</option>
+                            <option value="San José" @selected(old('location_province') === 'San José')>San José</option>
+                            <option value="Alajuela" @selected(old('location_province') === 'Alajuela')>Alajuela</option>
+                            <option value="Heredia" @selected(old('location_province') === 'Heredia')>Heredia</option>
+                            <option value="Limón" @selected(old('location_province') === 'Limón')>Limón</option>
+                            <option value="Puntarenas" @selected(old('location_province') === 'Puntarenas')>Puntarenas</option>
+                            <option value="Guanacaste" @selected(old('location_province') === 'Guanacaste')>Guanacaste</option>
                         </select>
+                        @error('location_province')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
                     <div class="col-4">
                         <label class="form-label" for="location_canton">Cantón *</label>
-                        <select class="form-select" name="location_canton" id="location_canton" required>
+                        <select class="form-select @error('location_canton') is-invalid @enderror" name="location_canton" id="location_canton" data-old="{{ old('location_canton') }}" required>
                             <option value="" selected disabled>Selecciona un cantón</option>
                         </select>
+                        @error('location_canton')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
                     <div class="col-4">
                         <label class="form-label" for="location_district">Distrito *</label>
-                        <select class="form-select" name="location_district" id="location_district" required>
+                        <select class="form-select @error('location_district') is-invalid @enderror" name="location_district" id="location_district" data-old="{{ old('location_district') }}" required>
                             <option value="" selected disabled>Selecciona un distrito</option>
                         </select>
+                        @error('location_district')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
 
                     <div class="col-12">
                         <label class="form-label" for="location_text">Dirección exacta *</label>
-                        <input type="text" class="form-control" id="location_text" name="location_text"
-                            placeholder="Ej: Del boulevard, 300m este, 3ra casa" required>
+                        <input type="text" class="form-control @error('location_text') is-invalid @enderror" id="location_text" name="location_text"
+                            value="{{ old('location_text') }}" placeholder="Ej: Del boulevard, 300m este, 3ra casa" required>
+                        @error('location_text')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
 
                     <div class="col-6 col-md-4 col-lg-2">
                         <label class="form-label" for="rooms">Habitaciones</label>
-                        <input type="number" class="form-control" id="rooms" name="rooms" min="0" value="0">
+                        <input type="number" class="form-control @error('rooms') is-invalid @enderror" id="rooms" name="rooms" min="0" value="{{ old('rooms', 0) }}">
+                        @error('rooms')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
                     <div class="col-6 col-md-4 col-lg-2">
                         <label class="form-label" for="living_rooms">Salas</label>
-                        <input type="number" class="form-control" id="living_rooms" name="living_rooms" min="0" value="0">
+                        <input type="number" class="form-control @error('living_rooms') is-invalid @enderror" id="living_rooms" name="living_rooms" min="0" value="{{ old('living_rooms', 0) }}">
+                        @error('living_rooms')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
                     <div class="col-6 col-md-4 col-lg-2">
                         <label class="form-label" for="kitchens">Cocinas</label>
-                        <input type="number" class="form-control" id="kitchens" name="kitchens" min="0" value="0">
+                        <input type="number" class="form-control @error('kitchens') is-invalid @enderror" id="kitchens" name="kitchens" min="0" value="{{ old('kitchens', 0) }}">
+                        @error('kitchens')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
                     <div class="col-6 col-md-4 col-lg-2">
                         <label class="form-label" for="bathrooms">Baños</label>
-                        <input type="number" class="form-control" id="bathrooms" name="bathrooms" min="0" value="0">
+                        <input type="number" class="form-control @error('bathrooms') is-invalid @enderror" id="bathrooms" name="bathrooms" min="0" value="{{ old('bathrooms', 0) }}">
+                        @error('bathrooms')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
                     <div class="col-6 col-md-4 col-lg-2">
                         <label class="form-label" for="yards">Patios</label>
-                        <input type="number" class="form-control" id="yards" name="yards" min="0" value="0">
+                        <input type="number" class="form-control @error('yards') is-invalid @enderror" id="yards" name="yards" min="0" value="{{ old('yards', 0) }}">
+                        @error('yards')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
                     <div class="col-6 col-md-4 col-lg-2">
                         <label class="form-label" for="garages_capacity">Garajes</label>
-                        <input type="number" class="form-control" id="garages_capacity" name="garages_capacity" min="0" value="0">
+                        <input type="number" class="form-control @error('garages_capacity') is-invalid @enderror" id="garages_capacity" name="garages_capacity" min="0" value="{{ old('garages_capacity', 0) }}">
+                        @error('garages_capacity')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
 
                     <div class="col-12 col-lg-6">
                         <label class="form-label" for="materials_input">Materiales (tags)</label>
-                        <input type="text" class="form-control tag-source" id="materials_input"
+                        <input type="text" class="form-control tag-source @error('materials') is-invalid @enderror" id="materials_input"
                             data-target="materials_tags" placeholder="Escribe y presiona Enter (ej: piso cerámica)">
                         <small class="text-muted">Presiona Enter o coma para crear cada material.</small>
-                        <input type="hidden" name="materials" id="materials_tags">
+                        <input type="hidden" name="materials" id="materials_tags" value="{{ old('materials', '[]') }}">
+                        @error('materials')
+                            <span class="invalid-feedback d-block" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                         <div class="tag-list mt-2" data-list-for="materials_tags"></div>
                     </div>
 
                     <div class="col-12 col-lg-6">
                         <label class="form-label" for="included_objects_input">Objetos incluidos (tags)</label>
-                        <input type="text" class="form-control tag-source" id="included_objects_input"
+                        <input type="text" class="form-control tag-source @error('included_objects') is-invalid @enderror" id="included_objects_input"
                             data-target="included_objects_tags" placeholder="Escribe y presiona Enter (ej: refrigeradora)">
                         <small class="text-muted">Presiona Enter o coma para crear cada objeto.</small>
-                        <input type="hidden" name="included_objects" id="included_objects_tags">
+                        <input type="hidden" name="included_objects" id="included_objects_tags" value="{{ old('included_objects', '[]') }}">
+                        @error('included_objects')
+                            <span class="invalid-feedback d-block" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                         <div class="tag-list mt-2" data-list-for="included_objects_tags"></div>
                     </div>
 
                     <div class="col-12 col-lg-4">
                         <label class="form-label" for="status">Estado *</label>
-                        <select class="form-select" id="status" name="status" required>
-                            <option value="active" selected>Activo</option>
-                            <option value="inactive">Inactivo</option>
-                            <option value="archived">Archivado</option>
+                        <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
+                            <option value="active" @selected(old('status', 'active') === 'active')>Activo</option>
+                            <option value="inactive" @selected(old('status') === 'inactive')>Inactivo</option>
+                            <option value="archived" @selected(old('status') === 'archived')>Archivado</option>
                         </select>
+                        @error('status')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
 
                     <div class="col-12">
@@ -144,6 +225,16 @@
                                 <i class="fa-solid fa-plus"></i> Agregar foto
                             </button>
                         </div>
+                        @error('photos')
+                            <span class="invalid-feedback d-block" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
+                        @error('photos.*.file')
+                            <span class="invalid-feedback d-block" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
                     </div>
 
                     <div class="col-12" id="photo-rows"></div>
@@ -168,7 +259,7 @@
                     <div class="row" style="height: min-content;">
                         <div class="col-12 col-lg-4">
                             <label class="form-label">Archivo de imagen *</label>
-                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*" data-photo-number="" onchange="previewPhoto(this,event)" required>
+                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*" data-photo-number="" onchange="previewPhoto(this,event)">
                         </div>
                         <div class="col-12 col-lg-3 mt-xl-0 mt-3">
                             <label class="form-label">Fecha de toma</label>
@@ -228,6 +319,8 @@
             const provinceSelect = document.getElementById('location_province');
             const cantonSelect = document.getElementById('location_canton');
             const districtSelect = document.getElementById('location_district');
+            const oldCanton = cantonSelect.dataset.old;
+            const oldDistrict = districtSelect.dataset.old;
 
             const resetSelect = (select, placeholder) => {
                 select.innerHTML = '';
@@ -254,6 +347,9 @@
                 const cantons = Object.keys(locationData[province] || {});
                 populateSelect(cantonSelect, cantons, 'Selecciona un cantón');
                 resetSelect(districtSelect, 'Selecciona un distrito');
+                if (oldCanton) {
+                    cantonSelect.value = oldCanton;
+                }
             };
 
             const updateDistricts = () => {
@@ -261,6 +357,9 @@
                 const canton = cantonSelect.value;
                 const districts = (locationData[province] && locationData[province][canton]) || [];
                 populateSelect(districtSelect, districts, 'Selecciona un distrito');
+                if (oldDistrict) {
+                    districtSelect.value = oldDistrict;
+                }
             };
 
             provinceSelect.addEventListener('change', updateCantons);
@@ -268,6 +367,9 @@
 
             if (provinceSelect.value) {
                 updateCantons();
+                if (cantonSelect.value) {
+                    updateDistricts();
+                }
             }
 
             const parseTags = (value) => {
