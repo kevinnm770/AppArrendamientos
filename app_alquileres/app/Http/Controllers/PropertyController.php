@@ -54,7 +54,7 @@ class PropertyController extends Controller
             'status' => ['required', Rule::in(['active', 'inactive', 'archived'])],
             'photos' => ['nullable', 'array'],
             'photos.*.position' => ['required_with:photos.*.file', 'integer', 'min:1'],
-            'photos.*.file' => ['nullable', 'image', 'max:5120'],
+            'photos.*.file' => ['required', 'image', 'max:5120'],
             'photos.*.caption' => ['nullable', 'string', 'max:255'],
             'photos.*.taken_at' => ['nullable', 'date'],
         ]);

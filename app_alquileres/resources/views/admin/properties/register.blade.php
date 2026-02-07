@@ -438,17 +438,27 @@
                     row.querySelector('.photo-position').value = index + 1;
                     row.querySelector('.photo_img').id="photo"+(index+1);
                     row.querySelector('.input_img').setAttribute('data-photo-number',index+1);
+
+                    if(index+1 >= 5){
+                        document.getElementById('add-photo-row').style.display="none";
+                    }else{
+                        document.getElementById('add-photo-row').style.display="";
+                    }
                 });
             };
 
             const addPhotoRow = () => {
-                const row = photoTemplate.content.firstElementChild.cloneNode(true);
-                row.querySelector('.remove-photo-row').addEventListener('click', () => {
-                    row.remove();
+                cantPhotos = photoRowsContainer.querySelectorAll('.photo-row').length;
+
+                if(cantPhotos<5){
+                    const row = photoTemplate.content.firstElementChild.cloneNode(true);
+                    row.querySelector('.remove-photo-row').addEventListener('click', () => {
+                        row.remove();
+                        updatePhotoPositions();
+                    });
+                    photoRowsContainer.appendChild(row);
                     updatePhotoPositions();
-                });
-                photoRowsContainer.appendChild(row);
-                updatePhotoPositions();
+                }
             };
 
             document.getElementById('add-photo-row').addEventListener('click', addPhotoRow);
