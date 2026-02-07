@@ -55,6 +55,11 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
         //Registro de propiedad
         Route::get('/register', [PropertyController::class, 'register'])->name('register');
 
-        Route::post('/register', [PropertyController::class, 'store'])->name('register');
+        Route::post('/register', [PropertyController::class, 'store'])->name('register.store');
+
+        //Editar propiedad
+        Route::get('/edit/{id_prop}', [PropertyController::class, 'edit'])->name('edit');
+
+        Route::patch('/edit', [PropertyController::class, 'update'])->name('edit.update');
     });
 });

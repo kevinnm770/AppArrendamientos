@@ -5,7 +5,7 @@
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
                 <h3>Propiedades</h3>
-                <p class="text-subtitle text-muted">En esta sección puedes ver y adminitrar tus propiedades a arrendar.</p>
+                <p class="text-subtitle text-muted">En esta sección puedes ver y administrar tus propiedades a arrendar.</p>
             </div>
             <div class="col-12 col-md-6 order-md-2 order-first">
                 <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
@@ -26,11 +26,9 @@
                     $statusLabel = $statusLabels[$statusKey] ?? $statusKey;
                     $statusClass = $statusClasses[$statusKey] ?? 'bg-secondary';
                     $serviceLabel = $serviceTypeLabels[$property->service_type] ?? $property->service_type;
-                    $primaryPhoto = $property->photos->first();
-                    $photoUrl = $primaryPhoto ? asset('storage/' . $primaryPhoto->path) : asset('/assets/storage/photoDefault_property.png');
                 @endphp
                 <div class="col-xl-4 col-md-6 col-sm-12">
-                    <a href="">
+                    <a href="{{url('admin/properties/edit/'.$property->id)}}">
                         <div class="card" style="cursor: pointer;">
                             <div class="card-content">
                                 <div class="card-body">

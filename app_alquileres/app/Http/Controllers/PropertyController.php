@@ -162,6 +162,16 @@ class PropertyController extends Controller
         });
     }
 
+    public function edit(int $id_prop)
+    {
+
+    }
+
+    public function update (int $id_prop, Request $request)
+    {
+
+    }
+
     private function locationData(): array
     {
         return [
