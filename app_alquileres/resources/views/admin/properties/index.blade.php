@@ -20,51 +20,60 @@
 
     <section id="content-types">
         <div class="row">
-            <div class="col-xl-4 col-md-6 col-sm-12">
-                <a href="">
-                    <div class="card" style="cursor: pointer;">
-                        <div class="card-content">
-                            <div class="card-body">
-                                <h4 class="card-title">Propiedad XXXX</h4>
-                                <span class="badge bg-success">Alquilada</span>
-                            </div>
-                            <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
-                                <div class="carousel-inner">
-                                    <div class="carousel-item active">
-                                        <img src="{{asset('/assets/compiled/jpg/architecture1.jpg')}}" class="d-block w-100"
-                                            alt="Image Architecture">
-                                    </div>
-                                    <div class="carousel-item">
-                                        <img src="{{asset('/assets/compiled/jpg/bg-mountain.jpg')}}" class="d-block w-100"
-                                            alt="Image Mountain">
-                                    </div>
-                                    <div class="carousel-item">
-                                        <img src="{{asset('/assets/compiled/jpg/jump.jpg')}}" class="d-block w-100" alt="Image Jump">
+            @forelse ($properties as $property)
+                @php
+                    $statusKey = $property->status;
+                    $statusLabel = $statusLabels[$statusKey] ?? $statusKey;
+                    $statusClass = $statusClasses[$statusKey] ?? 'bg-secondary';
+                    $serviceLabel = $serviceTypeLabels[$property->service_type] ?? $property->service_type;
+                    $primaryPhoto = $property->photos->first();
+                    $photoUrl = $primaryPhoto ? asset('storage/' . $primaryPhoto->path) : asset('/assets/compiled/jpg/architecture1.jpg');
+                @endphp
+                <div class="col-xl-4 col-md-6 col-sm-12">
+                    <a href="">
+                        <div class="card" style="cursor: pointer;">
+                            <div class="card-content">
+                                <div class="card-body">
+                                    <h4 class="card-title">{{ $property->name }}</h4>
+                                    <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
+                                </div>
+                                <div class="carousel slide" data-bs-ride="carousel">
+                                    <div class="carousel-inner">
+                                        <div class="carousel-item active">
+                                            <img src="{{ $photoUrl }}" class="d-block w-100" alt="Foto de la propiedad">
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="card-body">
-                                <i class="bi bi-geo-alt-fill"></i> La lima, Cartago, Costa Rica
-                                <br>
-                                <i class="bi bi-house-door"></i> Tipo (Evento, Hogar, Lodging)
-                                <br>
-                                <div class="row mt-3">
-                                    <div class="col-3"><i class="fa-solid fa-bed" style="font-size: 9.5pt;" title="Habitaciones o camas"></i> 3</div>
-                                    <div class="col-3"><i class="fa-solid fa-couch" style="font-size: 9.5pt;" title="Salas comunes"></i> 0</div>
-                                    <div class="col-3"><i class="fa-solid fa-kitchen-set" style="font-size: 9.5pt;" title="Cocinas"></i> 0</div>
-                                    <div class="col-3"><i class="fa-solid fa-bath" style="font-size: 9.5pt;" title="Baños"></i> 0</div>
-                                </div>
-                                <div class="row mt-2">
-                                    <div class="col-3"><i class="fa-solid fa-car" style="font-size: 9.5pt;" title="Capacidad de vehículos"></i> 0</div>
-                                    <div class="col-3"><i class="fa-solid fa-jug-detergent" style="font-size: 9.5pt;" title="Zonas de lavado"></i> 0</div>
-                                    <div class="col-3"><i class="fa-solid fa-tree" style="font-size: 9.5pt;" title="Patios y/o zonas verdes"></i> 0</div>
-                                    <div class="col-3"></div>
+                                <div class="card-body">
+                                    <i class="bi bi-geo-alt-fill"></i>
+                                    {{ $property->location_text }}, {{ $property->location_canton }}, {{ $property->location_province }}, Costa Rica
+                                    <br>
+                                    <i class="bi bi-house-door"></i> Tipo ({{ $serviceLabel }})
+                                    <br>
+                                    <div class="row mt-3">
+                                        <div class="col-3"><i class="fa-solid fa-bed" style="font-size: 9.5pt;" title="Habitaciones o camas"></i> {{ $property->rooms }}</div>
+                                        <div class="col-3"><i class="fa-solid fa-couch" style="font-size: 9.5pt;" title="Salas comunes"></i> {{ $property->living_rooms }}</div>
+                                        <div class="col-3"><i class="fa-solid fa-kitchen-set" style="font-size: 9.5pt;" title="Cocinas"></i> {{ $property->kitchens }}</div>
+                                        <div class="col-3"><i class="fa-solid fa-bath" style="font-size: 9.5pt;" title="Baños"></i> {{ $property->bathrooms }}</div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-3"><i class="fa-solid fa-car" style="font-size: 9.5pt;" title="Capacidad de vehículos"></i> {{ $property->garages_capacity }}</div>
+                                        <div class="col-3"><i class="fa-solid fa-jug-detergent" style="font-size: 9.5pt;" title="Zonas de lavado"></i> {{ count($property->included_objects ?? []) }}</div>
+                                        <div class="col-3"><i class="fa-solid fa-tree" style="font-size: 9.5pt;" title="Patios y/o zonas verdes"></i> {{ $property->yards }}</div>
+                                        <div class="col-3"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </a>
+                </div>
+            @empty
+                <div class="col-12">
+                    <div class="alert alert-light-secondary" role="alert">
+                        No tienes propiedades registradas todavía.
                     </div>
-                </a>
-            </div>
+                </div>
+            @endforelse
         </div>
     </section>
 @endsection
