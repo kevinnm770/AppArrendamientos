@@ -204,9 +204,9 @@
                     <div class="col-12 col-lg-4">
                         <label class="form-label" for="status">Estado *</label>
                         <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
-                            <option value="active" @selected(old('status', 'active') === 'active')>Activo</option>
-                            <option value="inactive" @selected(old('status') === 'inactive')>Inactivo</option>
-                            <option value="archived" @selected(old('status') === 'archived')>Archivado</option>
+                            <option value="available" @selected(old('status', 'available') === 'available')>Disponible</option>
+                            <option value="occupied" @selected(old('status') === 'occupied')>Ocupada</option>
+                            <option value="disabled" @selected(old('status') === 'disabled')>Deshabilitada</option>
                         </select>
                         @error('status')
                             <span class="invalid-feedback" role="alert">
@@ -259,7 +259,7 @@
                     <div class="row" style="height: min-content;">
                         <div class="col-12 col-lg-4">
                             <label class="form-label">Archivo de imagen *</label>
-                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*" data-photo-number="" onchange="previewPhoto(this,event)">
+                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*" data-photo-number="" onchange="previewPhoto(this,event)" required>
                         </div>
                         <div class="col-12 col-lg-3 mt-xl-0 mt-3">
                             <label class="form-label">Fecha de toma</label>
@@ -434,18 +434,49 @@
             const photoTemplate = document.getElementById('photo-row-template');
 
             const updatePhotoPositions = () => {
-                photoRowsContainer.querySelectorAll('.photo-row').forEach((row, index) => {
-                    row.querySelector('.photo-position').value = index + 1;
-                    row.querySelector('.photo_img').id="photo"+(index+1);
-                    row.querySelector('.input_img').setAttribute('data-photo-number',index+1);
 
-                    if(index+1 >= 5){
-                        document.getElementById('add-photo-row').style.display="none";
-                    }else{
-                        document.getElementById('add-photo-row').style.display="";
-                    }
-                });
+                photoRowsContainer.querySelectorAll('.photo-row')
+                    .forEach((row, index) => {
+
+                        const i = index; // índice para Laravel
+
+                        // -------- posición visual --------
+                        row.querySelector('.photo-position').value = index + 1;
+                        row.querySelector('.photo-position').name =
+                            `photos[${i}][position]`;
+
+                        // -------- preview img --------
+                        row.querySelector('.photo_img').id =
+                            "photo" + (index + 1);
+
+                        // -------- input file --------
+                        const fileInput = row.querySelector('.input_img');
+                        fileInput.setAttribute('data-photo-number', index + 1);
+                        fileInput.name = `photos[${i}][file]`;
+
+                        // -------- caption --------
+                        const captionInput =
+                            row.querySelector('input[name*="[caption]"]');
+                        if (captionInput) {
+                            captionInput.name = `photos[${i}][caption]`;
+                        }
+
+                        // -------- fecha --------
+                        const takenInput =
+                            row.querySelector('input[name*="[taken_at]"]');
+                        if (takenInput) {
+                            takenInput.name = `photos[${i}][taken_at]`;
+                        }
+
+                        // -------- botón agregar --------
+                        if (index + 1 >= 5) {
+                            document.getElementById('add-photo-row').style.display = "none";
+                        } else {
+                            document.getElementById('add-photo-row').style.display = "";
+                        }
+                    });
             };
+
 
             const addPhotoRow = () => {
                 cantPhotos = photoRowsContainer.querySelectorAll('.photo-row').length;

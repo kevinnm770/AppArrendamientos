@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Property;
 use App\Models\PropertyPhoto;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -24,40 +25,37 @@ class PropertyController extends Controller
         ]);
     }
 
-    public function store(Request $request){
-        $photos = $request->input('photos', []);
-        $filteredPhotos = [];
-
-        foreach ($photos as $index => $photo) {
-            if ($request->file("photos.$index.file")) {
-                $filteredPhotos[$index] = $photo;
-            }
-        }
-
-        $request->merge(['photos' => $filteredPhotos]);
-
+    public function store(Request $request)
+    {
+        // 1) Validación (sin merge / sin filtrado manual)
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'service_type' => ['required', Rule::in(['home', 'lodging', 'event'])],
             'description' => ['nullable', 'string'],
+
             'location_province' => ['required', Rule::in(['Cartago', 'San José', 'Alajuela', 'Heredia', 'Limón', 'Puntarenas', 'Guanacaste'])],
             'location_canton' => ['required', 'string', 'max:255'],
             'location_district' => ['required', 'string', 'max:255'],
             'location_text' => ['required', 'string', 'max:255'],
+
             'rooms' => ['nullable', 'integer', 'min:0'],
             'living_rooms' => ['nullable', 'integer', 'min:0'],
             'kitchens' => ['nullable', 'integer', 'min:0'],
             'bathrooms' => ['nullable', 'integer', 'min:0'],
             'yards' => ['nullable', 'integer', 'min:0'],
             'garages_capacity' => ['nullable', 'integer', 'min:0'],
+
             'materials' => ['nullable', 'json'],
             'included_objects' => ['nullable', 'json'],
-            'status' => ['required', Rule::in(['active', 'inactive', 'archived'])],
+
+            'status' => ['required', Rule::in(['available', 'occupied', 'disabled'])],
+
+            // Photos: permitir filas vacías (se ignoran si no hay archivo)
             'photos' => ['nullable', 'array'],
+            'photos.*.file' => ['nullable', 'image', 'max:5120'],
             'photos.*.position' => ['required_with:photos.*.file', 'integer', 'min:1'],
-            'photos.*.file' => ['required', 'image', 'max:5120'],
-            'photos.*.caption' => ['required', 'string', 'max:255'],
-            'photos.*.taken_at' => ['nullable', 'date'],
+            'photos.*.caption' => ['required_with:photos.*.file', 'string', 'max:255'],
+            'photos.*.taken_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
         ]);
 
         $user = $request->user();
@@ -69,13 +67,19 @@ class PropertyController extends Controller
                 ->withInput();
         }
 
+        // 2) Decodificar JSONs
         $materials = json_decode($validated['materials'] ?? '[]', true);
         $includedObjects = json_decode($validated['included_objects'] ?? '[]', true);
 
         $materials = is_array($materials) ? $materials : [];
         $includedObjects = is_array($includedObjects) ? $includedObjects : [];
 
-        return DB::transaction(function () use ($validated, $materials, $includedObjects, $lessor, $user, $request) {
+        // 3) Reindexar fotos para evitar huecos (por filas eliminadas en frontend)
+        $photosInput = array_values($request->input('photos', []));
+
+        return DB::transaction(function () use ($validated, $materials, $includedObjects, $lessor, $user, $request, $photosInput) {
+
+            // 4) Crear propiedad
             $property = Property::create([
                 'lessor_id' => $lessor->id,
                 'name' => $validated['name'],
@@ -85,34 +89,40 @@ class PropertyController extends Controller
                 'location_canton' => $validated['location_canton'],
                 'location_district' => $validated['location_district'],
                 'service_type' => $validated['service_type'],
+
                 'rooms' => $validated['rooms'] ?? 0,
                 'living_rooms' => $validated['living_rooms'] ?? 0,
                 'kitchens' => $validated['kitchens'] ?? 0,
                 'bathrooms' => $validated['bathrooms'] ?? 0,
                 'yards' => $validated['yards'] ?? 0,
                 'garages_capacity' => $validated['garages_capacity'] ?? 0,
+
                 'included_objects' => $includedObjects,
                 'materials' => $materials,
+
                 'status' => $validated['status'],
             ]);
 
-            $validatedPhotos = $validated['photos'] ?? [];
+            // 5) Guardar fotos (archivo + caption + taken_at del MISMO índice)
+            foreach ($photosInput as $i => $photo) {
 
-            foreach ($validatedPhotos as $index => $photo) {
-                $file = $request->file("photos.$index.file");
-
-                if (!$file) {
-                    continue;
+                if (!$request->hasFile("photos.$i.file")) {
+                    continue; // ignora filas sin archivo
                 }
 
+                $file = $request->file("photos.$i.file");
                 $path = $file->store('photos_properties', 'public');
+
+                $takenAt = !empty($photo['taken_at'])
+                    ? Carbon::createFromFormat('Y-m-d\TH:i', $photo['taken_at'])
+                    : null;
 
                 PropertyPhoto::create([
                     'property_id' => $property->id,
                     'path' => $path,
-                    'position' => $photo['position'],
-                    'caption' => $photo['caption'],
-                    'taken_at' => $photo['taken_at'] ?? null,
+                    'position' => (int)($photo['position'] ?? ($i + 1)),
+                    'caption' => (string)($photo['caption'] ?? ''),
+                    'taken_at' => $takenAt,
                     'created_by_user_id' => $user?->id,
                 ]);
             }

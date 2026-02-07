@@ -40,7 +40,7 @@ return new class extends Migration
             $table->json('included_objects')->nullable();
             $table->json('materials')->nullable();
 
-            $table->enum('status', ['active', 'inactive', 'archived'])->default('active');
+            $table->enum('status', ['available', 'occupied', 'disabled'])->default('available');
 
             $table->timestamps();
 
