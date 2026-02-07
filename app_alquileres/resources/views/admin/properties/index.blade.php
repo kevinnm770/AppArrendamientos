@@ -27,7 +27,7 @@
                     $statusClass = $statusClasses[$statusKey] ?? 'bg-secondary';
                     $serviceLabel = $serviceTypeLabels[$property->service_type] ?? $property->service_type;
                     $primaryPhoto = $property->photos->first();
-                    $photoUrl = $primaryPhoto ? asset('storage/' . $primaryPhoto->path) : asset('/assets/compiled/jpg/architecture1.jpg');
+                    $photoUrl = $primaryPhoto ? asset('storage/' . $primaryPhoto->path) : asset('/assets/storage/photoDefault_property.png');
                 @endphp
                 <div class="col-xl-4 col-md-6 col-sm-12">
                     <a href="">
@@ -37,18 +37,33 @@
                                     <h4 class="card-title">{{ $property->name }}</h4>
                                     <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
                                 </div>
-                                <div class="carousel slide" data-bs-ride="carousel">
+                                <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
                                     <div class="carousel-inner">
-                                        <div class="carousel-item active">
-                                            <img src="{{ $photoUrl }}" class="d-block w-100" alt="Foto de la propiedad">
-                                        </div>
+
+                                        @forelse ($property->photos as $photo)
+                                            <div class="carousel-item {{ $loop->first ? 'active' : '' }}">
+                                                <img src="{{ asset('storage/' . $photo->path) }}"
+                                                    class="d-block w-100"
+                                                    alt="{{ $photo->caption }}" title="{{ $photo->caption }}" height="300px">
+                                            </div>
+                                        @empty
+                                            <div class="carousel-item active">
+                                                <img src="{{ asset('storage/photos_properties/photoDefault_property.png') }}"
+                                                    class="d-block w-100 px-4"
+                                                    alt="Imagen por defecto"
+                                                    title="Imagen por defecto"
+                                                    height="300px">
+                                            </div>
+                                        @endforelse
+
                                     </div>
+
                                 </div>
                                 <div class="card-body">
                                     <i class="bi bi-geo-alt-fill"></i>
-                                    {{ $property->location_text }}, {{ $property->location_canton }}, {{ $property->location_province }}, Costa Rica
+                                    {{ $property->location_district }}, {{ $property->location_canton }}, {{ $property->location_province }}
                                     <br>
-                                    <i class="bi bi-house-door"></i> Tipo ({{ $serviceLabel }})
+                                    <i class="bi bi-house-door"></i> {{ $serviceLabel }}
                                     <br>
                                     <div class="row mt-3">
                                         <div class="col-3"><i class="fa-solid fa-bed" style="font-size: 9.5pt;" title="Habitaciones o camas"></i> {{ $property->rooms }}</div>
