@@ -15,6 +15,7 @@
 </head>
 
 <body>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{asset('/assets/static/js/initTheme.js')}}"></script>
     <div id="app">
         <div id="sidebar">

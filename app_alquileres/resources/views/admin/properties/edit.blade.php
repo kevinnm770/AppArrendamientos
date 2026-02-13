@@ -269,22 +269,20 @@
             @enderror
 
             <div class="card-footer d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                @if (($property->status ?? null) !== 'occupied')
-                    <form method="POST" action="{{ route('admin.properties.edit.delete', $property->id) }}" id="delete-property-form">
-                        @csrf
-                        @method('PATCH')
-                        <input type="hidden" name="token" id="delete-token-input" value="">
-                        <button type="button" class="btn btn-danger" id="delete-property-button">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </form>
-                @endif
+                <button type="button" class="btn btn-danger" id="delete-property-button">
+                    <i class="fa-solid fa-trash"></i> Eliminar
+                </button>
 
                 <div class="d-flex justify-content-end gap-2 ms-auto">
                 <a href="{{ route('admin.properties.index') }}" class="btn btn-light-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-primary">Guardar propiedad</button>
                 </div>
             </div>
+        </form>
+        <form method="POST" action="{{ route('admin.properties.edit.delete', $property->id) }}" id="delete-property-form">
+            @csrf
+            @method('PATCH')
+            <input type="hidden" name="token" id="delete-token-input" value="">
         </form>
     </section>
 
@@ -368,7 +366,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const locationData = @json($locationData ?? []);
-    const existingPhotos = @json($existingPhotos);
+            const existingPhotos = @json($existingPhotos);
             const provinceSelect = document.getElementById('location_province');
             const cantonSelect = document.getElementById('location_canton');
             const districtSelect = document.getElementById('location_district');
