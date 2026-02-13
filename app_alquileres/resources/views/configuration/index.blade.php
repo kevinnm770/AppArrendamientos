@@ -1,4 +1,8 @@
-@extends('layouts.admin')
+@php
+    $layout = $user->isLessor() ? 'layouts.admin' : 'layouts.tenant';
+@endphp
+
+@extends($layout)
 
 @section('content')
     <div class="row">
@@ -10,7 +14,7 @@
                 <div class="card-content">
                     <div class="card-body">
                         <form class="form form-vertical"
-                            action="{{ route('admin.configuration.user.update') }}"
+                            action="{{ $user->isLessor() ? route('admin.configuration.user.update') : route('tenant.configuration.user.update')}}"
                             method="POST"
                             enctype="multipart/form-data">
                             @csrf
@@ -87,7 +91,7 @@
                         <form class="form form-vertical"
                             action="{{ $user->isLessor()
                                     ? route('admin.configuration.lessor.update')
-                                    : route('admin.configuration.lessor.update') }}"
+                                    : route('tenant.configuration.roomer.update') }}"
                             method="POST"
                             enctype="multipart/form-data">
                             @csrf

@@ -14,7 +14,15 @@ class lessorController extends Controller
      */
     public function index()
     {
-        //
+        $user = Auth::user();
+        if (!$user){
+            abort(403);
+        }else{
+            if($user->isLessor()){
+                $datarole=$user->lessor;
+                return view('admin.index', compact('datarole'));
+            }
+        }
     }
 
     /**

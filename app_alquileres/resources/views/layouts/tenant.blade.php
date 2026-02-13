@@ -62,30 +62,12 @@
         <ul class="menu">
             <li
                 class="sidebar-item active ">
-                <a href="{{route('admin.index')}}" class='sidebar-link'>
+                <a href="{{route('tenant.index')}}" class='sidebar-link'>
                     <i class="bi bi-grid-1x2-fill"></i>
                     <span>Inicio</span>
                 </a>
 
 
-            </li>
-
-            <li
-                class="sidebar-item has-sub">
-                <a href="#" class='sidebar-link'>
-                    <i class="bi bi-houses-fill"></i>
-                    <span>Propiedades</span>
-                </a>
-                <ul class="submenu ">
-
-                    <li class="submenu-item  ">
-                        <a href="{{route('admin.properties.index')}}" class="submenu-link">Administrar</a>
-                    </li>
-
-                    <li class="submenu-item  ">
-                        <a href="{{route('admin.properties.register')}}" class="submenu-link">Registrar</a>
-                    </li>
-                </ul>
             </li>
 
             <li
@@ -132,7 +114,7 @@
                 <ul class="submenu ">
 
                     <li class="submenu-item  ">
-                        <a href="{{url('admin/configuration')}}" class="submenu-link">Perfil</a>
+                        <a href="{{url('/tenant/configuration')}}" class="submenu-link">Perfil</a>
 
                     </li>
 

@@ -105,9 +105,16 @@ class UserController extends Controller
 
         $user_datos->save();
 
-        return redirect()
-            ->route('admin.configuration.index')
-            ->with('success', 'Datos guardados correctamente');
+        if($user_datos->isLessor()){
+            return redirect()
+                ->route('admin.configuration.index')
+                ->with('success', 'Datos guardados correctamente');
+        }
+        if($user_datos->isRoomer()){
+            return redirect()
+                ->route('tenant.configuration.index')
+                ->with('success', 'Datos guardados correctamente');
+        }
     }
 
     /**

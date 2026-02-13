@@ -28,10 +28,10 @@ Route::prefix('auth')->name('auth.')->middleware('guest')->group(function () {
     Route::post('/register', [RegisterController::class, 'store'])->name('register.store');
 });
 
-Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(function () {
 
     // Inicio
-    Route::get('/', [AdminController::class, 'index'])->name('index');
+    Route::get('/', [lessorController::class, 'index'])->name('index');
 
     // Configuraciones de cuenta
     Route::prefix('configuration')->name('configuration.')->middleware('auth')->group(function () {
@@ -41,10 +41,8 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
         //Datos del usuario
         Route::patch('/user', [UserController::class, 'update'])->name('user.update');
 
-        //Datos del role: Lessor o roomer
+        //Datos del lessor
         Route::patch('/lessor', [lessorController::class, 'update'])->name('lessor.update');
-
-        Route::patch('/roomer', [roomerController::class, 'update'])->name('roomer.update');
     });
 
     // Admin de propiedades
@@ -64,5 +62,23 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
 
         //Eliminar propiedad
         Route::patch('/edit/delete/{id_prop}', [PropertyController::class, 'delete'])->name('edit.delete');
+    });
+});
+
+Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(function () {
+
+    // Inicio
+    Route::get('/', [roomerController::class, 'index'])->name('index');
+
+    // Configuraciones de cuenta
+    Route::prefix('configuration')->name('configuration.')->middleware('auth')->group(function () {
+        //Ventana de configuracion
+        Route::get('/', [UserController::class, 'index'])->name('index');
+
+        //Datos del usuario
+        Route::patch('/user', [UserController::class, 'update'])->name('user.update');
+
+        //Datos del roomer
+        Route::patch('/roomer', [roomerController::class, 'update'])->name('roomer.update');
     });
 });
