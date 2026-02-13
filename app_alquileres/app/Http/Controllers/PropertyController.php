@@ -79,6 +79,7 @@ class PropertyController extends Controller
             'included_objects' => ['nullable', 'json'],
 
             'status' => ['required', Rule::in(['available', 'occupied', 'disabled'])],
+            'is_public' => ['nullable', 'boolean'],
 
             // Photos: permitir filas vacías (se ignoran si no hay archivo)
             'photos' => ['nullable', 'array'],
@@ -103,6 +104,7 @@ class PropertyController extends Controller
 
         $materials = is_array($materials) ? $materials : [];
         $includedObjects = is_array($includedObjects) ? $includedObjects : [];
+        $isPublic = $validated['status'] === 'available' && $request->boolean('is_public');
 
         // 3) Reindexar fotos para evitar huecos (por filas eliminadas en frontend)
         $photosInput = array_values($request->input('photos', []));
@@ -131,6 +133,7 @@ class PropertyController extends Controller
                 'materials' => $materials,
 
                 'status' => $validated['status'],
+                'is_public' => $isPublic,
             ]);
 
             // 5) Guardar fotos (archivo + caption + taken_at del MISMO índice)
@@ -210,6 +213,7 @@ class PropertyController extends Controller
             'included_objects' => ['nullable', 'json'],
 
             'status' => ['required', Rule::in(['available', 'occupied', 'disabled'])],
+            'is_public' => ['nullable', 'boolean'],
 
             'photos' => ['nullable', 'array'],
             'photos.*.id' => ['nullable', 'integer', 'exists:propertyphotos,id'],
@@ -238,11 +242,12 @@ class PropertyController extends Controller
 
         $materials = is_array($materials) ? $materials : [];
         $includedObjects = is_array($includedObjects) ? $includedObjects : [];
+        $isPublic = $validated['status'] === 'available' && $request->boolean('is_public');
 
         $photosInput = array_values($request->input('photos', []));
         $existingPhotos = $property->photos->keyBy('id');
 
-        return DB::transaction(function () use ($property, $validated, $materials, $includedObjects, $photosInput, $existingPhotos, $request, $user) {
+        return DB::transaction(function () use ($property, $validated, $materials, $includedObjects, $isPublic, $photosInput, $existingPhotos, $request, $user) {
             $property->update([
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
@@ -263,6 +268,7 @@ class PropertyController extends Controller
                 'materials' => $materials,
 
                 'status' => $validated['status'],
+                'is_public' => $isPublic,
             ]);
 
             $submittedIds = [];

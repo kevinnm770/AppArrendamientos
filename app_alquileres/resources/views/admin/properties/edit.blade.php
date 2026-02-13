@@ -216,6 +216,21 @@
                         @enderror
                     </div>
 
+                    <div class="col-12 col-lg-4">
+                        <label class="form-label d-block" for="is_public">Publicar propiedad</label>
+                        <input type="hidden" name="is_public" value="0">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input @error('is_public') is-invalid @enderror" type="checkbox" role="switch" id="is_public" name="is_public" value="1" @checked(old('is_public', ($property->is_public ?? false) ? '1' : '0') === '1')>
+                            <label class="form-check-label" for="is_public">Visible para arrendatarios</label>
+                        </div>
+                        <small class="text-muted">Solo se puede publicar cuando el estado está en Disponible.</small>
+                        @error('is_public')
+                            <span class="invalid-feedback d-block" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
+                    </div>
+
                     <div class="col-12">
                         <hr>
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -385,6 +400,21 @@
                     updateDistricts();
                 }
             }
+
+            const statusSelect = document.getElementById('status');
+            const isPublicCheckbox = document.getElementById('is_public');
+
+            const syncPublicVisibility = () => {
+                const canBePublic = statusSelect.value === 'available';
+                isPublicCheckbox.disabled = !canBePublic;
+
+                if (!canBePublic) {
+                    isPublicCheckbox.checked = false;
+                }
+            };
+
+            statusSelect.addEventListener('change', syncPublicVisibility);
+            syncPublicVisibility();
 
             const parseTags = (value) => {
                 try {
