@@ -137,7 +137,7 @@
 
                             @if ($user->isLessor())
                                 <label for="address">Dirección de residencia (opcional)</label>
-                                <textarea name="address" placeholder="Juan Pérez, Calle Falsa 123, Edificio B, Apto 402, San José, Costa Rica" id="address" class="form-control mb-3 @error('address') is-invalid @enderror" cols="30" rows="3"></textarea>
+                                <textarea name="address" placeholder="Juan Pérez, Calle Falsa 123, Edificio B, Apto 402, San José, Costa Rica" id="address" class="form-control mb-3 @error('address') is-invalid @enderror" cols="30" rows="3">{{ old('address', $datarole->address ?? '') }}</textarea>
 
                                 @error('address')
                                     <div class="invalid-feedback">{{ $message }}</div>
