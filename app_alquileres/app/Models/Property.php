@@ -24,11 +24,13 @@ class Property extends Model
         'included_objects',
         'materials',
         'status',
+        'is_public',
     ];
 
     protected $casts = [
         'included_objects' => 'array',
         'materials' => 'array',
+        'is_public' => 'boolean',
     ];
 
     public function lessor()
