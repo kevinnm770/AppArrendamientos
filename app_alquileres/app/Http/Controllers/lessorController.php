@@ -66,13 +66,14 @@ class lessorController extends Controller
 
         $lessor = $user->lessor;
 
-        // Si no existe
         if (!$lessor) {
-
+            return redirect()
+                ->route('admin.configuration.index')
+                ->withErrors(['lessor' => 'No se encontró la información del arrendador para actualizar.']);
         }
 
         $request->validate([
-            'fullname' => ['required', 'string', 'max:255'],
+            'legal_name' => ['required', 'string', 'max:255'],
             'id_number' => [
                 'required', 'string', 'max:25',
                 Rule::unique('lessors', 'id_number')->ignore($lessor->id),
@@ -81,7 +82,7 @@ class lessorController extends Controller
             'address' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $lessor->legal_name = $request->fullname;
+        $lessor->legal_name = $request->legal_name;
         $lessor->id_number  = $request->id_number;
         $lessor->phone      = $request->phone;
         $lessor->address    = $request->address;

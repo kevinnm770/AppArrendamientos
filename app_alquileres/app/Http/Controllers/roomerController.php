@@ -65,13 +65,14 @@ class roomerController extends Controller
 
         $roomer = $user->roomer;
 
-        // Si no existe
         if (!$roomer) {
-
+            return redirect()
+                ->route('tenant.configuration.index')
+                ->withErrors(['roomer' => 'No se encontró la información del inquilino para actualizar.']);
         }
 
         $request->validate([
-            'fullname' => ['required', 'string', 'max:255'],
+            'legal_name' => ['required', 'string', 'max:255'],
             'id_number' => [
                 'required', 'string', 'max:25',
                 Rule::unique('roomers', 'id_number')->ignore($roomer->id),
@@ -79,7 +80,7 @@ class roomerController extends Controller
             'phone' => ['required', 'string', 'max:20'],
         ]);
 
-        $roomer->legal_name = $request->fullname;
+        $roomer->legal_name = $request->legal_name;
         $roomer->id_number  = $request->id_number;
         $roomer->phone      = $request->phone;
 
