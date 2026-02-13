@@ -337,6 +337,11 @@ class PropertyController extends Controller
         });
     }
 
+    public function delete(int $id_prop)
+    {
+
+    }
+
     private function locationData(): array
     {
         return [

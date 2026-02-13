@@ -61,5 +61,8 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
         Route::get('/edit/{id_prop}', [PropertyController::class, 'edit'])->name('edit');
 
         Route::patch('/edit/{id_prop}', [PropertyController::class, 'update'])->name('edit.update');
+
+        //Eliminar propiedad
+        Route::patch('/edit/delete/{id_prop}', [PropertyController::class, 'delete'])->name('edit.delete');
     });
 });
