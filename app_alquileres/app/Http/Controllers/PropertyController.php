@@ -337,9 +337,57 @@ class PropertyController extends Controller
         });
     }
 
-    public function delete(int $id_prop)
+    public function delete(int $id_prop, Request $request)
     {
+        $validated = $request->validate([
+            'token' => ['required', 'string', 'size:4'],
+        ], [
+            'token.required' => 'Debe ingresar el token de confirmación para eliminar la propiedad.',
+            'token.size' => 'El token de confirmación debe tener 4 caracteres.',
+        ]);
 
+        $user = $request->user();
+        $lessor = $user?->lessor;
+
+        if (!$lessor) {
+            return redirect()
+                ->route('admin.properties.index')
+                ->withErrors(['lessor' => 'Debe completar su perfil de arrendador antes de eliminar una propiedad.']);
+        }
+
+        $property = Property::with('photos')
+            ->where('lessor_id', $lessor->id)
+            ->where('id', $id_prop)
+            ->firstOrFail();
+
+        if ($property->status === 'occupied') {
+            return back()->withErrors([
+                'delete' => 'No se puede eliminar una propiedad ocupada.',
+            ]);
+        }
+
+        // TODO: Reemplazar por token dinámico enviado al correo del arrendador.
+        $expectedToken = '1234';
+        if ($validated['token'] !== $expectedToken) {
+            return back()
+                ->withErrors(['token' => 'El token de confirmación es inválido.'])
+                ->withInput();
+        }
+
+        return DB::transaction(function () use ($property) {
+            foreach ($property->photos as $photo) {
+                if ($photo->path) {
+                    Storage::disk('public')->delete($photo->path);
+                }
+            }
+
+            $property->photos()->delete();
+            $property->delete();
+
+            return redirect()
+                ->route('admin.properties.index')
+                ->with('success', 'Propiedad eliminada correctamente.');
+        });
     }
 
     private function locationData(): array

@@ -257,9 +257,33 @@
                 </div>
             </div>
 
-            <div class="card-footer d-flex justify-content-end gap-2">
+            @error('delete')
+                <div class="px-4 pb-0">
+                    <div class="alert alert-danger mb-0" role="alert">{{ $message }}</div>
+                </div>
+            @enderror
+            @error('token')
+                <div class="px-4 pb-0">
+                    <div class="alert alert-danger mb-0" role="alert">{{ $message }}</div>
+                </div>
+            @enderror
+
+            <div class="card-footer d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                @if (($property->status ?? null) !== 'occupied')
+                    <form method="POST" action="{{ route('admin.properties.edit.delete', $property->id) }}" id="delete-property-form">
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="token" id="delete-token-input" value="">
+                        <button type="button" class="btn btn-danger" id="delete-property-button">
+                            <i class="fa-solid fa-trash"></i> Eliminar
+                        </button>
+                    </form>
+                @endif
+
+                <div class="d-flex justify-content-end gap-2 ms-auto">
                 <a href="{{ route('admin.properties.index') }}" class="btn btn-light-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-primary">Guardar propiedad</button>
+                </div>
             </div>
         </form>
     </section>
@@ -581,6 +605,38 @@
                 updatePhotoPositions();
             } else {
                 addPhotoRow();
+            }
+
+            const deleteButton = document.getElementById('delete-property-button');
+            const deleteForm = document.getElementById('delete-property-form');
+            const deleteTokenInput = document.getElementById('delete-token-input');
+
+            if (deleteButton && deleteForm && deleteTokenInput && typeof Swal !== 'undefined') {
+                deleteButton.addEventListener('click', async function() {
+                    const result = await Swal.fire({
+                        title: 'Eliminar propiedad',
+                        text: 'Para confirmar, ingresa el token de verificación.',
+                        input: 'text',
+                        inputLabel: 'Token',
+                        inputPlaceholder: 'Ingresa el token',
+                        showCancelButton: true,
+                        confirmButtonText: 'Eliminar',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#dc3545',
+                        inputValidator: (value) => {
+                            if (!value) {
+                                return 'Debes ingresar el token para continuar.';
+                            }
+                        },
+                    });
+
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+
+                    deleteTokenInput.value = (result.value || '').trim();
+                    deleteForm.submit();
+                });
             }
         });
 
