@@ -28,6 +28,14 @@ Route::prefix('auth')->name('auth.')->middleware('guest')->group(function () {
     Route::post('/register', [RegisterController::class, 'store'])->name('register.store');
 });
 
+Route::post('/logout', function () {
+    Auth::logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+
+    return redirect()->route('auth.login');
+})->middleware('auth')->name('logout');
+
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(function () {
 
     // Inicio
