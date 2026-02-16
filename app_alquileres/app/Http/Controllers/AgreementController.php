@@ -7,6 +7,7 @@ use App\Models\Property;
 use App\Models\Roomer;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -114,7 +115,7 @@ class AgreementController extends Controller
         $validated = $request->validate([
             'property_id' => [
                 'required',
-                Rule::exists('properties', 'id')->where(fn (Builder $query) => $query->where('lessor_id', $lessor->id)),
+                Rule::exists('properties', 'id')->where(fn (QueryBuilder $query) => $query->where('lessor_id', $lessor->id)),
             ],
             'roomer_id' => ['required', Rule::exists('roomers', 'id')],
             'service_type' => ['required', Rule::in(['event', 'home', 'lodging'])],
