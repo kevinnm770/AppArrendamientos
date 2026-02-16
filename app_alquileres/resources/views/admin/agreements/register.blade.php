@@ -11,8 +11,8 @@
                 <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="{{ route('admin.index') }}">Admin</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('admin.agreements.index') }}">Contratos</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Registrar</li>
+                        <li class="breadcrumb-item"><a href="{{ route('admin.agreements.index') }}">Agreements</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Register</li>
                     </ol>
                 </nav>
             </div>
@@ -89,13 +89,13 @@
                                 value="{{ old('start_at') }}" required>
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-4 mb-4">
                             <label for="end_at" class="form-label">Fin (opcional)</label>
                             <input id="end_at" type="datetime-local" name="end_at" class="form-control"
                                 value="{{ old('end_at') }}">
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-4 mb-4">
                             <label for="status" class="form-label">Estado inicial</label>
                             <select id="status" name="status" class="form-select" required>
                                 @foreach ($statusLabels as $value => $label)
@@ -104,35 +104,34 @@
                             </select>
                         </div>
 
-                        <div class="col-12">
-                            <label for="snow" class="form-label">Términos del contrato</label>
-                            <section class="section mb-0">
-                                <div class="card mb-0">
-                                    <div class="card-header">
-                                        <h4 class="card-title">Editor de contrato</h4>
-                                    </div>
-                                    <div class="card-body">
-                                        <p>Redacta el contrato completo con formato enriquecido.</p>
-                                        <div id="snow" style="min-height: 320px;">
-                                            {!! old('terms', '
-                                            <h4>CONTRATO DE ARRENDAMIENTO</h4>
-                                            <p><strong>Entre:</strong> [Nombre del arrendador], identificado con cédula No. [Número], en adelante "EL ARRENDADOR".</p>
-                                            <p><strong>Y:</strong> [Nombre del arrendatario], identificado con cédula No. [Número], en adelante "EL ARRENDATARIO".</p>
-                                            <p><br></p>
-                                            <p><strong>PRIMERA - OBJETO:</strong> EL ARRENDADOR entrega en arrendamiento el inmueble [Dirección/Descripción], para uso [residencial/comercial].</p>
-                                            <p><strong>SEGUNDA - PLAZO:</strong> El presente contrato inicia el [fecha] y finaliza el [fecha], salvo prórroga o terminación anticipada.</p>
-                                            <p><strong>TERCERA - CANON:</strong> EL ARRENDATARIO pagará un canon mensual de [valor], dentro de los primeros [número] días de cada mes.</p>
-                                            <p><strong>CUARTA - OBLIGACIONES:</strong> Las partes se comprometen a cumplir con las obligaciones legales y contractuales correspondientes.</p>
-                                            <p><strong>QUINTA - TERMINACIÓN:</strong> Cualquiera de las partes podrá terminar este contrato según las causales legales vigentes.</p>
-                                            <p><br></p>
-                                            <p>En constancia, se firma en [ciudad], a los [día] días del mes de [mes] de [año].</p>
-                                            ') !!}
-                                        </div>
-                                        <input id="terms" name="terms" type="hidden" required>
-                                    </div>
+                        <hr>
+
+                        <section class="section m-0">
+                        <div class="card col-12">
+                            <div class="card-header px-0">
+                                <h4 class="card-title">Detalles del contrato</h4>
+                            </div>
+                            <div class="card-body p-0">
+                                <p>Redacta el contrato completo.</p>
+                                <div id="snow" style="min-height: 320px;">
+                                    {!! old('terms', '
+                                    <h4>CONTRATO DE ARRENDAMIENTO</h4>
+                                    <p><strong>Entre:</strong> [Nombre del arrendador], identificado con cédula No. [Número], en adelante "EL ARRENDADOR".</p>
+                                    <p><strong>Y:</strong> [Nombre del arrendatario], identificado con cédula No. [Número], en adelante "EL ARRENDATARIO".</p>
+                                    <p><br></p>
+                                    <p><strong>PRIMERA - OBJETO:</strong> EL ARRENDADOR entrega en arrendamiento el inmueble [Dirección/Descripción], para uso [residencial/comercial].</p>
+                                    <p><strong>SEGUNDA - PLAZO:</strong> El presente contrato inicia el [fecha] y finaliza el [fecha], salvo prórroga o terminación anticipada.</p>
+                                    <p><strong>TERCERA - CANON:</strong> EL ARRENDATARIO pagará un canon mensual de [valor], dentro de los primeros [número] días de cada mes.</p>
+                                    <p><strong>CUARTA - OBLIGACIONES:</strong> Las partes se comprometen a cumplir con las obligaciones legales y contractuales correspondientes.</p>
+                                    <p><strong>QUINTA - TERMINACIÓN:</strong> Cualquiera de las partes podrá terminar este contrato según las causales legales vigentes.</p>
+                                    <p><br></p>
+                                    <p>En constancia, se firma en [ciudad], a los [día] días del mes de [mes] de [año].</p>
+                                    ') !!}
                                 </div>
-                            </section>
+                                <input id="terms" name="terms" type="hidden" required>
+                            </div>
                         </div>
+                        </section>
 
                         <div class="col-12 d-flex justify-content-end gap-2">
                             <a href="{{ route('admin.agreements.index') }}" class="btn btn-light-secondary">Cancelar</a>
@@ -236,11 +235,11 @@
                 }
 
                 const result = await Swal.fire({
-                    title: '¿Registrar contrato?',
-                    text: 'Verifica que la información sea correcta antes de continuar.',
+                    title: 'Enviar contrato al arrendatario?',
+                    text: 'Verifica que la información sea correcta antes de continuar. Ten en cuenta que el contrato se pondrá en vigencia cuando el arrendatario compruebe y notifique su aceptación.',
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Sí, registrar',
+                    confirmButtonText: 'Sí, enviar',
                     cancelButtonText: 'Cancelar',
                     confirmButtonColor: '#435ebe'
                 });
