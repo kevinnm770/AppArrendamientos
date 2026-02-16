@@ -3,35 +3,166 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agreement;
+use App\Models\Property;
+use App\Models\Roomer;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AgreementController extends Controller
 {
     public function index(Request $request)
     {
         $user = $request->user();
-        $lessor = $user?->lessor;
-
         $agreements = collect();
 
-        if($user->isLessor()){
-            $lessor = $user?->lessor;
-            $agreements = Agreement::where('lessor_id', $lessor->id)
+        if ($user->isLessor()) {
+            $lessor = $user->lessor;
+
+            $agreements = Agreement::with(['property', 'roomer'])
+                ->where('lessor_id', $lessor->id)
+                ->orderByDesc('start_at')
                 ->get();
         }
-        if($user->isRoomer()){
-            $roomer = $user?->roomer;
-            $agreements = Agreement::where('roomer_id', $roomer->id)
+
+        if ($user->isRoomer()) {
+            $roomer = $user->roomer;
+
+            $agreements = Agreement::with(['property', 'lessor'])
+                ->where('roomer_id', $roomer->id)
+                ->orderByDesc('start_at')
                 ->get();
         }
 
         return view('admin.agreements.index', [
-            'agreements'=>$agreements
+            'agreements' => $agreements,
         ]);
     }
 
-    public function register()
+    public function register(Request $request)
     {
-        return view('admin.agreements.register');
+        $user = $request->user();
+        $lessor = $user?->lessor;
+
+        if (!$lessor) {
+            return redirect()
+                ->route('admin.agreements.index')
+                ->withErrors(['lessor' => 'Debes completar tu perfil de arrendador antes de registrar contratos.']);
+        }
+
+        $properties = Property::where('lessor_id', $lessor->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'service_type', 'status']);
+
+        $roomers = Roomer::orderBy('legal_name')
+            ->get(['id', 'legal_name', 'id_number']);
+
+        return view('admin.agreements.register', [
+            'properties' => $properties,
+            'roomers' => $roomers,
+            'serviceTypeLabels' => [
+                'home' => 'Hogar',
+                'lodging' => 'Hospedaje',
+                'event' => 'Evento',
+            ],
+            'statusLabels' => [
+                'draft' => 'Borrador',
+                'sent' => 'Enviado',
+                'confirmed' => 'Confirmado',
+                'active' => 'Activo',
+            ],
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $user = $request->user();
+        $lessor = $user?->lessor;
+
+        if (!$lessor) {
+            return redirect()
+                ->route('admin.agreements.index')
+                ->withErrors(['lessor' => 'Debes completar tu perfil de arrendador antes de registrar contratos.']);
+        }
+
+        $validated = $request->validate([
+            'property_id' => [
+                'required',
+                Rule::exists('properties', 'id')->where(fn (Builder $query) => $query->where('lessor_id', $lessor->id)),
+            ],
+            'roomer_id' => ['required', Rule::exists('roomers', 'id')],
+            'service_type' => ['required', Rule::in(['event', 'home', 'lodging'])],
+            'start_at' => ['required', 'date'],
+            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
+            'terms' => ['required', 'string'],
+            'status' => ['required', Rule::in(['draft', 'sent', 'confirmed', 'active'])],
+        ]);
+
+        $property = Property::where('lessor_id', $lessor->id)
+            ->findOrFail((int) $validated['property_id']);
+
+        if ($property->service_type !== $validated['service_type']) {
+            return back()
+                ->withErrors(['service_type' => 'El tipo de servicio del contrato debe coincidir con el de la propiedad seleccionada.'])
+                ->withInput();
+        }
+
+        $startAt = Carbon::parse($validated['start_at']);
+        $endAt = !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null;
+
+        if ($this->hasDateCollision('property_id', (int) $validated['property_id'], $startAt, $endAt)) {
+            return back()
+                ->withErrors(['property_id' => 'La propiedad ya tiene un contrato activo en ese rango de tiempo.'])
+                ->withInput();
+        }
+
+        if ($this->hasDateCollision('roomer_id', (int) $validated['roomer_id'], $startAt, $endAt)) {
+            return back()
+                ->withErrors(['roomer_id' => 'El arrendatario ya tiene un contrato activo en ese rango de tiempo.'])
+                ->withInput();
+        }
+
+        Agreement::create([
+            'property_id' => (int) $validated['property_id'],
+            'lessor_id' => $lessor->id,
+            'roomer_id' => (int) $validated['roomer_id'],
+            'service_type' => $validated['service_type'],
+            'start_at' => $startAt,
+            'end_at' => $endAt,
+            'terms' => $validated['terms'],
+            'status' => $validated['status'],
+            'created_by_user_id' => $user->id,
+            'updated_by_user_id' => $user->id,
+        ]);
+
+        return redirect()
+            ->route('admin.agreements.index')
+            ->with('success', 'Contrato registrado correctamente.');
+    }
+
+    private function hasDateCollision(string $column, int $id, Carbon $startAt, ?Carbon $endAt): bool
+    {
+        $query = Agreement::query()
+            ->where($column, $id)
+            ->where('status', '!=', 'cancelled');
+
+        if ($endAt) {
+            $query
+                ->where('start_at', '<=', $endAt)
+                ->where(function (Builder $subQuery) use ($startAt) {
+                    $subQuery
+                        ->whereNull('end_at')
+                        ->orWhere('end_at', '>=', $startAt);
+                });
+        } else {
+            $query->where(function (Builder $subQuery) use ($startAt) {
+                $subQuery
+                    ->whereNull('end_at')
+                    ->orWhere('end_at', '>=', $startAt);
+            });
+        }
+
+        return $query->exists();
     }
 }
