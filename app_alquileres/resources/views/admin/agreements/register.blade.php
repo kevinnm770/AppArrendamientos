@@ -43,7 +43,8 @@
                         No tienes propiedades registradas para crear contratos.
                     </div>
                 @else
-                    <form method="POST" action="{{ route('admin.agreements.register.store') }}" class="row g-3">
+                    <form id="agreement-form" method="POST" action="{{ route('admin.agreements.register.store') }}" class="row g-3"
+                        data-roomer-lookup-url="{{ route('admin.agreements.roomer-by-id-number', ['idNumber' => '__ID__']) }}">
                         @csrf
 
                         <div class="col-md-6">
@@ -59,15 +60,17 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label for="roomer_id" class="form-label">Arrendatario</label>
-                            <select id="roomer_id" name="roomer_id" class="form-select" required>
-                                <option value="">Selecciona un arrendatario</option>
-                                @foreach ($roomers as $roomer)
-                                    <option value="{{ $roomer->id }}" @selected(old('roomer_id') == $roomer->id)>
-                                        {{ $roomer->legal_name }} - {{ $roomer->id_number }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <label for="roomer_id_number" class="form-label">Cédula del arrendatario</label>
+                            <input id="roomer_id_number" name="roomer_id_number" type="text" class="form-control"
+                                placeholder="Ej. 1234567890" value="{{ old('roomer_id_number', $selectedRoomer?->id_number) }}"
+                                required>
+                            <input id="roomer_id" name="roomer_id" type="hidden"
+                                value="{{ old('roomer_id', $selectedRoomer?->id) }}" required>
+                            <p id="roomer_name_preview" class="mt-2 mb-0 text-muted">
+                                @if ($selectedRoomer)
+                                    Arrendatario encontrado: <strong>{{ $selectedRoomer->legal_name }}</strong>
+                                @endif
+                            </p>
                         </div>
 
                         <div class="col-md-4">
@@ -102,9 +105,33 @@
                         </div>
 
                         <div class="col-12">
-                            <label for="terms" class="form-label">Términos del contrato</label>
-                            <textarea id="terms" name="terms" class="form-control" rows="8"
-                                placeholder="Escribe aquí las cláusulas del contrato" required>{{ old('terms') }}</textarea>
+                            <label for="snow" class="form-label">Términos del contrato</label>
+                            <section class="section mb-0">
+                                <div class="card mb-0">
+                                    <div class="card-header">
+                                        <h4 class="card-title">Editor de contrato</h4>
+                                    </div>
+                                    <div class="card-body">
+                                        <p>Redacta el contrato completo con formato enriquecido.</p>
+                                        <div id="snow" style="min-height: 320px;">
+                                            {!! old('terms', '
+                                            <h4>CONTRATO DE ARRENDAMIENTO</h4>
+                                            <p><strong>Entre:</strong> [Nombre del arrendador], identificado con cédula No. [Número], en adelante "EL ARRENDADOR".</p>
+                                            <p><strong>Y:</strong> [Nombre del arrendatario], identificado con cédula No. [Número], en adelante "EL ARRENDATARIO".</p>
+                                            <p><br></p>
+                                            <p><strong>PRIMERA - OBJETO:</strong> EL ARRENDADOR entrega en arrendamiento el inmueble [Dirección/Descripción], para uso [residencial/comercial].</p>
+                                            <p><strong>SEGUNDA - PLAZO:</strong> El presente contrato inicia el [fecha] y finaliza el [fecha], salvo prórroga o terminación anticipada.</p>
+                                            <p><strong>TERCERA - CANON:</strong> EL ARRENDATARIO pagará un canon mensual de [valor], dentro de los primeros [número] días de cada mes.</p>
+                                            <p><strong>CUARTA - OBLIGACIONES:</strong> Las partes se comprometen a cumplir con las obligaciones legales y contractuales correspondientes.</p>
+                                            <p><strong>QUINTA - TERMINACIÓN:</strong> Cualquiera de las partes podrá terminar este contrato según las causales legales vigentes.</p>
+                                            <p><br></p>
+                                            <p>En constancia, se firma en [ciudad], a los [día] días del mes de [mes] de [año].</p>
+                                            ') !!}
+                                        </div>
+                                        <input id="terms" name="terms" type="hidden" required>
+                                    </div>
+                                </div>
+                            </section>
                         </div>
 
                         <div class="col-12 d-flex justify-content-end gap-2">
@@ -116,4 +143,112 @@
             </div>
         </div>
     </section>
+
+    <script>
+        window.addEventListener('load', () => {
+            const form = document.getElementById('agreement-form');
+            if (!form) {
+                return;
+            }
+
+            const roomerIdNumberInput = document.getElementById('roomer_id_number');
+            const roomerIdInput = document.getElementById('roomer_id');
+            const roomerNamePreview = document.getElementById('roomer_name_preview');
+            const termsInput = document.getElementById('terms');
+            const snowEditorElement = document.getElementById('snow');
+
+            const quillInstance = snowEditorElement.__quill ?? new Quill('#snow', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ header: [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        [{ align: [] }],
+                        ['link', 'blockquote'],
+                        ['clean']
+                    ]
+                }
+            });
+
+            const syncTerms = () => {
+                termsInput.value = quillInstance.root.innerHTML;
+            };
+
+            syncTerms();
+            quillInstance.on('text-change', syncTerms);
+
+            const setRoomerFeedback = (message, type = 'muted') => {
+                roomerNamePreview.classList.remove('text-muted', 'text-success', 'text-danger');
+                roomerNamePreview.classList.add(`text-${type}`);
+                roomerNamePreview.innerHTML = message;
+            };
+
+            const lookupRoomer = async () => {
+                const idNumber = roomerIdNumberInput.value.trim();
+                roomerIdInput.value = '';
+
+                if (!idNumber) {
+                    setRoomerFeedback('');
+                    return;
+                }
+
+                setRoomerFeedback('Buscando arrendatario...', 'muted');
+
+                const lookupUrl = form.dataset.roomerLookupUrl.replace('__ID__', encodeURIComponent(idNumber));
+
+                try {
+                    const response = await fetch(lookupUrl, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.found) {
+                        setRoomerFeedback(data.message ?? 'No se encontró un arrendatario con esa cédula.', 'danger');
+                        return;
+                    }
+
+                    roomerIdInput.value = data.roomer.id;
+                    setRoomerFeedback(`Arrendatario encontrado: <strong>${data.roomer.legal_name}</strong>`, 'success');
+                } catch (error) {
+                    setRoomerFeedback('No fue posible validar la cédula en este momento.', 'danger');
+                }
+            };
+
+            roomerIdNumberInput.addEventListener('change', lookupRoomer);
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                syncTerms();
+
+                if (!roomerIdInput.value) {
+                    setRoomerFeedback('Debes ingresar una cédula válida de un arrendatario existente.', 'danger');
+                    roomerIdNumberInput.focus();
+                    return;
+                }
+
+                if (typeof Swal === 'undefined') {
+                    form.submit();
+                    return;
+                }
+
+                const result = await Swal.fire({
+                    title: '¿Registrar contrato?',
+                    text: 'Verifica que la información sea correcta antes de continuar.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, registrar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#435ebe'
+                });
+
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    </script>
 @endsection

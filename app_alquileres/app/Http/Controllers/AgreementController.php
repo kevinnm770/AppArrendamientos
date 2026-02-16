@@ -55,12 +55,18 @@ class AgreementController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'service_type', 'status']);
 
-        $roomers = Roomer::orderBy('legal_name')
-            ->get(['id', 'legal_name', 'id_number']);
+        $selectedRoomer = null;
+        $oldRoomerId = $request->old('roomer_id');
+
+        if ($oldRoomerId) {
+            $selectedRoomer = Roomer::query()
+                ->whereKey((int) $oldRoomerId)
+                ->first(['id', 'legal_name', 'id_number']);
+        }
 
         return view('admin.agreements.register', [
             'properties' => $properties,
-            'roomers' => $roomers,
+            'selectedRoomer' => $selectedRoomer,
             'serviceTypeLabels' => [
                 'home' => 'Hogar',
                 'lodging' => 'Hospedaje',
@@ -71,6 +77,29 @@ class AgreementController extends Controller
                 'sent' => 'Enviado',
                 'confirmed' => 'Confirmado',
                 'active' => 'Activo',
+            ],
+        ]);
+    }
+
+    public function roomerByIdNumber(string $idNumber)
+    {
+        $roomer = Roomer::query()
+            ->where('id_number', trim($idNumber))
+            ->first(['id', 'legal_name', 'id_number']);
+
+        if (!$roomer) {
+            return response()->json([
+                'found' => false,
+                'message' => 'No existe un arrendatario registrado con esa cédula.',
+            ], 404);
+        }
+
+        return response()->json([
+            'found' => true,
+            'roomer' => [
+                'id' => $roomer->id,
+                'legal_name' => $roomer->legal_name,
+                'id_number' => $roomer->id_number,
             ],
         ]);
     }
