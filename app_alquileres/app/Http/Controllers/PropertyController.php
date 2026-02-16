@@ -104,12 +104,13 @@ class PropertyController extends Controller
 
         $materials = is_array($materials) ? $materials : [];
         $includedObjects = is_array($includedObjects) ? $includedObjects : [];
-        $isPublic = $validated['status'] === 'available' && $request->boolean('is_public');
+
 
         // 3) Reindexar fotos para evitar huecos (por filas eliminadas en frontend)
         $photosInput = array_values($request->input('photos', []));
 
         return DB::transaction(function () use ($validated, $materials, $includedObjects, $lessor, $user, $request, $photosInput) {
+            $isPublic = $validated['status'] === 'available' && $request->boolean('is_public');
 
             // 4) Crear propiedad
             $property = Property::create([

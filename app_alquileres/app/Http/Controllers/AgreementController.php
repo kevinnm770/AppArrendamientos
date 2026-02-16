@@ -52,8 +52,10 @@ class AgreementController extends Controller
         }
 
         $properties = Property::where('lessor_id', $lessor->id)
+            ->where('status', '!=', 'occupied')
             ->orderBy('name')
             ->get(['id', 'name', 'service_type', 'status']);
+
 
         $selectedRoomer = null;
         $oldRoomerId = $request->old('roomer_id');

@@ -40,7 +40,7 @@
             <div class="card-body">
                 @if ($properties->isEmpty())
                     <div class="alert alert-light-warning mb-0">
-                        No tienes propiedades registradas para crear contratos.
+                        No tienes propiedades que no estén ocupadas para crear un nuevo contrato.
                     </div>
                 @else
                     <form id="agreement-form" method="POST" action="{{ route('admin.agreements.register.store') }}" class="row g-3"
@@ -90,17 +90,9 @@
                         </div>
 
                         <div class="col-md-4 mb-4">
-                            <label for="end_at" class="form-label">Fin (opcional)</label>
+                            <label for="end_at" class="form-label">Fin</label>
                             <input id="end_at" type="datetime-local" name="end_at" class="form-control"
                                 value="{{ old('end_at') }}">
-                        </div>
-
-                        <div class="col-md-4 mb-4">
-                            <label class="form-label d-block">Estado inicial</label>
-                            <div class="alert alert-light-info mb-0 py-2">
-                                El sistema asignará automáticamente el estado inicial como
-                                <strong>Enviado (Sent)</strong> al registrar el contrato.
-                            </div>
                         </div>
 
                         <hr>
