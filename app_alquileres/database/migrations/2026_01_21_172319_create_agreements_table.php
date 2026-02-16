@@ -28,11 +28,15 @@ return new class extends Migration
 
             $table->longText('terms'); // texto del contrato
 
-            $table->enum('status', ['draft', 'sent', 'confirmed', 'active', 'ended', 'cancelled'])->default('draft');
+            $table->enum('status', ['sent', 'accepted', 'finished', 'cancelled'])->default('sent');
 
-            // Inmutabilidad tras confirmación
+            // Inmutabilidad tras aceptación
             $table->dateTime('tenant_confirmed_at')->nullable();
             $table->dateTime('locked_at')->nullable();
+
+            // Datos de cancelación por mutuo acuerdo
+            $table->text('canceled_by')->nullable();
+            $table->dateTime('canceled_date')->nullable();
 
             // Auditoría mínima de quién lo creó/modificó
             $table->foreignId('created_by_user_id')->constrained('users')->restrictOnDelete();

@@ -15,6 +15,8 @@ class Agreement extends Model
         'end_at',
         'terms',
         'status',
+        'canceled_by',
+        'canceled_date',
         'tenant_confirmed_at',
         'locked_at',
         'created_by_user_id',
@@ -24,6 +26,7 @@ class Agreement extends Model
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',
+        'canceled_date' => 'datetime',
         'tenant_confirmed_at' => 'datetime',
         'locked_at' => 'datetime',
     ];

@@ -72,12 +72,6 @@ class AgreementController extends Controller
                 'lodging' => 'Hospedaje',
                 'event' => 'Evento',
             ],
-            'statusLabels' => [
-                'draft' => 'Borrador',
-                'sent' => 'Enviado',
-                'confirmed' => 'Confirmado',
-                'active' => 'Activo',
-            ],
         ]);
     }
 
@@ -125,7 +119,6 @@ class AgreementController extends Controller
             'start_at' => ['required', 'date'],
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
-            'status' => ['required', Rule::in(['draft', 'sent', 'confirmed', 'active'])],
         ]);
 
         $property = Property::where('lessor_id', $lessor->id)
@@ -160,7 +153,7 @@ class AgreementController extends Controller
             'start_at' => $startAt,
             'end_at' => $endAt,
             'terms' => $validated['terms'],
-            'status' => $validated['status'],
+            'status' => 'sent',
             'created_by_user_id' => $user->id,
             'updated_by_user_id' => $user->id,
         ]);
@@ -174,7 +167,7 @@ class AgreementController extends Controller
     {
         $query = Agreement::query()
             ->where($column, $id)
-            ->where('status', '!=', 'cancelled');
+            ->whereNotIn('status', ['cancelled', 'finished']);
 
         if ($endAt) {
             $query
