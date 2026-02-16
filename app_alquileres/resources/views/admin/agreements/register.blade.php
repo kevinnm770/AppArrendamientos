@@ -96,12 +96,11 @@
                         </div>
 
                         <div class="col-md-4 mb-4">
-                            <label for="status" class="form-label">Estado inicial</label>
-                            <select id="status" name="status" class="form-select" required>
-                                @foreach ($statusLabels as $value => $label)
-                                    <option value="{{ $value }}" @selected(old('status', 'draft') === $value)>{{ $label }}</option>
-                                @endforeach
-                            </select>
+                            <label class="form-label d-block">Estado inicial</label>
+                            <div class="alert alert-light-info mb-0 py-2">
+                                El sistema asignará automáticamente el estado inicial como
+                                <strong>Enviado (Sent)</strong> al registrar el contrato.
+                            </div>
                         </div>
 
                         <hr>
