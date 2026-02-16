@@ -115,7 +115,11 @@ class AgreementController extends Controller
         $validated = $request->validate([
             'property_id' => [
                 'required',
-                Rule::exists('properties', 'id')->where(fn (QueryBuilder $query) => $query->where('lessor_id', $lessor->id)),
+                Rule::exists('properties', 'id')->where(
+                    fn (QueryBuilder $query) => $query
+                        ->where('lessor_id', $lessor->id)
+                        ->where('status', '!=', 'occupied')
+                ),
             ],
             'roomer_id' => ['required', Rule::exists('roomers', 'id')],
             'service_type' => ['required', Rule::in(['event', 'home', 'lodging'])],
@@ -130,6 +134,12 @@ class AgreementController extends Controller
         if ($property->service_type !== $validated['service_type']) {
             return back()
                 ->withErrors(['service_type' => 'El tipo de servicio del contrato debe coincidir con el de la propiedad seleccionada.'])
+                ->withInput();
+        }
+
+        if ($property->status === 'occupied') {
+            return back()
+                ->withErrors(['property_id' => 'Solo se puede registrar un contrato en una propiedad que no esté ocupada.'])
                 ->withInput();
         }
 
