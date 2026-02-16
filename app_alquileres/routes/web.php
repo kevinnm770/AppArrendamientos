@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\PropertyController;
@@ -70,6 +71,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
 
         //Eliminar propiedad
         Route::patch('/edit/delete/{id_prop}', [PropertyController::class, 'delete'])->name('edit.delete');
+    });
+
+    // Contratos
+    Route::prefix('agreements')->name('agreements.')->middleware('auth')->group(function () {
+        //Ventana de contratos
+        Route::get('/', [AgreementController::class, 'index'])->name('index');
+
+        //Registro de contrato
+        Route::get('/register', [AgreementController::class, 'register'])->name('register');
     });
 });
 

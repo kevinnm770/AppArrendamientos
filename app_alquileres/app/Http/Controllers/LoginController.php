@@ -33,7 +33,16 @@ class LoginController extends Controller
             $request->session()->regenerate();
 
             // Redirigir al dashboard
-            return redirect()->route('admin.index');
+            $user = Auth::user();
+
+            if($user->isLessor()){
+                return redirect()->route('admin.index');
+            }
+            if($user->isRoomer()){
+                return redirect()->route('tenant.index');
+            }
+
+
         }
 
         // Si falla, volver con error
