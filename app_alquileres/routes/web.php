@@ -80,6 +80,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
 
         //Registro de contrato
         Route::get('/register', [AgreementController::class, 'register'])->name('register');
+
+        Route::post('/register', [AgreementController::class, 'store'])->name('register.store');
     });
 });
 

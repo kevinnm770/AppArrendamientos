@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 class Agreement extends Model
 {
     protected $fillable = [
-        'id',
         'property_id',
         'lessor_id',
         'roomer_id',
@@ -23,21 +22,24 @@ class Agreement extends Model
     ];
 
     protected $casts = [
-        'terms' => 'array',
+        'start_at' => 'datetime',
+        'end_at' => 'datetime',
+        'tenant_confirmed_at' => 'datetime',
+        'locked_at' => 'datetime',
     ];
 
     public function lessor()
     {
-        return $this->hasOne(Lessor::class);
+        return $this->belongsTo(Lessor::class);
     }
 
     public function roomer()
     {
-        return $this->hasOne(Roomer::class);
+        return $this->belongsTo(Roomer::class);
     }
 
     public function property()
     {
-        return $this->hasOne(Property::class);
+        return $this->belongsTo(Property::class);
     }
 }

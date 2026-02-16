@@ -42,4 +42,9 @@ class Property extends Model
     {
         return $this->hasMany(PropertyPhoto::class);
     }
+    public function agreements()
+    {
+        return $this->hasMany(Agreement::class);
+    }
 }
+
