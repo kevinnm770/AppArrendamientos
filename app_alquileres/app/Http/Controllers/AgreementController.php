@@ -9,6 +9,8 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class AgreementController extends Controller
@@ -76,6 +78,133 @@ class AgreementController extends Controller
                 'event' => 'Evento',
             ],
         ]);
+    }
+
+    public function edit(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+
+        if ($agreement->status !== 'sent') {
+            return redirect()->route('admin.agreements.view', $agreement->id);
+        }
+
+        return view('admin.agreements.edit', [
+            'agreement' => $agreement,
+            'serviceTypeLabels' => $this->serviceTypeLabels(),
+        ]);
+    }
+
+    public function view(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+
+        return view('admin.agreements.view', [
+            'agreement' => $agreement,
+            'serviceTypeLabels' => $this->serviceTypeLabels(),
+        ]);
+    }
+
+    public function update(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+
+        if ($agreement->status !== 'sent') {
+            return redirect()
+                ->route('admin.agreements.view', $agreement->id)
+                ->withErrors(['agreement' => 'Este contrato ya no se puede editar porque su estado no es "sent".']);
+        }
+
+        $validated = $request->validate([
+            'start_at' => ['required', 'date'],
+            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
+            'terms' => ['required', 'string'],
+        ]);
+
+        $startAt = Carbon::parse($validated['start_at']);
+        $endAt = !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null;
+
+        if ($this->hasDateCollision('property_id', (int) $agreement->property_id, $startAt, $endAt, $agreement->id)) {
+            return back()
+                ->withErrors(['start_at' => 'La propiedad ya tiene un contrato activo en ese rango de tiempo.'])
+                ->withInput();
+        }
+
+        if ($this->hasDateCollision('roomer_id', (int) $agreement->roomer_id, $startAt, $endAt, $agreement->id)) {
+            return back()
+                ->withErrors(['start_at' => 'El arrendatario ya tiene un contrato activo en ese rango de tiempo.'])
+                ->withInput();
+        }
+
+        $agreement->update([
+            'start_at' => $startAt,
+            'end_at' => $endAt,
+            'terms' => $validated['terms'],
+            'updated_by_user_id' => $request->user()->id,
+        ]);
+
+        return redirect()
+            ->route('admin.agreements.edit', $agreement->id)
+            ->with('success', 'Contrato actualizado correctamente.');
+    }
+
+    public function sendDeleteToken(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+
+        if ($agreement->status !== 'sent') {
+            return back()->withErrors(['agreement' => 'Este contrato ya no se puede eliminar porque su estado no es "sent".']);
+        }
+
+        $token = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+
+        $request->session()->put("agreement_delete_token.{$agreement->id}", [
+            'value' => $token,
+            'expires_at' => now()->addMinutes(10)->timestamp,
+        ]);
+
+        $user = $request->user();
+
+        Mail::raw("Tu token para eliminar el contrato #{$agreement->id} es: {$token}. Expira en 10 minutos.", function ($message) use ($user) {
+            $message->to($user->email)
+                ->subject('Token de confirmación para eliminar contrato');
+        });
+
+        return back()->with('success', 'Se envió un token de confirmación a tu correo electrónico.');
+    }
+
+    public function delete(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+
+        if ($agreement->status !== 'sent') {
+            return back()->withErrors(['agreement' => 'Este contrato ya no se puede eliminar porque su estado no es "sent".']);
+        }
+
+        $validated = $request->validate([
+            'token' => ['required', 'string', 'size:4'],
+        ], [
+            'token.required' => 'Debe ingresar el token de confirmación para eliminar el contrato.',
+            'token.size' => 'El token de confirmación debe tener 4 caracteres.',
+        ]);
+
+        $sessionToken = $request->session()->get("agreement_delete_token.{$agreement->id}");
+
+        if (!$sessionToken || now()->timestamp > ($sessionToken['expires_at'] ?? 0)) {
+            return back()->withErrors(['token' => 'El token expiró o no existe. Solicita uno nuevo.']);
+        }
+
+        if (($sessionToken['value'] ?? null) !== $validated['token']) {
+            return back()->withErrors(['token' => 'El token de confirmación es inválido.'])->withInput();
+        }
+
+        DB::transaction(function () use ($agreement, $request) {
+            $agreement->delete();
+            $request->session()->forget("agreement_delete_token.{$agreement->id}");
+        });
+
+        return redirect()
+            ->route('admin.agreements.index')
+            ->with('success', 'Contrato eliminado correctamente.');
     }
 
     public function roomerByIdNumber(string $idNumber)
@@ -176,11 +305,24 @@ class AgreementController extends Controller
             ->with('success', 'Contrato registrado correctamente.');
     }
 
-    private function hasDateCollision(string $column, int $id, Carbon $startAt, ?Carbon $endAt): bool
+    private function getOwnedAgreement(int $agreementId, Request $request): Agreement
+    {
+        $lessor = $request->user()?->lessor;
+
+        return Agreement::with(['roomer', 'property'])
+            ->where('lessor_id', $lessor?->id)
+            ->findOrFail($agreementId);
+    }
+
+    private function hasDateCollision(string $column, int $id, Carbon $startAt, ?Carbon $endAt, ?int $ignoreAgreementId = null): bool
     {
         $query = Agreement::query()
             ->where($column, $id)
             ->whereNotIn('status', ['cancelled', 'finished']);
+
+        if ($ignoreAgreementId) {
+            $query->where('id', '!=', $ignoreAgreementId);
+        }
 
         if ($endAt) {
             $query
@@ -199,5 +341,14 @@ class AgreementController extends Controller
         }
 
         return $query->exists();
+    }
+
+    private function serviceTypeLabels(): array
+    {
+        return [
+            'home' => 'Hogar',
+            'lodging' => 'Hospedaje',
+            'event' => 'Evento',
+        ];
     }
 }

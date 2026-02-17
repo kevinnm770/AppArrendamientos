@@ -84,6 +84,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
             ->name('roomer-by-id-number');
 
         Route::post('/register', [AgreementController::class, 'store'])->name('register.store');
+
+        Route::get('/{agreementId}/edit', [AgreementController::class, 'edit'])->name('edit');
+        Route::patch('/{agreementId}/edit', [AgreementController::class, 'update'])->name('edit.update');
+        Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
+
+        Route::post('/{agreementId}/delete-token', [AgreementController::class, 'sendDeleteToken'])->name('delete-token');
+        Route::delete('/{agreementId}', [AgreementController::class, 'delete'])->name('delete');
     });
 });
 
