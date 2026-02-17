@@ -65,32 +65,29 @@
 
                     <div class="col-12">
                         <label class="form-label">Detalles del contrato</label>
-                        <div id="snow" style="min-height: 280px;">{!! old('terms', $agreement->terms) !!}</div>
+                        <div id="snow" style="height: 500px;">{!! old('terms', $agreement->terms) !!}</div>
                         <input id="terms" name="terms" type="hidden" required>
                     </div>
-
-                    <div class="col-12 d-flex justify-content-between align-items-center mt-4">
-                        <a href="{{ route('admin.agreements.index') }}" class="btn btn-light-secondary">Volver</a>
-                        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            </div>
+                    <div class="card-footer my-0 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                        <button type="button" class="btn btn-danger" id="delete-agreement-button">
+                            <i class="fa-solid fa-trash"></i> Eliminar
+                        </button>
+                        <div class="d-flex justify-content-end gap-2 ms-auto">
+                            <a href="{{ route('admin.agreements.index') }}" class="btn btn-light-secondary">Volver</a>
+                            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                        </div>
                     </div>
                 </form>
 
-                <hr>
-
-                <div class="d-flex gap-2 justify-content-end">
-                    <form method="POST" action="{{ route('admin.agreements.delete-token', $agreement->id) }}">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-primary">Enviar token por correo</button>
-                    </form>
-
+                <div class="d-flex gap-2 justify-content-start">
                     <form method="POST" action="{{ route('admin.agreements.delete', $agreement->id) }}" id="delete-agreement-form">
                         @csrf
                         @method('DELETE')
-                        <input type="hidden" name="token" id="delete-token-input" value="">
-                        <button type="button" class="btn btn-danger" id="delete-agreement-button">Eliminar contrato</button>
+                        <input type="hidden" name="token" id="delete-token-input" value="" required>
                     </form>
                 </div>
-            </div>
+
         </div>
     </section>
 
@@ -135,10 +132,9 @@
                         cancelButtonText: 'Cancelar',
                         confirmButtonColor: '#dc3545',
                         preConfirm: (value) => {
-                            if (!value || !value.trim()) {
+                            if (!value) {
                                 return 'Debes ingresar el token para continuar.';
                             }
-                            return null;
                         }
                     });
 

@@ -104,7 +104,7 @@
                             </div>
                             <div class="card-body p-0">
                                 <p>Redacta el contrato completo.</p>
-                                <div id="snow" style="min-height: 320px;">
+                                <div id="snow" style="height: 500px;">
                                     {!! old('terms', '
                                     <h4>CONTRATO DE ARRENDAMIENTO</h4>
                                     <p><strong>Entre:</strong> [Nombre del arrendador], identificado con cédula No. [Número], en adelante "EL ARRENDADOR".</p>
