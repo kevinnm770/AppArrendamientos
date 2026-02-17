@@ -11,11 +11,6 @@
   <link rel="stylesheet" href="{{asset('/assets/compiled/css/app.css')}}">
   <link rel="stylesheet" href="{{asset('/assets/compiled/css/app-dark.css')}}">
   <link rel="stylesheet" href="{{asset('/assets/compiled/css/auth.css')}}">
-  <style>
-    body {
-        background-color: #2e7d32;
-    }
-  </style>
 </head>
 
 <body>
