@@ -25,6 +25,8 @@
                     $detailsRoute = $agreement->status === 'sent'
                         ? route('admin.agreements.edit', $agreement->id)
                         : route('admin.agreements.view', $agreement->id);
+                    $effectiveStartAt = $agreement->latestAdemdum?->start_at ?? $agreement->start_at;
+                    $effectiveEndAt = $agreement->latestAdemdum?->end_at ?? $agreement->end_at;
                 @endphp
                 <div class="col-xl-4 col-md-6 col-sm-12">
                     <a href="{{ $detailsRoute }}" class="text-decoration-none text-body">
@@ -34,8 +36,8 @@
                                     <h4 class="card-title mb-2">{{ $agreement->roomer->legal_name ?? 'Sin arrendatario' }}</h4>
                                     <p class="mb-2">
                                         <i class="bi bi-calendar-check-fill"></i>
-                                        {{ optional($agreement->start_at)->format('d/m/Y') ?? 'Sin inicio' }} -
-                                        {{ optional($agreement->end_at)->format('d/m/Y') ?? 'Sin fin' }}
+                                        {{ optional($effectiveStartAt)->format('d/m/Y') ?? 'Sin inicio' }} -
+                                        {{ optional($effectiveEndAt)->format('d/m/Y') ?? 'Sin fin' }}
                                     </p>
                                     <span class="badge bg-light-secondary">{{ strtoupper($agreement->status) }}</span>
                                 </div>

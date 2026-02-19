@@ -46,8 +46,13 @@ class Agreement extends Model
         return $this->belongsTo(Property::class);
     }
 
-    public function ademdum()
+    public function ademdums()
     {
-        return $this->hasOne(Ademdum::class);
+        return $this->hasMany(Ademdum::class);
+    }
+
+    public function latestAdemdum()
+    {
+        return $this->hasOne(Ademdum::class)->latestOfMany('created_at');
     }
 }

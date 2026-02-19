@@ -21,7 +21,9 @@ class AdemdumController extends Controller
 
         return view('admin.ademdums.index', [
             'agreement' => $agreement,
-            'ademdum' => $agreement->ademdum,
+            'ademdums' => $agreement->ademdums()->latest('created_at')->get(),
+            'latestAdemdum' => $agreement->latestAdemdum,
+            'defaultData' => $agreement->latestAdemdum ?? $agreement,
             'serviceTypeLabels' => $this->serviceTypeLabels(),
         ]);
     }
@@ -32,12 +34,6 @@ class AdemdumController extends Controller
 
         if ($agreement->status !== 'accepted') {
             return back()->withErrors(['agreement' => 'Solo puedes crear ademdums cuando el contrato está en estado "accepted".']);
-        }
-
-        if ($agreement->ademdum) {
-            return redirect()
-                ->route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->ademdum->id])
-                ->withErrors(['ademdum' => 'Este contrato ya tiene un ademdum asociado.']);
         }
 
         $validated = $request->validate([
@@ -135,7 +131,7 @@ class AdemdumController extends Controller
     {
         $lessor = $request->user()?->lessor;
 
-        return Agreement::with(['roomer', 'property', 'ademdum'])
+        return Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum'])
             ->where('lessor_id', $lessor?->id)
             ->findOrFail($agreementId);
     }
