@@ -23,7 +23,7 @@ class AgreementController extends Controller
         if ($user->isLessor()) {
             $lessor = $user->lessor;
 
-            $agreements = Agreement::with(['property', 'roomer'])
+            $agreements = Agreement::with(['property', 'roomer', 'latestAdemdum'])
                 ->where('lessor_id', $lessor->id)
                 ->orderByDesc('start_at')
                 ->get();
@@ -32,7 +32,7 @@ class AgreementController extends Controller
         if ($user->isRoomer()) {
             $roomer = $user->roomer;
 
-            $agreements = Agreement::with(['property', 'lessor'])
+            $agreements = Agreement::with(['property', 'lessor', 'latestAdemdum'])
                 ->where('roomer_id', $roomer->id)
                 ->orderByDesc('start_at')
                 ->get();
@@ -309,7 +309,7 @@ class AgreementController extends Controller
     {
         $lessor = $request->user()?->lessor;
 
-        return Agreement::with(['roomer', 'property', 'ademdum'])
+        return Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum'])
             ->where('lessor_id', $lessor?->id)
             ->findOrFail($agreementId);
     }
