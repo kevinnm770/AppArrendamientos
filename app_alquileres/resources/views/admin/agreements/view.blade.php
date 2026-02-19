@@ -33,6 +33,37 @@
                     </div>
                 </div>
 
+                <hr>
+
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <h5 class="mb-0">Ademdum vinculado</h5>
+                    @if ($agreement->status === 'accepted')
+                        <a href="{{ route('admin.ademdums.index', ['agreementId' => $agreement->id]) }}" class="btn btn-sm btn-outline-primary">Gestionar ademdum</a>
+                    @endif
+                </div>
+
+                @if ($agreement->ademdum)
+                    <div class="border rounded p-3">
+                        <p class="mb-2"><strong>Estado:</strong> {{ strtoupper($agreement->ademdum->status) }}</p>
+                        <p class="mb-2"><strong>Inicio:</strong> {{ optional($agreement->ademdum->start_at)->format('d/m/Y') }}</p>
+                        <p class="mb-3"><strong>Fin:</strong> {{ optional($agreement->ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</p>
+                        <div class="d-flex gap-2">
+                            @if ($agreement->ademdum->status === 'sent')
+                                <a href="{{ route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->ademdum->id]) }}" class="btn btn-sm btn-primary">Editar</a>
+                                <form method="POST" action="{{ route('admin.ademdums.delete', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->ademdum->id]) }}" onsubmit="return confirm('¿Seguro que deseas eliminar este ademdum?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                </form>
+                            @else
+                                <a href="{{ route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->ademdum->id]) }}" class="btn btn-sm btn-light-secondary">Ver ademdum</a>
+                            @endif
+                        </div>
+                    </div>
+                @else
+                    <div class="alert alert-light-secondary mb-0">No existe un ademdum creado para este contrato.</div>
+                @endif
+
                 <div class="mt-4 text-end">
                     <a href="{{ route('admin.agreements.index') }}" class="btn btn-light-secondary">Volver</a>
                 </div>

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdemdumController;
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
@@ -91,6 +91,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
 
         Route::post('/{agreementId}/delete-token', [AgreementController::class, 'sendDeleteToken'])->name('delete-token');
         Route::delete('/{agreementId}', [AgreementController::class, 'delete'])->name('delete');
+    });
+
+
+    Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {
+        Route::get('/', [AdemdumController::class, 'index'])->name('index');
+        Route::post('/', [AdemdumController::class, 'store'])->name('store');
+
+        Route::get('/{ademdumId}/edit', [AdemdumController::class, 'edit'])->name('edit');
+        Route::patch('/{ademdumId}/edit', [AdemdumController::class, 'update'])->name('edit.update');
+        Route::get('/{ademdumId}/view', [AdemdumController::class, 'view'])->name('view');
+        Route::delete('/{ademdumId}', [AdemdumController::class, 'delete'])->name('delete');
     });
 });
 

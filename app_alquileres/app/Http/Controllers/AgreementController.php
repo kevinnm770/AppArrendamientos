@@ -309,7 +309,7 @@ class AgreementController extends Controller
     {
         $lessor = $request->user()?->lessor;
 
-        return Agreement::with(['roomer', 'property'])
+        return Agreement::with(['roomer', 'property', 'ademdum'])
             ->where('lessor_id', $lessor?->id)
             ->findOrFail($agreementId);
     }
