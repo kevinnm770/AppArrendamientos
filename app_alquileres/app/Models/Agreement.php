@@ -45,4 +45,9 @@ class Agreement extends Model
     {
         return $this->belongsTo(Property::class);
     }
+
+    public function ademdum()
+    {
+        return $this->hasOne(Ademdum::class);
+    }
 }
