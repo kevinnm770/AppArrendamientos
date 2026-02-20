@@ -41,15 +41,8 @@
                         <p class="mb-2"><strong>Inicio:</strong> {{ optional($agreement->latestAdemdum->start_at)->format('d/m/Y') }}</p>
                         <p class="mb-3"><strong>Fin:</strong> {{ optional($agreement->latestAdemdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</p>
                         <div class="d-flex gap-2">
-                            @if ($agreement->latestAdemdum->status === 'sent')
-                                <form method="POST" action="" onsubmit="return confirm('¿Seguro que deseas aceptar este ademdum?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Aceptar</button>
-                                </form>
-                            @else
-                                <a href="{{ route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->latestAdemdum->id]) }}" class="btn btn-sm btn-light-secondary">Ver ademdum</a>
-                            @endif
+                            <a href="{{ route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->latestAdemdum->id]) }}"
+                                class="btn btn-sm btn-light-secondary">Ver ademdum</a>
                         </div>
                     </div>
                 @else

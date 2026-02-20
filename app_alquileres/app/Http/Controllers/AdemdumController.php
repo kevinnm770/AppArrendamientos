@@ -73,14 +73,48 @@ class AdemdumController extends Controller
 
     public function view(int $agreementId, int $ademdumId, Request $request)
     {
-        $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $agreement = $this->getAccessibleAgreement($agreementId, $request);
         $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
 
-        return view('admin.ademdums.view', [
+        if ($request->user()?->isRoomer() && $ademdum->status === 'sent' && $agreement->status !== 'accepted') {
+            return redirect()
+                ->route('tenant.agreements.view', $agreement->id)
+                ->withErrors(['agreement' => 'Debes aceptar primero el contrato para revisar ademdums pendientes.']);
+        }
+
+        $view = $request->user()?->isRoomer() ? 'tenant.ademdums.view' : 'admin.ademdums.view';
+
+        return view($view, [
             'agreement' => $agreement,
             'ademdum' => $ademdum,
             'serviceTypeLabels' => $this->serviceTypeLabels(),
         ]);
+    }
+
+    public function accept(int $agreementId, int $ademdumId, Request $request)
+    {
+        $agreement = $this->getAccessibleAgreement($agreementId, $request);
+        $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
+
+        if (!$request->user()?->isRoomer()) {
+            abort(403);
+        }
+
+        if ($ademdum->status !== 'sent') {
+            return redirect()
+                ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+                ->withErrors(['ademdum' => 'Solo puedes aceptar ademdums en estado "sent".']);
+        }
+
+        $ademdum->update([
+            'status' => 'accepted',
+            'tenant_confirmed_at' => now(),
+            'locked_at' => now(),
+        ]);
+
+        return redirect()
+            ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+            ->with('success', 'Ademdum aceptado correctamente.');
     }
 
     public function update(int $agreementId, int $ademdumId, Request $request)
@@ -134,6 +168,23 @@ class AdemdumController extends Controller
         return Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum'])
             ->where('lessor_id', $lessor?->id)
             ->findOrFail($agreementId);
+    }
+
+    private function getAccessibleAgreement(int $agreementId, Request $request): Agreement
+    {
+        $user = $request->user();
+
+        $query = Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum']);
+
+        if ($user?->isLessor()) {
+            $query->where('lessor_id', $user?->lessor?->id);
+        } elseif ($user?->isRoomer()) {
+            $query->where('roomer_id', $user?->roomer?->id);
+        } else {
+            abort(403);
+        }
+
+        return $query->findOrFail($agreementId);
     }
 
     private function getAgreementAdemdum(Agreement $agreement, int $ademdumId): Ademdum
