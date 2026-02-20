@@ -27,6 +27,10 @@ class AgreementController extends Controller
                 ->where('lessor_id', $lessor->id)
                 ->orderByDesc('start_at')
                 ->get();
+
+            return view('admin.agreements.index', [
+                'agreements' => $agreements,
+            ]);
         }
 
         if ($user->isRoomer()) {
@@ -36,11 +40,11 @@ class AgreementController extends Controller
                 ->where('roomer_id', $roomer->id)
                 ->orderByDesc('start_at')
                 ->get();
-        }
 
-        return view('admin.agreements.index', [
-            'agreements' => $agreements,
-        ]);
+            return view('tenant.agreements.index', [
+                'agreements' => $agreements,
+            ]);
+        }
     }
 
     public function register(Request $request)
@@ -98,10 +102,21 @@ class AgreementController extends Controller
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
 
-        return view('admin.agreements.view', [
-            'agreement' => $agreement,
-            'serviceTypeLabels' => $this->serviceTypeLabels(),
-        ]);
+        $user = $request->user();
+
+        if ($user->isLessor()) {
+            return view('admin.agreements.view', [
+                'agreement' => $agreement,
+                'serviceTypeLabels' => $this->serviceTypeLabels(),
+            ]);
+        }
+
+        if ($user->isRoomer()) {
+            return view('tenant.agreements.view', [
+                'agreement' => $agreement,
+                'serviceTypeLabels' => $this->serviceTypeLabels(),
+            ]);
+        }
     }
 
     public function update(int $agreementId, Request $request)

@@ -121,4 +121,16 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
         //Datos del roomer
         Route::patch('/roomer', [roomerController::class, 'update'])->name('roomer.update');
     });
+
+    // Contratos
+    Route::prefix('agreements')->name('agreements.')->middleware('auth')->group(function () {
+        //Ventana de contratos
+        Route::get('/', [AgreementController::class, 'index'])->name('index');
+
+        Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
+    });
+
+    Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {
+        Route::get('/{ademdumId}/view', [AdemdumController::class, 'view'])->name('view');
+    });
 });
