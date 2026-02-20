@@ -56,7 +56,14 @@
                     <div class="alert alert-light-secondary mb-0">No existe un ademdum creado para este contrato.</div>
                 @endif
 
-                <div class="mt-4 text-end">
+                <div class="mt-4 d-flex justify-content-end gap-2">
+                    @if ($agreement->status === 'sent')
+                        <form method="POST" action="{{ route('tenant.agreements.accept', $agreement->id) }}" onsubmit="return confirm('¿Seguro que deseas aceptar este contrato?');">
+                            @csrf
+                            @method('PATCH')
+                            <button type="submit" class="btn btn-primary">Aceptar</button>
+                        </form>
+                    @endif
                     <a href="{{ route('tenant.agreements.index') }}" class="btn btn-light-secondary">Volver</a>
                 </div>
             </div>

@@ -162,6 +162,28 @@ class AgreementController extends Controller
             ->with('success', 'Contrato actualizado correctamente.');
     }
 
+    public function accept(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+
+        if ($agreement->status !== 'sent') {
+            return redirect()
+                ->route('tenant.agreements.view', $agreement->id)
+                ->withErrors(['agreement' => 'Solo puedes aceptar contratos en estado "sent".']);
+        }
+
+        $agreement->update([
+            'status' => 'accepted',
+            'tenant_confirmed_at' => now(),
+            'locked_at' => now(),
+            'updated_by_user_id' => $request->user()->id,
+        ]);
+
+        return redirect()
+            ->route('tenant.agreements.view', $agreement->id)
+            ->with('success', 'Contrato aceptado correctamente.');
+    }
+
     public function sendDeleteToken(int $agreementId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
@@ -322,11 +344,21 @@ class AgreementController extends Controller
 
     private function getOwnedAgreement(int $agreementId, Request $request): Agreement
     {
-        $lessor = $request->user()?->lessor;
+        $user = $request->user();
+        $lessor = $user?->lessor;
+        $roomer = $user?->roomer;
 
-        return Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum'])
-            ->where('lessor_id', $lessor?->id)
-            ->findOrFail($agreementId);
+        $query = Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum']);
+
+        if ($user?->isLessor()) {
+            $query->where('lessor_id', $lessor?->id);
+        } elseif ($user?->isRoomer()) {
+            $query->where('roomer_id', $roomer?->id);
+        } else {
+            abort(403);
+        }
+
+        return $query->findOrFail($agreementId);
     }
 
     private function hasDateCollision(string $column, int $id, Carbon $startAt, ?Carbon $endAt, ?int $ignoreAgreementId = null): bool
