@@ -128,6 +128,7 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
         Route::get('/', [AgreementController::class, 'index'])->name('index');
 
         Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
+        Route::patch('/{agreementId}/accept', [AgreementController::class, 'accept'])->name('accept');
     });
 
     Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {
