@@ -55,4 +55,15 @@ class Agreement extends Model
     {
         return $this->hasOne(Ademdum::class)->latestOfMany('created_at');
     }
+
+    public function AdemdumUpdatePeriod()
+    {
+        return $this->hasOne(Ademdum::class)
+            ->where('status', 'accepted')
+            ->whereNotNull('update_start_date_agreement')
+            ->whereNotNull('update_end_date_agreement')
+            ->where('update_start_date_agreement', '<=', now())
+            ->where('update_end_date_agreement', '>=', now())
+            ->latestOfMany('update_start_date_agreement');
+    }
 }
