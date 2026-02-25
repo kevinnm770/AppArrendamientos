@@ -35,18 +35,18 @@
 
                 <hr>
 
-                @if ($agreement->latestAdemdum)
+                @if ($agreement->latestAdemdum) <!-- Cambiar -->
                     <div class="border rounded p-3">
                         <p class="mb-2"><strong>Estado:</strong> {{ strtoupper($agreement->latestAdemdum->status) }}</p>
                         <p class="mb-2"><strong>Inicio:</strong> {{ optional($agreement->latestAdemdum->start_at)->format('d/m/Y') }}</p>
                         <p class="mb-3"><strong>Fin:</strong> {{ optional($agreement->latestAdemdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</p>
                         <div class="d-flex gap-2">
                             <a href="{{ route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->latestAdemdum->id]) }}"
-                                class="btn btn-sm btn-light-secondary">Ver ademdum</a>
+                                class="btn btn-sm btn-light-secondary">Ver adendum</a>
                         </div>
                     </div>
                 @else
-                    <div class="alert alert-light-secondary mb-0">No existe un ademdum creado para este contrato.</div>
+                    <div class="alert alert-light-secondary mb-0">No existe un adendum creado para este contrato.</div>
                 @endif
 
                 <div class="mt-4 d-flex justify-content-end gap-2">

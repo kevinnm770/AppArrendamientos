@@ -48,7 +48,7 @@
 
                                 @if ($agreement->status === 'accepted')
                                     <div class="card-footer d-flex justify-content-end gap-2">
-                                        <a href="{{ route('admin.ademdums.index', ['agreementId' => $agreement->id]) }}" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation();">Ademdum</a>
+                                        <a href="{{ route('admin.ademdums.index', ['agreementId' => $agreement->id]) }}" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation();">Adendum</a>
                                         <button type="button" class="btn btn-sm btn-outline-danger">Romper contrato</button>
                                     </div>
                                 @endif

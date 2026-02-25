@@ -12,7 +12,7 @@
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="{{ route('admin.index') }}">Admin</a></li>
                         <li class="breadcrumb-item"><a href="{{ route('admin.agreements.index') }}">Agreements</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Ademdum</li>
+                        <li class="breadcrumb-item active" aria-current="page">Adendum</li>
                     </ol>
                 </nav>
             </div>
@@ -47,14 +47,6 @@
                     <div class="col-md-4"><strong>Servicio:</strong> {{ $serviceTypeLabels[$agreement->service_type] ?? $agreement->service_type }}</div>
                 </div>
 
-                @if ($latestAdemdum)
-                    <div class="alert alert-light-info d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <span>Último ademdum: <strong>#{{ $latestAdemdum->id }}</strong> ({{ strtoupper($latestAdemdum->status) }})</span>
-                        <a href="{{ $latestAdemdum->status === 'sent' ? route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $latestAdemdum->id]) : route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $latestAdemdum->id]) }}"
-                            class="btn btn-primary btn-sm">Abrir último ademdum</a>
-                    </div>
-                @endif
-
                 <form id="ademdum-form" method="POST" action="{{ route('admin.ademdums.store', ['agreementId' => $agreement->id]) }}" class="row g-3">
                     @csrf
 
@@ -78,8 +70,7 @@
                                 Cambiar el periodo de vigencia del contrato
                             </label>
                         </div>
-                        <small class="text-muted">Si lo activas, el sistema copiará las fechas de Inicio/Fin del ademdum hacia
-                            update_start_date_agreement/update_end_date_agreement.</small>
+                        <small class="text-muted">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
                     </div>
 
                     <div class="col-12">
@@ -93,26 +84,6 @@
                         <button type="submit" class="btn btn-primary">Registrar ademdum</button>
                     </div>
                 </form>
-
-                <hr>
-
-                <h5>Historial de ademdums</h5>
-                @forelse ($ademdums as $ademdum)
-                    <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <div>
-                            <strong>#{{ $ademdum->id }}</strong> · {{ strtoupper($ademdum->status) }}<br>
-                            {{ optional($ademdum->start_at)->format('d/m/Y') }} - {{ optional($ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}<br>
-                            <small class="text-muted">
-                                Vigencia del contrato actualizada:
-                                {{ $ademdum->update_start_date_agreement && $ademdum->update_end_date_agreement ? 'Sí' : 'No' }}
-                            </small>
-                        </div>
-                        <a href="{{ $ademdum->status === 'sent' ? route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) : route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}"
-                            class="btn btn-sm btn-outline-primary">Abrir</a>
-                    </div>
-                @empty
-                    <div class="alert alert-light-secondary mb-0">No hay ademdums registrados para este contrato.</div>
-                @endforelse
             </div>
         </div>
     </section>

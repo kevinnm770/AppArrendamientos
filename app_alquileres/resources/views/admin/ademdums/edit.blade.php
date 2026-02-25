@@ -4,8 +4,8 @@
     <div class="page-title">
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
-                <h3>Editar ademdum #{{ $ademdum->id }}</h3>
-                <p class="text-subtitle text-muted">Solo se puede editar o eliminar mientras esté en estado <strong>sent</strong>.</p>
+                <h3>Editar adendum #{{ $ademdum->id }}</h3>
+                <p class="text-subtitle text-muted">El arrendatario aún lo ha aceptado por lo que puedes editarlo o eliminarlo.</p>
             </div>
         </div>
     </div>
@@ -29,7 +29,7 @@
     <section class="section">
         <div class="card">
             <div class="card-header">
-                <h4 class="card-title">Datos del ademdum</h4>
+                <h4 class="card-title">Datos del adendum</h4>
             </div>
             <div class="card-body">
                 <div class="row g-3 mb-3">
@@ -61,11 +61,13 @@
                             <label class="form-check-label" for="change_agreement_period">
                                 Cambiar el periodo de vigencia del contrato
                             </label>
+                            <br>
+                            <small class="text-muted">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
                         </div>
                     </div>
 
                     <div class="col-12">
-                        <label class="form-label">Detalles del ademdum</label>
+                        <label class="form-label">Detalles del adendum</label>
                         <div id="snow" style="height: 500px;">{!! old('terms', $ademdum->terms) !!}</div>
                         <input id="terms" name="terms" type="hidden" required>
                     </div>

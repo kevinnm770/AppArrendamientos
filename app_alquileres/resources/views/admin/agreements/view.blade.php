@@ -38,18 +38,18 @@
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="mb-0">Último ademdum</h5>
                     @if ($agreement->status === 'accepted')
-                        <a href="{{ route('admin.ademdums.index', ['agreementId' => $agreement->id]) }}" class="btn btn-sm btn-outline-primary">Gestionar ademdum</a>
+                        <a href="{{ route('admin.ademdums.index', ['agreementId' => $agreement->id]) }}" class="btn btn-sm btn-outline-primary">Crear adendum</a>
                     @endif
                 </div>
 
-                @if ($agreement->latestAdemdum)
+                @if ($agreement->latestAdemdum) <!-- MODIFICAR A NO SOLO EL ULTIMO -->
                     <div class="border rounded p-3">
                         <p class="mb-2"><strong>Estado:</strong> {{ strtoupper($agreement->latestAdemdum->status) }}</p>
                         <p class="mb-2"><strong>Inicio:</strong> {{ optional($agreement->latestAdemdum->start_at)->format('d/m/Y') }}</p>
                         <p class="mb-3"><strong>Fin:</strong> {{ optional($agreement->latestAdemdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</p>
                         <div class="d-flex gap-2">
                             @if ($agreement->latestAdemdum->status === 'sent')
-                                <a href="{{ route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->latestAdemdum->id]) }}" class="btn btn-sm btn-primary">Editar</a>
+                                <a href="{{ route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->latestAdemdum->id]) }}" class="btn btn-sm btn-primary" style="height: max-content;">Editar</a>
                                 <form method="POST" action="{{ route('admin.ademdums.delete', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->latestAdemdum->id]) }}" onsubmit="return confirm('¿Seguro que deseas eliminar este ademdum?');">
                                     @csrf
                                     @method('DELETE')

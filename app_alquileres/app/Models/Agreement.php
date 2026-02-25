@@ -55,4 +55,10 @@ class Agreement extends Model
     {
         return $this->hasOne(Ademdum::class)->latestOfMany('created_at');
     }
+
+    /*
+        Agrega un método nuevo llamado "AdemdumUpdatePeriod()" en el modelo Agreement de modo
+        que devuelva al ademdum que tiene status "accepted" y los campos "update_start_date_agreement"
+        y "update_end_date_agreement" no nulos y vigentes (donde la fecha actual esté en dicho rango).
+    */
 }
