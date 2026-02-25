@@ -12,6 +12,7 @@ class AdemdumController extends Controller
     public function index(int $agreementId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
 
         if ($agreement->status !== 'accepted') {
             return redirect()
@@ -31,6 +32,7 @@ class AdemdumController extends Controller
     public function store(int $agreementId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
 
         if ($agreement->status !== 'accepted') {
             return back()->withErrors(['agreement' => 'Solo puedes crear ademdums cuando el contrato está en estado "accepted".']);
@@ -40,12 +42,29 @@ class AdemdumController extends Controller
             'start_at' => ['required', 'date'],
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
+            'change_agreement_period' => ['nullable', 'boolean'],
         ]);
+
+        $changeAgreementPeriod = (bool) ($validated['change_agreement_period'] ?? false);
+
+        if ($changeAgreementPeriod && empty($validated['end_at'])) {
+            return back()
+                ->withErrors(['end_at' => 'Debes indicar una fecha de fin para cambiar la vigencia del contrato.'])
+                ->withInput();
+        }
+
+        if ($changeAgreementPeriod && $this->hasAcceptedAdemdumWithAgreementPeriodUpdate($agreement->id)) {
+            return back()
+                ->withErrors(['change_agreement_period' => 'No puedes cambiar el periodo de vigencia porque ya existe otro ademdum aceptado con actualización de vigencia.'])
+                ->withInput();
+        }
 
         $ademdum = Ademdum::create([
             'agreement_id' => $agreement->id,
             'start_at' => Carbon::parse($validated['start_at']),
             'end_at' => !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
+            'update_start_date_agreement' => $changeAgreementPeriod ? Carbon::parse($validated['start_at']) : null,
+            'update_end_date_agreement' => $changeAgreementPeriod && !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
             'terms' => $validated['terms'],
             'status' => 'sent',
         ]);
@@ -58,6 +77,7 @@ class AdemdumController extends Controller
     public function edit(int $agreementId, int $ademdumId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
         $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
 
         if ($ademdum->status !== 'sent') {
@@ -74,6 +94,7 @@ class AdemdumController extends Controller
     public function view(int $agreementId, int $ademdumId, Request $request)
     {
         $agreement = $this->getAccessibleAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
         $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
 
         if ($request->user()?->isRoomer() && $ademdum->status === 'sent' && $agreement->status !== 'accepted') {
@@ -94,6 +115,7 @@ class AdemdumController extends Controller
     public function accept(int $agreementId, int $ademdumId, Request $request)
     {
         $agreement = $this->getAccessibleAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
         $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
 
         if (!$request->user()?->isRoomer()) {
@@ -104,6 +126,21 @@ class AdemdumController extends Controller
             return redirect()
                 ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
                 ->withErrors(['ademdum' => 'Solo puedes aceptar ademdums en estado "sent".']);
+        }
+
+
+        if (
+            ($ademdum->update_start_date_agreement || $ademdum->update_end_date_agreement)
+            && (
+                !$ademdum->update_start_date_agreement
+                || !$ademdum->update_end_date_agreement
+                || !$ademdum->update_start_date_agreement->equalTo($ademdum->start_at)
+                || !$ademdum->update_end_date_agreement->equalTo($ademdum->end_at)
+            )
+        ) {
+            return redirect()
+                ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+                ->withErrors(['ademdum' => 'Las fechas de actualización de vigencia deben coincidir exactamente con las fechas de inicio y fin del ademdum.']);
         }
 
         $ademdum->update([
@@ -120,6 +157,7 @@ class AdemdumController extends Controller
     public function update(int $agreementId, int $ademdumId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
         $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
 
         if ($ademdum->status !== 'sent') {
@@ -132,11 +170,31 @@ class AdemdumController extends Controller
             'start_at' => ['required', 'date'],
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
+            'change_agreement_period' => ['nullable', 'boolean'],
         ]);
+
+        $changeAgreementPeriod = (bool) ($validated['change_agreement_period'] ?? false);
+
+        if ($changeAgreementPeriod && empty($validated['end_at'])) {
+            return back()
+                ->withErrors(['end_at' => 'Debes indicar una fecha de fin para cambiar la vigencia del contrato.'])
+                ->withInput();
+        }
+
+        if (
+            $changeAgreementPeriod
+            && $this->hasAcceptedAdemdumWithAgreementPeriodUpdate($agreement->id, $ademdum->id)
+        ) {
+            return back()
+                ->withErrors(['change_agreement_period' => 'No puedes cambiar el periodo de vigencia porque ya existe otro ademdum aceptado con actualización de vigencia.'])
+                ->withInput();
+        }
 
         $ademdum->update([
             'start_at' => Carbon::parse($validated['start_at']),
             'end_at' => !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
+            'update_start_date_agreement' => $changeAgreementPeriod ? Carbon::parse($validated['start_at']) : null,
+            'update_end_date_agreement' => $changeAgreementPeriod && !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
             'terms' => $validated['terms'],
         ]);
 
@@ -148,6 +206,7 @@ class AdemdumController extends Controller
     public function delete(int $agreementId, int $ademdumId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
         $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
 
         if ($ademdum->status !== 'sent') {
@@ -159,6 +218,32 @@ class AdemdumController extends Controller
         return redirect()
             ->route('admin.ademdums.index', ['agreementId' => $agreement->id])
             ->with('success', 'Ademdum eliminado correctamente.');
+    }
+
+    public function canceling(int $agreementId, int $ademdumId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
+        $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
+
+        if ($ademdum->status !== 'accepted') {
+            return redirect()
+                ->route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+                ->withErrors(['ademdum' => 'Solo puedes dejar sin efecto ademdums en estado "accepted".']);
+        }
+
+        $validated = $request->validate([
+            'cancelled_by' => ['required', 'string', 'max:255'],
+        ]);
+
+        $ademdum->update([
+            'status' => 'canceling',
+            'cancelled_by' => trim($validated['cancelled_by']),
+        ]);
+
+        return redirect()
+            ->route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+            ->with('success', 'Ademdum marcado como "canceling" correctamente.');
     }
 
     private function getOwnedAgreement(int $agreementId, Request $request): Agreement
@@ -202,5 +287,37 @@ class AdemdumController extends Controller
             'lodging' => 'Hospedaje',
             'event' => 'Evento',
         ];
+    }
+
+    private function hasAcceptedAdemdumWithAgreementPeriodUpdate(int $agreementId, ?int $ignoreAdemdumId = null): bool
+    {
+        $query = Ademdum::query()
+            ->where('agreement_id', $agreementId)
+            ->where('status', 'accepted')
+            ->whereNotNull('update_start_date_agreement')
+            ->whereNotNull('update_end_date_agreement');
+
+        if ($ignoreAdemdumId) {
+            $query->whereKeyNot($ignoreAdemdumId);
+        }
+
+        return $query->exists();
+    }
+
+    private function syncExpiredAcceptedAdemdums(Agreement $agreement): void
+    {
+        Ademdum::query()
+            ->where('agreement_id', $agreement->id)
+            ->where('status', 'accepted')
+            ->whereNotNull('end_at')
+            ->where('end_at', '<', now())
+            ->get()
+            ->each(function (Ademdum $ademdum): void {
+                $ademdum->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => $ademdum->end_at,
+                    'cancelled_by' => 'Expired period',
+                ]);
+            });
     }
 }

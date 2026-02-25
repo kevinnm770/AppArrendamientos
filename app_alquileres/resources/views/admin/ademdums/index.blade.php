@@ -64,10 +64,22 @@
                             value="{{ old('start_at', optional($defaultData->start_at)->format('Y-m-d\TH:i')) }}" required>
                     </div>
 
-                    <div class="col-md-6 mb-4">
+                    <div class="col-md-6 mb-2">
                         <label for="end_at" class="form-label">Fin</label>
                         <input id="end_at" type="datetime-local" name="end_at" class="form-control"
                             value="{{ old('end_at', optional($defaultData->end_at)->format('Y-m-d\TH:i')) }}">
+                    </div>
+
+                    <div class="col-12 mt-0 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="1" id="change_agreement_period" name="change_agreement_period"
+                                {{ old('change_agreement_period') ? 'checked' : '' }}>
+                            <label class="form-check-label" for="change_agreement_period">
+                                Cambiar el periodo de vigencia del contrato
+                            </label>
+                        </div>
+                        <small class="text-muted">Si lo activas, el sistema copiará las fechas de Inicio/Fin del ademdum hacia
+                            update_start_date_agreement/update_end_date_agreement.</small>
                     </div>
 
                     <div class="col-12">
@@ -89,7 +101,11 @@
                     <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div>
                             <strong>#{{ $ademdum->id }}</strong> · {{ strtoupper($ademdum->status) }}<br>
-                            {{ optional($ademdum->start_at)->format('d/m/Y') }} - {{ optional($ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}
+                            {{ optional($ademdum->start_at)->format('d/m/Y') }} - {{ optional($ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}<br>
+                            <small class="text-muted">
+                                Vigencia del contrato actualizada:
+                                {{ $ademdum->update_start_date_agreement && $ademdum->update_end_date_agreement ? 'Sí' : 'No' }}
+                            </small>
                         </div>
                         <a href="{{ $ademdum->status === 'sent' ? route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) : route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}"
                             class="btn btn-sm btn-outline-primary">Abrir</a>
