@@ -48,7 +48,8 @@ class Agreement extends Model
 
     public function ademdums()
     {
-        return $this->hasMany(Ademdum::class);
+        return $this->hasMany(Ademdum::class)
+                    ->orderBy('created_at', 'desc');
     }
 
     public function latestAdemdum()
@@ -62,8 +63,6 @@ class Agreement extends Model
             ->where('status', 'accepted')
             ->whereNotNull('update_start_date_agreement')
             ->whereNotNull('update_end_date_agreement')
-            ->where('update_start_date_agreement', '<=', now())
-            ->where('update_end_date_agreement', '>=', now())
-            ->latestOfMany('update_start_date_agreement');
+            ->latestOfMany('created_at');
     }
 }

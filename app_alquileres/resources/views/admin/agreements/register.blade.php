@@ -19,6 +19,10 @@
         </div>
     </div>
 
+    <style>
+        .var{color: green;}
+    </style>
+
     @if ($errors->any())
         <section class="section">
             <div class="alert alert-light-danger">
@@ -104,19 +108,91 @@
                             </div>
                             <div class="card-body p-0">
                                 <p>Redacta el contrato completo.</p>
-                                <div id="snow" style="height: 500px;">
+                                <div id="snow" style="height: 500px;max-height: 600px;overflow:auto;">
                                     {!! old('terms', '
-                                    <h4>CONTRATO DE ARRENDAMIENTO</h4>
-                                    <p><strong>Entre:</strong> [Nombre del arrendador], identificado con cédula No. [Número], en adelante "EL ARRENDADOR".</p>
-                                    <p><strong>Y:</strong> [Nombre del arrendatario], identificado con cédula No. [Número], en adelante "EL ARRENDATARIO".</p>
-                                    <p><br></p>
-                                    <p><strong>PRIMERA - OBJETO:</strong> EL ARRENDADOR entrega en arrendamiento el inmueble [Dirección/Descripción], para uso [residencial/comercial].</p>
-                                    <p><strong>SEGUNDA - PLAZO:</strong> El presente contrato inicia el [fecha] y finaliza el [fecha], salvo prórroga o terminación anticipada.</p>
-                                    <p><strong>TERCERA - CANON:</strong> EL ARRENDATARIO pagará un canon mensual de [valor], dentro de los primeros [número] días de cada mes.</p>
-                                    <p><strong>CUARTA - OBLIGACIONES:</strong> Las partes se comprometen a cumplir con las obligaciones legales y contractuales correspondientes.</p>
-                                    <p><strong>QUINTA - TERMINACIÓN:</strong> Cualquiera de las partes podrá terminar este contrato según las causales legales vigentes.</p>
-                                    <p><br></p>
-                                    <p>En constancia, se firma en [ciudad], a los [día] días del mes de [mes] de [año].</p>
+                                    <h1 class="contract-title">CONTRATO DE ARRENDAMIENTO / HOSPEDAJE / USO DE SALÓN</h1>
+
+                                    <br>
+
+                                    <p><strong>Entre:</strong> <span class="var">[Nombre del arrendador / proveedor]</span>, identificado con cédula No. <span class="var">[Número]</span>, en adelante <strong>"EL ARRENDADOR"</strong> o <strong>"EL PROVEEDOR"</strong>.</p>
+
+                                    <p><strong>Y:</strong> <span class="var">[Nombre del arrendatario / huésped / cliente]</span>, identificado con cédula No. <span class="var">[Número]</span>, en adelante <strong>"EL ARRENDATARIO"</strong> o <strong>"EL USUARIO"</strong>.</p>
+
+                                    <p><strong>Tipo de servicio:</strong> <span class="var">[Casa / Hospedaje / Salón de eventos]</span></p>
+
+                                    <br>
+
+                                    <p><strong>PRIMERA - OBJETO:</strong> EL ARRENDADOR/PROVEEDOR otorga a EL ARRENDATARIO/USUARIO el uso del bien/espacio descrito como: <span class="var">[Dirección y descripción completa]</span>, incluyendo (si aplica) mobiliario/equipamiento: <span class="var">[Listado]</span>. El destino autorizado será: <span class="var">[Residencial / Hospedaje temporal / Evento]</span>. Queda prohibido variar el destino sin autorización escrita.</p>
+
+                                    <p><strong>SEGUNDA - PLAZO, FECHAS Y HORARIOS:</strong>
+                                    El servicio regirá desde <span class="var">[Fecha y hora de inicio]</span> hasta <span class="var">[Fecha y hora de finalización]</span>.
+                                    <span class="var">[Para vivienda: Plazo fijo en meses / Para hospedaje: Check-in y check-out / Para salón: horario de montaje, evento y desmontaje]</span>.
+                                    Cualquier prórroga o extensión deberá constar por escrito (adenda o confirmación formal).</p>
+
+                                    <p><strong>TERCERA - PRECIO/CANON, FORMA DE PAGO Y RECARGOS:</strong>
+                                    EL ARRENDATARIO/USUARIO pagará la suma de <span class="var">[Monto y moneda]</span> por concepto de <span class="var">[canon mensual / tarifa por noche / tarifa por evento]</span>.
+                                    El pago deberá realizarse a más tardar el día <span class="var">[día]</span> de cada <span class="var">[mes / periodo]</span> mediante <span class="var">[transferencia / SINPE / efectivo / otro]</span>.
+                                    En caso de atraso, se aplicará <span class="var">[recargo fijo / porcentaje / interés moratorio]</span> a partir de <span class="var">[día]</span>, sin perjuicio de otras acciones contractuales.</p>
+
+                                    <p><strong>CUARTA - DEPÓSITO/GARANTÍA (SI APLICA):</strong>
+                                    EL ARRENDATARIO/USUARIO entrega un depósito por la suma de <span class="var">[Monto]</span>, destinado a cubrir daños, faltantes, limpieza extraordinaria, multas o servicios pendientes. El depósito será devuelto dentro de <span class="var">[plazo]</span> tras la entrega y verificación del estado, descontando lo que corresponda con respaldo de evidencias y detalle.</p>
+
+                                    <p><strong>QUINTA - SERVICIOS, GASTOS Y REGLAS DE USO:</strong>
+                                    <span class="var">[Indicar qué incluye: agua, luz, internet, limpieza, seguridad, parqueo, etc.]</span>.
+                                    EL ARRENDATARIO/USUARIO se obliga a:
+                                    (a) usar el bien con diligencia y buen comportamiento; (b) respetar normas internas, aforo y horarios; (c) no realizar actos ilícitos;
+                                    (d) no subarrendar ni ceder sin autorización escrita; (e) mantener orden y limpieza.
+                                    <span class="var">[Para evento: niveles de sonido, uso de cocina, decoración permitida, pólvora prohibida, etc.]</span></p>
+
+                                    <p><strong>SEXTA - INVENTARIO Y ESTADO DE ENTREGA:</strong>
+                                    Las partes reconocen el estado del inmueble/espacio y bienes conforme al inventario/acta de entrega: <span class="var">[Adjunto/Link/Detalle]</span>.
+                                    Cualquier daño no reportado dentro de <span class="var">[24/48]</span> horas (o antes del evento) se considerará ocurrido durante el uso, salvo prueba en contrario.</p>
+
+                                    <p><strong>SÉTIMA - MANTENIMIENTO, DAÑOS Y RESPONSABILIDAD:</strong>
+                                    EL ARRENDATARIO/USUARIO responderá por daños ocasionados por su culpa o la de sus acompañantes, visitantes, proveedores o invitados.
+                                    EL ARRENDADOR/PROVEEDOR atenderá el mantenimiento correctivo que le corresponda, salvo daños imputables al uso indebido.
+                                    Queda prohibido realizar modificaciones, perforaciones o instalaciones sin autorización escrita.</p>
+
+                                    <p><strong>OCTAVA - VISITAS, OCUPACIÓN Y AFORO:</strong>
+                                    La ocupación máxima será de <span class="var">[número]</span> personas.
+                                    <span class="var">[Para vivienda/hospedaje: reglas de visitas, horarios, registro de huéspedes. Para salón: aforo, ingreso de proveedores, seguridad.]</span></p>
+
+                                    <p><strong>NOVENA - POLÍTICA DE CANCELACIÓN Y REPROGRAMACIÓN (HOSPEDAJE / SALÓN):</strong>
+                                    Si EL ARRENDATARIO/USUARIO cancela:
+                                    - con <span class="var">[X]</span> días de anticipación: <span class="var">[reembolso total/parcial]</span>;
+                                    - con menos de <span class="var">[X]</span> días: <span class="var">[no reembolsable / retención de reserva]</span>.
+                                    La reprogramación estará sujeta a disponibilidad y podrá generar cargos administrativos de <span class="var">[monto]</span>.
+                                    <span class="var">[Para vivienda, puedes omitir esta cláusula o adaptarla a preaviso.]</span></p>
+
+                                    <p><strong>DÉCIMA - TERMINACIÓN / RESOLUCIÓN:</strong>
+                                    El contrato podrá darse por terminado por:
+                                    (a) incumplimiento de pago; (b) uso distinto al autorizado; (c) daños graves; (d) exceder aforo o perturbar la convivencia; (e) cualquier otra causal pactada o legal aplicable.
+                                    En caso de terminación por incumplimiento, EL ARRENDADOR/PROVEEDOR podrá retener montos adeudados y/o el depósito en lo que corresponda, sin perjuicio de cobro de daños adicionales.</p>
+
+                                    <p><strong>DÉCIMA PRIMERA - NOTIFICACIONES:</strong>
+                                    Las comunicaciones se tendrán por válidas si se envían a:
+                                    Correo EL ARRENDADOR/PROVEEDOR: <span class="var">[correo]</span> — Tel.: <span class="var">[tel]</span><br>
+                                    Correo EL ARRENDATARIO/USUARIO: <span class="var">[correo]</span> — Tel.: <span class="var">[tel]</span></p>
+
+                                    <p><strong>DÉCIMA SEGUNDA - ACUERDO INTEGRAL Y ADENDAS:</strong>
+                                    Este documento contiene el acuerdo completo entre las partes. Cualquier modificación deberá constar por escrito mediante <strong>adenda</strong> firmada por ambas partes.</p>
+
+                                    <p><strong>DÉCIMA TERCERA - FIRMA:</strong> En constancia, se firma en <span class="var">[Ciudad]</span>, a los <span class="var">[día]</span> días del mes de <span class="var">[mes]</span> del <span class="var">[año]</span>.</p>
+
+                                    <table class="signatures" style="width:100%; margin-top:18px; border-collapse:collapse;">
+                                    <tr>
+                                        <td style="width:50%; padding-top:22px;">
+                                        _______________________________<br>
+                                        <strong>EL ARRENDADOR / PROVEEDOR</strong><br>
+                                        <span class="var">[Nombre]</span> — Cédula: <span class="var">[Número]</span>
+                                        </td>
+                                        <td style="width:50%; padding-top:22px;">
+                                        <br>_______________________________<br>
+                                        <strong>EL ARRENDATARIO / USUARIO</strong><br>
+                                        <span class="var">[Nombre]</span> — Cédula: <span class="var">[Número]</span>
+                                        </td>
+                                    </tr>
+                                    </table>
                                     ') !!}
                                 </div>
                                 <input id="terms" name="terms" type="hidden" required>

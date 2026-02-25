@@ -28,26 +28,31 @@
                 <hr>
 
                 <div class="ql-snow">
-                    <div class="ql-editor" style="padding: 0;">
+                    <div class="ql-editor" style="padding: 30px 0 0 0;height: 500px;max-height: 600px;overflow:auto;">
                         {!! $agreement->terms !!}
                     </div>
                 </div>
 
                 <hr>
 
-                @if ($agreement->latestAdemdum) <!-- Cambiar -->
-                    <div class="border rounded p-3">
-                        <p class="mb-2"><strong>Estado:</strong> {{ strtoupper($agreement->latestAdemdum->status) }}</p>
-                        <p class="mb-2"><strong>Inicio:</strong> {{ optional($agreement->latestAdemdum->start_at)->format('d/m/Y') }}</p>
-                        <p class="mb-3"><strong>Fin:</strong> {{ optional($agreement->latestAdemdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</p>
+                <h5>Lista de adendums</h5>
+                @forelse ($agreement->ademdums as $ademdum)
+                    <div class="border rounded p-3 mb-3">
+                        <p class="mb-2"><strong>Estado:</strong> {{ strtoupper($ademdum->status) }}</p>
+                        <p class="mb-2"><strong>Inicio:</strong> {{ optional($ademdum->start_at)->format('d/m/Y') }}</p>
+                        <p class="mb-3"><strong>Fin:</strong> {{ optional($ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</p>
                         <div class="d-flex gap-2">
-                            <a href="{{ route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $agreement->latestAdemdum->id]) }}"
+                            <a href="{{ route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}"
                                 class="btn btn-sm btn-light-secondary">Ver adendum</a>
                         </div>
                     </div>
-                @else
-                    <div class="alert alert-light-secondary mb-0">No existe un adendum creado para este contrato.</div>
-                @endif
+                @empty
+                    <div class="col-12">
+                        <div class="alert alert-light-secondary" role="alert">
+                            Este contrato no tiene adendums registrados todavía.
+                        </div>
+                    </div>
+                @endforelse
 
                 <div class="mt-4 d-flex justify-content-end gap-2">
                     @if ($agreement->status === 'sent')

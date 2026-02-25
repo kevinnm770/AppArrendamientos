@@ -25,15 +25,15 @@
                     $detailsRoute = $agreement->status === 'sent'
                         ? route('admin.agreements.edit', $agreement->id)
                         : route('admin.agreements.view', $agreement->id);
-                    $effectiveStartAt = $agreement->latestAdemdum?->start_at ?? $agreement->start_at;
-                    $effectiveEndAt = $agreement->latestAdemdum?->end_at ?? $agreement->end_at;
+                    $effectiveStartAt = $agreement->AdemdumUpdatePeriod?->update_start_date_agreement ?? $agreement->start_at;
+                    $effectiveEndAt = $agreement->AdemdumUpdatePeriod?->update_end_date_agreement ?? $agreement->end_at;
                 @endphp
                 <div class="col-xl-4 col-md-6 col-sm-12">
                     <a href="{{ $detailsRoute }}" class="text-decoration-none text-body">
                         <div class="card" style="cursor: pointer;">
                             <div class="card-content">
                                 <div class="card-body pb-2">
-                                    <h4 class="card-title mb-2">{{ $agreement->roomer->legal_name ?? 'Sin arrendatario' }}</h4>
+                                    <h4 class="card-title mb-2">{{ $agreement->roomer->legal_name}}</h4>
                                     <p class="mb-2">
                                         <i class="bi bi-calendar-check-fill"></i>
                                         {{ optional($effectiveStartAt)->format('d/m/Y') ?? 'Sin inicio' }} -

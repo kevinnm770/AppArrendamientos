@@ -75,7 +75,76 @@
 
                     <div class="col-12">
                         <label class="form-label">Detalles del ademdum</label>
-                        <div id="snow" style="height: 500px;">{!! old('terms', $defaultData->terms) !!}</div>
+                        <div id="snow" style="height: 500px;">{!! old('terms',
+                        '
+                        <h1 class="contract-title">ADENDA AL CONTRATO DE ARRENDAMIENTO / HOSPEDAJE / USO DE SALÓN</h1>
+
+                        <br>
+
+                        <p><strong>Entre:</strong> <span class="var">[Nombre del arrendador / proveedor]</span>, cédula No. <span class="var">[Número]</span>, en adelante <strong>"EL ARRENDADOR"</strong> o <strong>"EL PROVEEDOR"</strong>.</p>
+
+                        <p><strong>Y:</strong> <span class="var">[Nombre del arrendatario / usuario]</span>, cédula No. <span class="var">[Número]</span>, en adelante <strong>"EL ARRENDATARIO"</strong> o <strong>"EL USUARIO"</strong>.</p>
+
+                        <p><strong>Contrato original:</strong> Suscrito el <span class="var">[fecha]</span>, sobre el bien ubicado en <span class="var">[dirección / descripción]</span>.</p>
+
+                        <br>
+
+                        <p><strong>PRIMERA - OBJETO DE LA ADENDA:</strong>
+                        Las partes acuerdan modificar parcialmente el contrato original indicado, en los términos que se detallan a continuación:</p>
+
+                        <br>
+
+                        <p><strong>SEGUNDA - MODIFICACIÓN DE PLAZO:</strong>
+                        Se modifica la cláusula de plazo, estableciendo que el contrato se extenderá desde <span class="var">[fecha inicio]</span> hasta <span class="var">[fecha final]</span>.
+                        <span class="var">[Opcional: indicar si sustituye totalmente o amplía el plazo original]</span></p>
+
+                        <p><strong>TERCERA - MODIFICACIÓN DE PRECIO / CANON:</strong>
+                        Se modifica el monto a pagar, estableciendo un nuevo canon/tarifa de <span class="var">[monto]</span>, bajo las mismas condiciones de pago originalmente pactadas / o nuevas condiciones:
+                        <span class="var">[detalle si cambia forma o fecha de pago]</span>.</p>
+
+                        <p><strong>CUARTA - CONDICIONES ESPECIALES:</strong>
+                        Se incorporan las siguientes condiciones adicionales:
+                        <ul>
+                            <li><span class="var">[Condición 1]</span></li>
+                            <li><span class="var">[Condición 2]</span></li>
+                            <li><span class="var">[Condición 3]</span></li>
+                        </ul>
+                        </p>
+
+                        <p><strong>QUINTA - DEPÓSITO / GARANTÍA (SI APLICA):</strong>
+                        El depósito se ajusta a <span class="var">[nuevo monto]</span> / se mantiene sin cambios / se elimina.
+                        <span class="var">[detalle adicional si aplica]</span></p>
+
+                        <p><strong>SEXTA - EFECTOS DE ESTA ADENDA:</strong>
+                        La presente adenda forma parte integral del contrato original. Todas las cláusulas no modificadas expresamente en este documento continúan vigentes en todos sus extremos.</p>
+
+                        <p><strong>SÉTIMA - INCUMPLIMIENTO:</strong>
+                        El incumplimiento de las condiciones establecidas en esta adenda dará lugar a:
+                        <span class="var">[opción A: dejar sin efecto la adenda y volver a condiciones originales / opción B: causal de terminación del contrato]</span>.</p>
+
+                        <p><strong>OCTAVA - VIGENCIA:</strong>
+                        La presente adenda entra en vigor a partir de <span class="var">[fecha]</span>.</p>
+
+                        <br>
+
+                        <p><strong>En constancia, se firma en:</strong> <span class="var">[Ciudad]</span>, a los <span class="var">[día]</span> días del mes de <span class="var">[mes]</span> del <span class="var">[año]</span>.</p>
+
+                        <table class="signatures" style="width:100%; margin-top:18px;">
+                        <tr>
+                            <td style="width:50%; padding-top:20px;">
+                            ___________________________<br>
+                            <strong>EL ARRENDADOR / PROVEEDOR</strong><br>
+                            <span class="var">[Nombre]</span>
+                            </td>
+                            <td style="width:50%; padding-top:20px;">
+                            <br>___________________________<br>
+                            <strong>EL ARRENDATARIO / USUARIO</strong><br>
+                            <span class="var">[Nombre]</span>
+                            </td>
+                        </tr>
+                        </table>
+                        '
+                        ) !!}</div>
                         <input id="terms" name="terms" type="hidden" required>
                     </div>
 
