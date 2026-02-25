@@ -48,10 +48,20 @@
                             value="{{ old('start_at', optional($ademdum->start_at)->format('Y-m-d\TH:i')) }}" required>
                     </div>
 
-                    <div class="col-md-6 mb-4">
+                    <div class="col-md-6 mb-2">
                         <label for="end_at" class="form-label">Fin</label>
                         <input id="end_at" type="datetime-local" name="end_at" class="form-control"
                             value="{{ old('end_at', optional($ademdum->end_at)->format('Y-m-d\TH:i')) }}">
+                    </div>
+
+                    <div class="col-12 mt-0 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="1" id="change_agreement_period" name="change_agreement_period"
+                                {{ old('change_agreement_period', $ademdum->update_start_date_agreement && $ademdum->update_end_date_agreement ? 1 : 0) ? 'checked' : '' }}>
+                            <label class="form-check-label" for="change_agreement_period">
+                                Cambiar el periodo de vigencia del contrato
+                            </label>
+                        </div>
                     </div>
 
                     <div class="col-12">

@@ -101,6 +101,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
         Route::get('/{ademdumId}/edit', [AdemdumController::class, 'edit'])->name('edit');
         Route::patch('/{ademdumId}/edit', [AdemdumController::class, 'update'])->name('edit.update');
         Route::get('/{ademdumId}/view', [AdemdumController::class, 'view'])->name('view');
+        Route::patch('/{ademdumId}/canceling', [AdemdumController::class, 'canceling'])->name('canceling');
         Route::delete('/{ademdumId}', [AdemdumController::class, 'delete'])->name('delete');
     });
 });
