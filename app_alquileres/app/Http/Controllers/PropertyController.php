@@ -269,9 +269,15 @@ class PropertyController extends Controller
             ->whereIn('status', ['accepted', 'canceling'])
             ->exists();
 
-        if ($hasLockedAgreement && $validated['status'] !== 'occupied') {
+        if ($hasLockedAgreement && $validated['service_type'] !== $property->service_type) {
             return back()
-                ->withErrors(['status' => 'Si la propiedad tiene un contrato activo o en cancelación, su estado debe ser "Ocupada".'])
+                ->withErrors(['service_type' => 'Si la propiedad tiene un contrato activo o en cancelación, no se puede cambiar el Tipo de servicio.'])
+                ->withInput();
+        }
+
+        if ($hasLockedAgreement && $validated['status'] !== 'occupied' && $validated['service_type'] !== $property->service_type) {
+            return back()
+                ->withErrors(['status' => 'Si la propiedad tiene un contrato activo o en cancelación, no se puede cambiar el Estado.'])
                 ->withInput();
         }
 
@@ -285,7 +291,7 @@ class PropertyController extends Controller
         $photosInput = array_values($request->input('photos', []));
         $existingPhotos = $property->photos->keyBy('id');
 
-        return DB::transaction(function () use ($property, $validated, $materials, $includedObjects, $isPublic, $photosInput, $existingPhotos, $request, $user) {
+        return DB::transaction(function () use ($property, $validated, $materials, $includedObjects, $isPublic, $photosInput, $existingPhotos, $request, $user, $hasLockedAgreement) {
             $property->update([
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
@@ -293,7 +299,7 @@ class PropertyController extends Controller
                 'location_province' => $validated['location_province'],
                 'location_canton' => $validated['location_canton'],
                 'location_district' => $validated['location_district'],
-                'service_type' => $validated['service_type'],
+                'service_type' => $hasLockedAgreement ? $property->service_type : $validated['service_type'],
 
                 'rooms' => $validated['rooms'] ?? 0,
                 'living_rooms' => $validated['living_rooms'] ?? 0,
