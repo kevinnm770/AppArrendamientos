@@ -37,6 +37,21 @@
 
                 <hr>
 
+                @if ($agreement->status === 'canceling')
+                    <form method="POST" action="{{ route('admin.agreements.canceling-response', $agreement->id) }}" id="agreement-canceling-response-form">
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="decision" id="agreement-canceling-decision">
+                        <div class="alert alert-warning mt-3" role="alert">
+                            <h4>Cancelación de contrato</h4>
+                            <p>Motivo de cancelación de contrato:</p>
+                            <p>{{ $agreement->canceled_by }}</p>
+                            <hr>
+                            <button type="button" class="btn btn-outline-dark" id="reject-canceling-button">Cancelar</button>
+                        </div>
+                    </form>
+                @endif
+
                 <div class="ql-snow">
                     <div class="ql-editor" style="padding: 30px 0 0 0;height: 500px;max-height: 600px;overflow:auto;">
                         {!! $agreement->terms !!}
@@ -77,22 +92,6 @@
                         </div>
                     </div>
                 @endforelse
-
-
-                @if ($agreement->status === 'canceling')
-                    <form method="POST" action="{{ route('admin.agreements.canceling-response', $agreement->id) }}" id="agreement-canceling-response-form">
-                        @csrf
-                        @method('PATCH')
-                        <input type="hidden" name="decision" id="agreement-canceling-decision">
-                        <div class="alert alert-warning mt-3" role="alert">
-                            <h4>Cancelación de contrato</h4>
-                            <p>El arrendatario desea cancelar este contrato por la siguiente razón:</p>
-                            <p>{{ $agreement->canceled_by }}</p>
-                            <hr>
-                            <button type="button" class="btn btn-outline-dark" id="reject-canceling-button">Rechazar</button>
-                        </div>
-                    </form>
-                @endif
 
                 <div class="mt-4 text-end">
                     <a href="{{ route('admin.agreements.index') }}" class="btn btn-light-secondary">Volver</a>

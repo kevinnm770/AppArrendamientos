@@ -48,13 +48,6 @@
 
                 <hr>
 
-                <div class="ql-snow">
-                    <div class="ql-editor" style="padding: 30px 0 0 0;height: 500px;max-height: 600px;overflow:auto;">
-                        {!! $ademdum->terms !!}
-                    </div>
-                </div>
-
-
                 @if ($ademdum->status === 'canceling')
                     <form method="POST" action="{{ route('admin.ademdums.canceling-response', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}" id="ademdum-canceling-response-form">
                         @csrf
@@ -62,13 +55,19 @@
                         <input type="hidden" name="decision" id="ademdum-canceling-decision">
                         <div class="alert alert-warning mt-3" role="alert">
                             <h4>Desestimación de adendum</h4>
-                            <p>El arrendatario desea desestimar este adendum por la siguiente razón:</p>
+                            <p>Motivo de cancelación del adendum:</p>
                             <p>{{ $ademdum->cancelled_by }}</p>
                             <hr>
-                            <button type="button" class="btn btn-outline-dark" id="reject-rejection-button">Rechazar</button>
+                            <button type="button" class="btn btn-outline-dark" id="reject-rejection-button">Cancelar</button>
                         </div>
                     </form>
                 @endif
+
+                <div class="ql-snow">
+                    <div class="ql-editor" style="padding: 30px 0 0 0;height: 500px;max-height: 600px;overflow:auto;">
+                        {!! $ademdum->terms !!}
+                    </div>
+                </div>
 
                 <div class="mt-4 d-flex justify-content-end gap-2">
                     @if ($ademdum->status === 'accepted')

@@ -25,11 +25,27 @@
             @method('PATCH')
 
             <div class="card-header">
-                <h5 class="card-title mb-0">Registrar propiedad</h5>
+                <h5 class="mb-0">Datos de la propiedad</h5>
             </div>
 
             <div class="card-body">
-                <div class="row g-3">
+                <div class="row g-3 mb-4">
+                    <div class="col-8 col-lg-4">
+                        <label class="form-label" for="status">Estado *</label>
+                        <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
+                            <option value="available" @selected(old('status', $property->status ?? 'available') === 'available')>Disponible</option>
+                            <option value="occupied" @selected(old('status', $property->status ?? 'available') === 'occupied')>Ocupada</option>
+                            <option value="disabled" @selected(old('status', $property->status ?? 'available') === 'disabled')>Deshabilitada</option>
+                        </select>
+                        @error('status')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
+                    </div>
+
+                    <div class="col-4 col-lg-8"></div>
+
                     <div class="col-12 col-lg-6">
                         <label class="form-label" for="name">Nombre de la propiedad *</label>
                         <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name"
@@ -178,7 +194,7 @@
                         <label class="form-label" for="materials_input">Materiales (tags)</label>
                         <input type="text" class="form-control tag-source @error('materials') is-invalid @enderror" id="materials_input"
                             data-target="materials_tags" placeholder="Escribe y presiona Enter (ej: piso cerámica)">
-                        <small class="text-muted">Presiona Enter o coma para crear cada material.</small>
+                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Presiona Enter o coma para crear cada material.</small>
                         <input type="hidden" name="materials" id="materials_tags" value="{{ old('materials', json_encode($property->materials ?? [])) }}">
                         @error('materials')
                             <span class="invalid-feedback d-block" role="alert">
@@ -192,7 +208,7 @@
                         <label class="form-label" for="included_objects_input">Objetos incluidos (tags)</label>
                         <input type="text" class="form-control tag-source @error('included_objects') is-invalid @enderror" id="included_objects_input"
                             data-target="included_objects_tags" placeholder="Escribe y presiona Enter (ej: refrigeradora)">
-                        <small class="text-muted">Presiona Enter o coma para crear cada objeto.</small>
+                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Presiona Enter o coma para crear cada objeto.</small>
                         <input type="hidden" name="included_objects" id="included_objects_tags" value="{{ old('included_objects', json_encode($property->included_objects ?? [])) }}">
                         @error('included_objects')
                             <span class="invalid-feedback d-block" role="alert">
@@ -201,36 +217,66 @@
                         @enderror
                         <div class="tag-list mt-2" data-list-for="included_objects_tags"></div>
                     </div>
+                </div>
 
-                    <div class="col-12 col-lg-4">
-                        <label class="form-label" for="status">Estado *</label>
-                        <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
-                            <option value="available" @selected(old('status', $property->status ?? 'available') === 'available')>Disponible</option>
-                            <option value="occupied" @selected(old('status', $property->status ?? 'available') === 'occupied')>Ocupada</option>
-                            <option value="disabled" @selected(old('status', $property->status ?? 'available') === 'disabled')>Deshabilitada</option>
-                        </select>
-                        @error('status')
-                            <span class="invalid-feedback" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
+                <div class="row mb-4">
+                    <hr>
 
-                    <div class="col-12 col-lg-4">
-                        <label class="form-label d-block" for="is_public">Publicar propiedad</label>
-                        <input type="hidden" name="is_public" value="0">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input @error('is_public') is-invalid @enderror" type="checkbox" role="switch" id="is_public" name="is_public" value="1" @checked(old('is_public', ($property->is_public ?? false) ? '1' : '0') === '1')>
-                            <label class="form-check-label" for="is_public">Visible para arrendatarios</label>
+                    <h5 class="mb-0">Detalles de publicación</h5>
+
+                    <div class="row mt-4">
+                        <div class="col-0 col-lg-4">
+                            <label class="form-label" for="price">Precio (₡) *: </label>
+                            <input class="form-control @error('price') is-invalid @enderror" type="number" name="price" id="price" placeholder="Ej: 230000">
+                            @error('price')
+                                <span class="invalid-feedback d-block" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+
+                            <select class="form-select mt-2 @error('price_mode') is-invalid @enderror" id="price_mode" name="price_mode" style="width: max-content;" required>
+                                <option value="perHour">Por hora</option>
+                                <option value="perDay">Por día</option>
+                                <option value="perMonth">Por mes</option>
+                            </select>
+                            @error('price_mode')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
                         </div>
-                        <small class="text-muted">Solo se puede publicar cuando el estado está en Disponible.</small>
-                        @error('is_public')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
 
+                        <div class="col-12 col-lg-4 row my-lg-0 my-3">
+                            <div class="col-12 mb-2">
+                                <input type="checkbox" name="isSharePhone" id="isSharePhone">
+                                <label class="form-label" for="contact_phone">Teléfono: </label>
+                                <input class="form-control" type="text" value="+506 {{ $phone_contact?$phone_contact:'' }}" name="" id="contact_phone" min="0" disabled>
+                            </div>
+                            <div class="col-12">
+                                <input type="checkbox" name="isShareEmail" id="isShareEmail">
+                                <label class="form-label" for="contact_email">Email: </label>
+                                <input class="form-control" type="email" value="{{ $email_contact?$email_contact:'' }}" name="" id="contact_email" disabled>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label d-block" for="is_public">Publicar propiedad</label>
+                            <input type="hidden" name="is_public" value="0">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input @error('is_public') is-invalid @enderror" type="checkbox" role="switch" id="is_public" name="is_public" value="1" @checked(old('is_public', ($property->is_public ?? false) ? '1' : '0') === '1')>
+                                <label class="form-check-label" for="is_public">Visible para arrendatarios</label>
+                            </div>
+                            <small style="font-size:10pt;color:rgb(67, 94, 190);">Solo se puede publicar cuando el estado está en <strong>Disponible</strong>.</small>
+                            @error('is_public')
+                                <span class="invalid-feedback d-block" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
                     <div class="col-12">
                         <hr>
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">

@@ -36,7 +36,7 @@ class AdemdumController extends Controller
         $this->syncExpiredAcceptedAdemdums($agreement);
 
         if ($agreement->status !== 'accepted') {
-            return back()->withErrors(['agreement' => 'Solo puedes crear ademdums cuando el contrato está en estado "accepted".']);
+            return back()->withErrors(['agreement' => 'Solo puedes crear adendums cuando el contrato está en estado "accepted".']);
         }
 
         $validated = $request->validate([
@@ -334,7 +334,7 @@ class AdemdumController extends Controller
     {
         $query = Ademdum::query()
             ->where('agreement_id', $agreementId)
-            ->where('status', 'accepted')
+            ->whereIn('status', ['accepted','canceling'])
             ->whereNotNull('update_start_date_agreement')
             ->whereNotNull('update_end_date_agreement');
 

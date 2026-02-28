@@ -61,7 +61,7 @@ class Agreement extends Model
     public function AdemdumUpdatePeriod()
     {
         return $this->hasOne(Ademdum::class)
-            ->where('status', 'accepted')
+            ->whereIn('status', ['accepted', 'canceling'])
             ->whereNotNull('update_start_date_agreement')
             ->whereNotNull('update_end_date_agreement')
             //->where('update_start_date_agreement', '<=', Carbon::now())

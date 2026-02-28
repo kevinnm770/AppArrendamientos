@@ -6,6 +6,7 @@ use App\Models\Property;
 use App\Models\PropertyPhoto;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -50,8 +51,19 @@ class PropertyController extends Controller
 
     public function register()
     {
+        $user = Auth::user();
+        $lessor = $user?->lessor;
+
+        if (!$lessor) {
+            return redirect()
+                ->route('admin.properties.index')
+                ->withErrors(['lessor' => 'Debe completar su perfil de arrendador antes de editar una propiedad.']);
+        }
+
         return view('admin.properties.register', [
             'locationData' => $this->locationData(),
+            'phone_contact' => $lessor->phone,
+            'email_contact' => $user->email
         ]);
     }
 
@@ -188,6 +200,8 @@ class PropertyController extends Controller
         return view('admin.properties.edit', [
             'locationData' => $this->locationData(),
             'property' => $property,
+            'phone_contact' => $lessor->phone,
+            'email_contact' => $user->email
         ]);
     }
 
