@@ -182,6 +182,7 @@ class AdemdumController extends Controller
             'terms' => ['required', 'string'],
             'change_agreement_period' => ['nullable', 'boolean'],
             'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
+            'remove_signed_doc' => ['nullable', 'boolean'],
         ]);
 
         $changeAgreementPeriod = (bool) ($validated['change_agreement_period'] ?? false);
@@ -211,6 +212,8 @@ class AdemdumController extends Controller
 
         if ($request->hasFile('signed_doc_file')) {
             $signedDocService->storeForAdemdum($ademdum->id, $request->file('signed_doc_file'));
+        } elseif ((bool) ($validated['remove_signed_doc'] ?? false)) {
+            $signedDocService->deleteForAdemdum($ademdum->id);
         }
 
         return redirect()
