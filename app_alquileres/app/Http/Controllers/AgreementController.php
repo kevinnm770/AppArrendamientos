@@ -172,12 +172,18 @@ class AgreementController extends Controller
                 ->withErrors(['agreement' => 'Solo puedes aceptar contratos en estado "sent".']);
         }
 
-        $agreement->update([
-            'status' => 'accepted',
-            'tenant_confirmed_at' => now(),
-            'locked_at' => now(),
-            'updated_by_user_id' => $request->user()->id,
-        ]);
+        DB::transaction(function () use ($agreement, $request) {
+            $agreement->update([
+                'status' => 'accepted',
+                'tenant_confirmed_at' => now(),
+                'locked_at' => now(),
+                'updated_by_user_id' => $request->user()->id,
+            ]);
+
+            $agreement->property()->update([
+                'status' => 'occupied',
+            ]);
+        });
 
         return redirect()
             ->route('tenant.agreements.view', $agreement->id)
