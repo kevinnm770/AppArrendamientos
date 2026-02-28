@@ -65,8 +65,22 @@
 
                     <div class="col-md-12">
                         <label for="signed_doc_file" class="form-label">Respaldo físico (opcional)</label>
+                        @if ($agreement->signedDoc)
+                            <div class="alert alert-light-primary py-2 mb-2">
+                                Archivo actual: <strong>{{ $agreement->signedDoc->original_name }}</strong>
+                                <a href="{{ route('admin.agreements.signed-doc.download', $agreement->id) }}" class="ms-2">Descargar</a>
+                            </div>
+                        @endif
                         <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
-                        <small class="text-muted">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
+                        <small class="text-muted">Solo se permite un archivo adjunto por contrato. Si cargas uno nuevo, reemplazará el actual.</small>
+                        @if ($agreement->signedDoc)
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" value="1" id="remove_signed_doc" name="remove_signed_doc" {{ old('remove_signed_doc') ? 'checked' : '' }}>
+                                <label class="form-check-label" for="remove_signed_doc">
+                                    Eliminar archivo adjunto actual
+                                </label>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="col-12">

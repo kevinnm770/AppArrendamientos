@@ -30,6 +30,20 @@ class SignedDocService
         }
     }
 
+    public function deleteForAgreement(int $agreementId): void
+    {
+        $signedDoc = SignedDoc::query()->where('agreement_id', $agreementId)->first();
+
+        $this->deleteSignedDoc($signedDoc);
+    }
+
+    public function deleteForAdemdum(int $ademdumId): void
+    {
+        $signedDoc = SignedDoc::query()->where('ademdum_id', $ademdumId)->first();
+
+        $this->deleteSignedDoc($signedDoc);
+    }
+
     private function store(array $ownerCondition, UploadedFile $file, string $baseDirectory): SignedDoc
     {
         $existing = SignedDoc::query()->where($ownerCondition)->first();
@@ -57,5 +71,15 @@ class SignedDocService
                 'compressed_size_bytes' => strlen($compressed),
             ]
         );
+    }
+
+    private function deleteSignedDoc(?SignedDoc $signedDoc): void
+    {
+        if (!$signedDoc) {
+            return;
+        }
+
+        $this->removeFile($signedDoc);
+        $signedDoc->delete();
     }
 }

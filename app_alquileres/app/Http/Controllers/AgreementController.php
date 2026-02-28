@@ -140,6 +140,7 @@ class AgreementController extends Controller
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
             'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
+            'remove_signed_doc' => ['nullable', 'boolean'],
         ]);
 
         $startAt = Carbon::parse($validated['start_at']);
@@ -166,6 +167,8 @@ class AgreementController extends Controller
 
         if ($request->hasFile('signed_doc_file')) {
             $signedDocService->storeForAgreement($agreement->id, $request->file('signed_doc_file'));
+        } elseif ((bool) ($validated['remove_signed_doc'] ?? false)) {
+            $signedDocService->deleteForAgreement($agreement->id);
         }
 
         return redirect()
