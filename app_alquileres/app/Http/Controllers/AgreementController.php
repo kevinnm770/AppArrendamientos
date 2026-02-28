@@ -184,6 +184,69 @@ class AgreementController extends Controller
             ->with('success', 'Contrato aceptado correctamente.');
     }
 
+    public function canceling(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+
+        if ($agreement->status !== 'accepted') {
+            return redirect()
+                ->route('admin.agreements.view', $agreement->id)
+                ->withErrors(['agreement' => 'Solo puedes romper contratos en estado "accepted".']);
+        }
+
+        $validated = $request->validate([
+            'canceled_by' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $agreement->update([
+            'status' => 'canceling',
+            'canceled_by' => trim($validated['canceled_by']),
+            'updated_by_user_id' => $request->user()->id,
+        ]);
+
+        return redirect()
+            ->route('admin.agreements.index')
+            ->with('success', 'El contrato fue marcado en estado "canceling".');
+    }
+
+    public function cancelingResponse(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+
+        if ($agreement->status !== 'canceling') {
+            return redirect()
+                ->route('tenant.agreements.view', $agreement->id)
+                ->withErrors(['agreement' => 'Solo puedes responder solicitudes de cancelación en estado "canceling".']);
+        }
+
+        $validated = $request->validate([
+            'decision' => ['required', Rule::in(['accept', 'reject'])],
+        ]);
+
+        if ($validated['decision'] === 'accept') {
+            $agreement->update([
+                'status' => 'cancelled',
+                'canceled_date' => now(),
+                'updated_by_user_id' => $request->user()->id,
+            ]);
+
+            return redirect()
+                ->route('tenant.agreements.view', $agreement->id)
+                ->with('success', 'Cancelación del contrato aceptada correctamente.');
+        }
+
+        $agreement->update([
+            'status' => 'accepted',
+            'canceled_by' => null,
+            'canceled_date' => null,
+            'updated_by_user_id' => $request->user()->id,
+        ]);
+
+        return redirect()
+            ->route('tenant.agreements.view', $agreement->id)
+            ->with('success', 'Solicitud de cancelación rechazada. El contrato sigue activo.');
+    }
+
     public function sendDeleteToken(int $agreementId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
