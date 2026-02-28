@@ -5,7 +5,7 @@
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
                 <h3>Ademdum #{{ $ademdum->id }}</h3>
-                <p class="text-subtitle text-muted">Este adendum es de solo lectura porque su estado es <strong>{{ $ademdum->status }}</strong>.</p>
+                <p class="text-subtitle text-muted">Este adendum es de solo lectura.</p>
             </div>
         </div>
     </div>
@@ -44,6 +44,14 @@
                     <div class="col-md-4"><strong>Cancelado en:</strong> {{ optional($ademdum->cancelled_at)->format('d/m/Y H:i') ?? 'No' }}</div>
                     <div class="col-md-8"><strong>Motivo cancelación:</strong> {{ $ademdum->cancelled_by ?? 'No' }}</div>
                     <div class="col-md-4"><strong>Emitido:</strong> {{ optional($ademdum->created_at)->format('d/m/Y') }}</div>
+                    <div class="col-md-4">
+                        <strong>Respaldo físico:</strong>
+                        @if ($ademdum->signedDoc)
+                            <a href="{{ route('admin.ademdums.signed-doc.download', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}" class="btn btn-sm btn-light-primary ms-2">Descargar</a>
+                        @else
+                            No disponible
+                        @endif
+                    </div>
                 </div>
 
                 <hr>

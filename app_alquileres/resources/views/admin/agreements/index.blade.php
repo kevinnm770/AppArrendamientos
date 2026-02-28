@@ -55,7 +55,7 @@
                                         {{ optional($effectiveStartAt)->format('d/m/Y') ?? 'Sin inicio' }} -
                                         {{ optional($effectiveEndAt)->format('d/m/Y') ?? 'Sin fin' }}
                                     </p>
-                                    <span class="badge bg-light-secondary">{{ strtoupper($agreement->status) }}</span>
+                                    <span class="badge bg-light-{{$agreement->status==='accepted'?'success':($agreement->status==='cancelled'?'danger':'secondary')}}">{{ $agreement->status==='accepted'?'VIGENT':strtoupper($agreement->status) }}</span>
                                 </div>
 
                                 <div class="card-body pt-0 text-end">

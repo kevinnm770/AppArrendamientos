@@ -84,11 +84,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
             ->name('roomer-by-id-number');
 
         Route::post('/register', [AgreementController::class, 'store'])->name('register.store');
-
+        Route::get('/{agreementId}/signed-doc/download', [AgreementController::class, 'downloadSignedDoc'])->name('signed-doc.download');
         Route::get('/{agreementId}/edit', [AgreementController::class, 'edit'])->name('edit');
         Route::patch('/{agreementId}/edit', [AgreementController::class, 'update'])->name('edit.update');
         Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
-        Route::get('/{agreementId}/signed-doc/download', [AgreementController::class, 'downloadSignedDoc'])->name('signed-doc.download');
         Route::patch('/{agreementId}/canceling', [AgreementController::class, 'canceling'])->name('canceling');
         Route::patch('/{agreementId}/canceling-response', [AgreementController::class, 'cancelingResponse'])->name('canceling-response');
 
@@ -132,9 +131,8 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
     Route::prefix('agreements')->name('agreements.')->middleware('auth')->group(function () {
         //Ventana de contratos
         Route::get('/', [AgreementController::class, 'index'])->name('index');
-
-        Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
         Route::get('/{agreementId}/signed-doc/download', [AgreementController::class, 'downloadSignedDoc'])->name('signed-doc.download');
+        Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
         Route::patch('/{agreementId}/accept', [AgreementController::class, 'accept'])->name('accept');
         Route::patch('/{agreementId}/canceling-response', [AgreementController::class, 'cancelingResponse'])->name('canceling-response');
     });

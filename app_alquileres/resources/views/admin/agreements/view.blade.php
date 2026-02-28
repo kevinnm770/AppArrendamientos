@@ -5,7 +5,7 @@
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
                 <h3>Contrato #{{ $agreement->id }}</h3>
-                <p class="text-subtitle text-muted">Este contrato es de solo lectura porque su estado es <strong>{{ $agreement->status }}</strong>.</p>
+                <p class="text-subtitle text-muted">Este contrato es de solo lectura.</p>
             </div>
         </div>
     </div>
@@ -33,6 +33,14 @@
                         @endif
                     </div>
                     <div class="col-md-4"><strong>Emitido:</strong> {{ optional($agreement->created_at)->format('d/m/Y') }}</div>
+                    <div class="col-md-4">
+                        <strong>Respaldo físico:</strong>
+                        @if ($agreement->signedDoc)
+                            <a href="{{ route('admin.agreements.signed-doc.download', $agreement->id) }}" class="btn btn-sm btn-light-primary ms-2">Descargar</a>
+                        @else
+                            No disponible
+                        @endif
+                    </div>
                 </div>
 
                 <hr>
@@ -69,7 +77,7 @@
 
                 @forelse ($agreement->ademdums as $ademdum)
                     <div class="border rounded p-3 mb-3">
-                        <p class="mb-2"><strong>Estado:</strong> {{ strtoupper($ademdum->status) }}</p>
+                        <p class="mb-2"><strong>Estado:</strong> <span class="badge bg-light-{{$ademdum->status==='accepted'?'success':($ademdum->status==='cancelled'?'danger':'secondary')}}">{{ $ademdum->status==='accepted'?'VIGENT':strtoupper($ademdum->status)}}</span></p>
                         <p class="mb-2"><strong>Inicio:</strong> {{ optional($ademdum->start_at)->format('d/m/Y') }}</p>
                         <p class="mb-3"><strong>Fin:</strong> {{ optional($ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</p>
                         <div class="d-flex gap-2">
@@ -81,7 +89,7 @@
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
                                 </form>
                             @else
-                                <a href="{{ route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}" class="btn btn-sm btn-light-secondary">Ver ademdum</a>
+                                <a href="{{ route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}" class="btn btn-sm btn-light-secondary">Ver adendum</a>
                             @endif
                         </div>
                     </div>

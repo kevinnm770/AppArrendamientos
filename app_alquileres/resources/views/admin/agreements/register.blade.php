@@ -19,10 +19,6 @@
         </div>
     </div>
 
-    <style>
-        .var{color: green;}
-    </style>
-
     @if ($errors->any())
         <section class="section">
             <div class="alert alert-light-danger">

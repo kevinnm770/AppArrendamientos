@@ -91,7 +91,7 @@
                 <h5>Lista de adendums</h5>
                 @forelse ($agreement->ademdums as $ademdum)
                     <div class="border rounded p-3 mb-3">
-                        <p class="mb-2"><strong>Estado:</strong> {{ strtoupper($ademdum->status) }}</p>
+                        <p class="mb-2"><strong>Estado:</strong> <span class="badge bg-light-{{$ademdum->status==='accepted'?'success':($ademdum->status==='cancelled'?'danger':'secondary')}}">{{ $ademdum->status==='accepted'?'VIGENT':strtoupper($ademdum->status)}}</span></p>
                         <p class="mb-2"><strong>Inicio:</strong> {{ optional($ademdum->start_at)->format('d/m/Y') }}</p>
                         <p class="mb-3"><strong>Fin:</strong> {{ optional($ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</p>
                         <div class="d-flex gap-2">
