@@ -30,6 +30,8 @@ class AgreementController extends Controller
                 ->orderByDesc('start_at')
                 ->get();
 
+            $agreements->each(fn (Agreement $agreement) => $this->finalizeExpiredCanceling($agreement, $user->id));
+
             return view('admin.agreements.index', [
                 'agreements' => $agreements,
             ]);
@@ -42,6 +44,8 @@ class AgreementController extends Controller
                 ->where('roomer_id', $roomer->id)
                 ->orderByDesc('start_at')
                 ->get();
+
+            $agreements->each(fn (Agreement $agreement) => $this->finalizeExpiredCanceling($agreement, $user->id));
 
             return view('tenant.agreements.index', [
                 'agreements' => $agreements,
@@ -214,6 +218,7 @@ class AgreementController extends Controller
         $agreement->update([
             'status' => 'canceling',
             'canceled_by' => trim($validated['canceled_by']),
+            'canceled_date' => now(),
             'updated_by_user_id' => $request->user()->id,
         ]);
 
@@ -240,7 +245,6 @@ class AgreementController extends Controller
         if ($validated['decision'] === 'accept') {
             $agreement->update([
                 'status' => 'cancelled',
-                'canceled_date' => now(),
                 'updated_by_user_id' => $request->user()->id,
             ]);
 
@@ -465,7 +469,27 @@ class AgreementController extends Controller
             abort(403);
         }
 
-        return $query->findOrFail($agreementId);
+        $agreement = $query->findOrFail($agreementId);
+
+        $this->finalizeExpiredCanceling($agreement, $user?->id);
+
+        return $agreement->fresh(['roomer', 'property', 'ademdums', 'latestAdemdum', 'signedDoc']);
+    }
+
+    private function finalizeExpiredCanceling(Agreement $agreement, ?int $updatedByUserId = null): void
+    {
+        if ($agreement->status !== 'canceling' || !$agreement->canceled_date) {
+            return;
+        }
+
+        if ($agreement->canceled_date->copy()->addDay()->isFuture()) {
+            return;
+        }
+
+        $agreement->update([
+            'status' => 'cancelled',
+            'updated_by_user_id' => $updatedByUserId,
+        ]);
     }
 
     private function hasDateCollision(string $column, int $id, Carbon $startAt, ?Carbon $endAt, ?int $ignoreAgreementId = null): bool
