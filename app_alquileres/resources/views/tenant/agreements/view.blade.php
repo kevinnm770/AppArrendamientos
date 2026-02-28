@@ -68,7 +68,7 @@
                         <input type="hidden" name="decision" id="agreement-canceling-decision">
 
                         <div class="alert alert-warning mt-3" role="alert">
-                            <h4>Cancelación de contrato</h4>
+                            <h4>Cancelación de contrato (en 24h se efectuará automáticamente)</h4>
                             <p>El arrendador desea romper este contrato por la siguiente razón:</p>
                             <p>{{ $agreement->canceled_by }}</p>
                             <hr>
@@ -76,6 +76,7 @@
                                 <button type="button" class="btn btn-dark" id="accept-canceling-button">Aceptar</button>
                                 <button type="button" class="btn btn-outline-dark" id="reject-canceling-button">Rechazar</button>
                             </div>
+                            <p class="mt-2" style="float: right;">Emitido: {{ $agreement->cancelled_date }}</p>
                         </div>
                     </form>
                 @endif

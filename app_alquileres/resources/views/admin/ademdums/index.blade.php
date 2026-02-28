@@ -5,7 +5,7 @@
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
                 <h3>Adendums del contrato #{{ $agreement->id }}</h3>
-                <p class="text-subtitle text-muted">Gestiona los adendums vinculados a este contrato aceptado.</p>
+                <p class="text-subtitle text-muted">Crear un adendum virtual vinculado al contrato #{{ $agreement->id }}</p>
             </div>
             <div class="col-12 col-md-6 order-md-2 order-first">
                 <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
@@ -70,13 +70,13 @@
                                 Cambiar el periodo de vigencia del contrato
                             </label>
                         </div>
-                        <small class="text-muted">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
+                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
                     </div>
 
                     <div class="col-md-12">
                         <label for="signed_doc_file" class="form-label">Respaldo físico (opcional)</label>
                         <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
-                        <small class="text-muted">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
+                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
                     </div>
 
                     <div class="col-12">

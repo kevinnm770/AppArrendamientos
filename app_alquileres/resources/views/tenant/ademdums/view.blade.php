@@ -58,12 +58,13 @@
                         @method('PATCH')
                         <input type="hidden" name="decision" id="ademdum-canceling-decision">
                         <div class="alert alert-warning mt-3" role="alert">
-                            <h4>Desestimación de adendum</h4>
+                            <h4>Desestimación de adendum (en 24h se efectuará automáticamente)</h4>
                             <p>El arrendador desea desestimar este adendum por la siguiente razon:</p>
                             <p>{{ $ademdum->cancelled_by }}</p>
                             <hr>
                             <button type="button" class="btn btn-dark" id="accept-rejection-button">Aceptar</button>
                             <button type="button" class="btn btn-outline-dark" id="reject-rejection-button">Rechazar</button>
+                            <p class="mt-2" style="float: right;">Emitido: {{ $ademdum->cancelled_at }}</p>
                         </div>
                     </form>
                 @endif
