@@ -10,6 +10,22 @@
         </div>
     </div>
 
+    @if ($errors->any())
+        <section class="section">
+            <div class="alert alert-light-danger">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        </section>
+    @endif
+
+    @if (session('success'))
+        <div class="alert alert-light-success">{{ session('success') }}</div>
+    @endif
+
     <section class="section">
         <div class="card">
             <div class="card-header">
@@ -26,6 +42,25 @@
                 </div>
 
                 <hr>
+
+                @if ($agreement->status === 'canceling')
+                    <form method="POST" action="{{ route('tenant.agreements.canceling-response', $agreement->id) }}" id="agreement-canceling-response-form">
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="decision" id="agreement-canceling-decision">
+
+                        <div class="alert alert-warning mt-3" role="alert">
+                            <h4>Cancelación de contrato</h4>
+                            <p>El arrendador desea romper este contrato por la siguiente razón:</p>
+                            <p>{{ $agreement->canceled_by }}</p>
+                            <hr>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-dark" id="accept-canceling-button">Aceptar</button>
+                                <button type="button" class="btn btn-outline-dark" id="reject-canceling-button">Rechazar</button>
+                            </div>
+                        </div>
+                    </form>
+                @endif
 
                 <div class="ql-snow">
                     <div class="ql-editor" style="padding: 30px 0 0 0;height: 500px;max-height: 600px;overflow:auto;">
@@ -67,4 +102,67 @@
             </div>
         </div>
     </section>
+
+    @if ($agreement->status === 'canceling')
+        <script>
+            window.addEventListener('load', () => {
+                const form = document.getElementById('agreement-canceling-response-form');
+                const decisionInput = document.getElementById('agreement-canceling-decision');
+                const acceptButton = document.getElementById('accept-canceling-button');
+                const rejectButton = document.getElementById('reject-canceling-button');
+
+                if (!form || !decisionInput || !acceptButton || !rejectButton) {
+                    return;
+                }
+
+                const submitDecision = async (decision) => {
+                    const labels = {
+                        accept: {
+                            title: 'Aceptar cancelación',
+                            text: 'El contrato se marcará como cancelado.',
+                            confirmButtonText: 'Sí, aceptar',
+                        },
+                        reject: {
+                            title: 'Rechazar cancelación',
+                            text: 'El contrato volverá a estado accepted.',
+                            confirmButtonText: 'Sí, rechazar',
+                        },
+                    };
+
+                    const selected = labels[decision];
+                    if (!selected) {
+                        return;
+                    }
+
+                    if (typeof Swal === 'undefined') {
+                        if (confirm(selected.text)) {
+                            decisionInput.value = decision;
+                            form.submit();
+                        }
+                        return;
+                    }
+
+                    const result = await Swal.fire({
+                        title: selected.title,
+                        text: selected.text,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: selected.confirmButtonText,
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#435ebe',
+                    });
+
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+
+                    decisionInput.value = decision;
+                    form.submit();
+                };
+
+                acceptButton.addEventListener('click', () => submitDecision('accept'));
+                rejectButton.addEventListener('click', () => submitDecision('reject'));
+            });
+        </script>
+    @endif
 @endsection

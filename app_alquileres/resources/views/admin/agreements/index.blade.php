@@ -18,6 +18,22 @@
         </div>
     </div>
 
+    @if ($errors->any())
+        <section class="section">
+            <div class="alert alert-light-danger">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        </section>
+    @endif
+
+    @if (session('success'))
+        <div class="alert alert-light-success">{{ session('success') }}</div>
+    @endif
+
     <section id="content-types">
         <div class="row">
             @forelse ($agreements as $agreement)
@@ -49,12 +65,27 @@
                                 @if ($agreement->status === 'accepted')
                                     <div class="card-footer d-flex justify-content-end gap-2">
                                         <a href="{{ route('admin.ademdums.index', ['agreementId' => $agreement->id]) }}" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation();">Adendum</a>
-                                        <button type="button" class="btn btn-sm btn-outline-danger">Romper contrato</button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger js-cancel-agreement-button"
+                                            data-form-id="cancel-agreement-form-{{ $agreement->id }}"
+                                            onclick="event.stopPropagation();"
+                                        >
+                                            Romper contrato
+                                        </button>
                                     </div>
                                 @endif
                             </div>
                         </div>
                     </a>
+
+                    @if ($agreement->status === 'accepted')
+                        <form method="POST" action="{{ route('admin.agreements.canceling', $agreement->id) }}" id="cancel-agreement-form-{{ $agreement->id }}">
+                            @csrf
+                            @method('PATCH')
+                            <input type="hidden" name="canceled_by" class="js-cancel-reason">
+                        </form>
+                    @endif
                 </div>
             @empty
                 <div class="col-12">
@@ -65,4 +96,53 @@
             @endforelse
         </div>
     </section>
+
+    <script>
+        window.addEventListener('load', () => {
+            const buttons = document.querySelectorAll('.js-cancel-agreement-button');
+
+            buttons.forEach((button) => {
+                button.addEventListener('click', async () => {
+                    const formId = button.dataset.formId;
+                    const form = document.getElementById(formId);
+                    const reasonInput = form?.querySelector('.js-cancel-reason');
+
+                    if (!form || !reasonInput) {
+                        return;
+                    }
+
+                    if (typeof Swal === 'undefined') {
+                        const reason = prompt('Indica el motivo de cancelación:');
+                        if (!reason) {
+                            return;
+                        }
+
+                        reasonInput.value = reason;
+                        form.submit();
+                        return;
+                    }
+
+                    const result = await Swal.fire({
+                        title: 'Romper contrato',
+                        input: 'text',
+                        inputLabel: 'Motivo de la cancelación',
+                        inputPlaceholder: 'Ej: finalización anticipada del acuerdo',
+                        inputValidator: (value) => !value ? 'Debes indicar un motivo.' : null,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Confirmar',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#d9534f'
+                    });
+
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+
+                    reasonInput.value = result.value;
+                    form.submit();
+                });
+            });
+        });
+    </script>
 @endsection

@@ -88,6 +88,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
         Route::get('/{agreementId}/edit', [AgreementController::class, 'edit'])->name('edit');
         Route::patch('/{agreementId}/edit', [AgreementController::class, 'update'])->name('edit.update');
         Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
+        Route::patch('/{agreementId}/canceling', [AgreementController::class, 'canceling'])->name('canceling');
 
         Route::post('/{agreementId}/delete-token', [AgreementController::class, 'sendDeleteToken'])->name('delete-token');
         Route::delete('/{agreementId}', [AgreementController::class, 'delete'])->name('delete');
@@ -130,6 +131,7 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
 
         Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
         Route::patch('/{agreementId}/accept', [AgreementController::class, 'accept'])->name('accept');
+        Route::patch('/{agreementId}/canceling-response', [AgreementController::class, 'cancelingResponse'])->name('canceling-response');
     });
 
     Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {
