@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\SignedDocService;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class AgreementController extends Controller
@@ -23,7 +25,7 @@ class AgreementController extends Controller
         if ($user->isLessor()) {
             $lessor = $user->lessor;
 
-            $agreements = Agreement::with(['property', 'roomer', 'latestAdemdum'])
+            $agreements = Agreement::with(['property', 'roomer', 'latestAdemdum', 'signedDoc'])
                 ->where('lessor_id', $lessor->id)
                 ->orderByDesc('start_at')
                 ->get();
@@ -36,7 +38,7 @@ class AgreementController extends Controller
         if ($user->isRoomer()) {
             $roomer = $user->roomer;
 
-            $agreements = Agreement::with(['property', 'lessor', 'latestAdemdum'])
+            $agreements = Agreement::with(['property', 'lessor', 'latestAdemdum', 'signedDoc'])
                 ->where('roomer_id', $roomer->id)
                 ->orderByDesc('start_at')
                 ->get();
@@ -119,7 +121,7 @@ class AgreementController extends Controller
         }
     }
 
-    public function update(int $agreementId, Request $request)
+    public function update(int $agreementId, Request $request, SignedDocService $signedDocService)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
 
@@ -133,6 +135,7 @@ class AgreementController extends Controller
             'start_at' => ['required', 'date'],
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
+            'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
         ]);
 
         $startAt = Carbon::parse($validated['start_at']);
@@ -156,6 +159,10 @@ class AgreementController extends Controller
             'terms' => $validated['terms'],
             'updated_by_user_id' => $request->user()->id,
         ]);
+
+        if ($request->hasFile('signed_doc_file')) {
+            $signedDocService->storeForAgreement($agreement->id, $request->file('signed_doc_file'));
+        }
 
         return redirect()
             ->route('admin.agreements.edit', $agreement->id)
@@ -337,7 +344,7 @@ class AgreementController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, SignedDocService $signedDocService)
     {
         $user = $request->user();
         $lessor = $user?->lessor;
@@ -362,6 +369,7 @@ class AgreementController extends Controller
             'start_at' => ['required', 'date'],
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
+            'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
         ]);
 
         $property = Property::where('lessor_id', $lessor->id)
@@ -394,7 +402,7 @@ class AgreementController extends Controller
                 ->withInput();
         }
 
-        Agreement::create([
+        $agreement = Agreement::create([
             'property_id' => (int) $validated['property_id'],
             'lessor_id' => $lessor->id,
             'roomer_id' => (int) $validated['roomer_id'],
@@ -407,9 +415,38 @@ class AgreementController extends Controller
             'updated_by_user_id' => $user->id,
         ]);
 
+        if ($request->hasFile('signed_doc_file')) {
+            $signedDocService->storeForAgreement($agreement->id, $request->file('signed_doc_file'));
+        }
+
         return redirect()
             ->route('admin.agreements.index')
             ->with('success', 'Contrato registrado correctamente.');
+    }
+
+
+    public function downloadSignedDoc(int $agreementId, Request $request)
+    {
+        $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $signedDoc = $agreement->signedDoc;
+
+        if (!$signedDoc || !Storage::disk($signedDoc->disk)->exists($signedDoc->path)) {
+            return back()->withErrors(['signed_doc_file' => 'No hay un respaldo físico adjunto para este contrato.']);
+        }
+
+        $compressed = Storage::disk($signedDoc->disk)->get($signedDoc->path);
+        $raw = gzdecode($compressed);
+
+        if ($raw === false) {
+            abort(500, 'No se pudo descomprimir el respaldo físico del contrato.');
+        }
+
+        return response()->streamDownload(function () use ($raw): void {
+            echo $raw;
+        }, $signedDoc->original_name, [
+            'Content-Type' => $signedDoc->mime_type,
+            'Content-Length' => (string) strlen($raw),
+        ]);
     }
 
     private function getOwnedAgreement(int $agreementId, Request $request): Agreement
@@ -418,7 +455,7 @@ class AgreementController extends Controller
         $lessor = $user?->lessor;
         $roomer = $user?->roomer;
 
-        $query = Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum']);
+        $query = Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum', 'signedDoc']);
 
         if ($user?->isLessor()) {
             $query->where('lessor_id', $lessor?->id);

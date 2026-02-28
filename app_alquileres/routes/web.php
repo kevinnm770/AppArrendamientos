@@ -88,6 +88,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
         Route::get('/{agreementId}/edit', [AgreementController::class, 'edit'])->name('edit');
         Route::patch('/{agreementId}/edit', [AgreementController::class, 'update'])->name('edit.update');
         Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
+        Route::get('/{agreementId}/signed-doc/download', [AgreementController::class, 'downloadSignedDoc'])->name('signed-doc.download');
         Route::patch('/{agreementId}/canceling', [AgreementController::class, 'canceling'])->name('canceling');
         Route::patch('/{agreementId}/canceling-response', [AgreementController::class, 'cancelingResponse'])->name('canceling-response');
 
@@ -103,6 +104,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
         Route::get('/{ademdumId}/edit', [AdemdumController::class, 'edit'])->name('edit');
         Route::patch('/{ademdumId}/edit', [AdemdumController::class, 'update'])->name('edit.update');
         Route::get('/{ademdumId}/view', [AdemdumController::class, 'view'])->name('view');
+        Route::get('/{ademdumId}/signed-doc/download', [AdemdumController::class, 'downloadSignedDoc'])->name('signed-doc.download');
         Route::patch('/{ademdumId}/canceling', [AdemdumController::class, 'canceling'])->name('canceling');
         Route::patch('/{ademdumId}/canceling-response', [AdemdumController::class, 'cancelingResponse'])->name('canceling-response');
         Route::delete('/{ademdumId}', [AdemdumController::class, 'delete'])->name('delete');
@@ -132,12 +134,14 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
         Route::get('/', [AgreementController::class, 'index'])->name('index');
 
         Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
+        Route::get('/{agreementId}/signed-doc/download', [AgreementController::class, 'downloadSignedDoc'])->name('signed-doc.download');
         Route::patch('/{agreementId}/accept', [AgreementController::class, 'accept'])->name('accept');
         Route::patch('/{agreementId}/canceling-response', [AgreementController::class, 'cancelingResponse'])->name('canceling-response');
     });
 
     Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {
         Route::get('/{ademdumId}/view', [AdemdumController::class, 'view'])->name('view');
+        Route::get('/{ademdumId}/signed-doc/download', [AdemdumController::class, 'downloadSignedDoc'])->name('signed-doc.download');
         Route::patch('/{ademdumId}/accept', [AdemdumController::class, 'accept'])->name('accept');
         Route::patch('/{ademdumId}/canceling-response', [AdemdumController::class, 'cancelingResponse'])->name('canceling-response');
     });

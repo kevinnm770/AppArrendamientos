@@ -47,7 +47,7 @@
                     <div class="col-md-4"><strong>Servicio:</strong> {{ $serviceTypeLabels[$agreement->service_type] ?? $agreement->service_type }}</div>
                 </div>
 
-                <form id="ademdum-form" method="POST" action="{{ route('admin.ademdums.store', ['agreementId' => $agreement->id]) }}" class="row g-3">
+                <form id="ademdum-form" method="POST" action="{{ route('admin.ademdums.store', ['agreementId' => $agreement->id]) }}" class="row g-3" enctype="multipart/form-data">
                     @csrf
 
                     <div class="col-md-6">
@@ -71,6 +71,12 @@
                             </label>
                         </div>
                         <small class="text-muted">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label for="signed_doc_file" class="form-label">Respaldo físico (opcional)</label>
+                        <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
+                        <small class="text-muted">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
                     </div>
 
                     <div class="col-12">

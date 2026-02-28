@@ -68,4 +68,9 @@ class Agreement extends Model
             ->where('update_end_date_agreement', '>=', Carbon::now())
             ->orderBy('created_at', 'desc');
     }
+
+    public function signedDoc()
+    {
+        return $this->hasOne(SignedDoc::class);
+    }
 }
