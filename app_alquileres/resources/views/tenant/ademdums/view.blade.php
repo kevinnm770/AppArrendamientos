@@ -45,15 +45,17 @@
                 <hr>
 
                  @if ($ademdum->status === 'canceling')
-                    <form method="POST" action="" id="accept-rejection-form">
+                    <form method="POST" action="{{ route('tenant.ademdums.canceling-response', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}" id="accept-rejection-form">
                         @csrf
                         @method('PATCH')
+                        <input type="hidden" name="decision" id="ademdum-canceling-decision">
                         <div class="alert alert-warning mt-3" role="alert">
                             <h4>Desestimación de adendum</h4>
                             <p>El arrendador desea desestimar este adendum por la siguiente razon:</p>
-                            <p>{{$ademdum->cancelled_by}}</p>
+                            <p>{{ $ademdum->cancelled_by }}</p>
                             <hr>
                             <button type="button" class="btn btn-dark" id="accept-rejection-button">Aceptar</button>
+                            <button type="button" class="btn btn-outline-dark" id="reject-rejection-button">Rechazar</button>
                         </div>
                     </form>
                 @endif
@@ -120,35 +122,48 @@
     @if ($ademdum->status === 'canceling')
         <script>
             window.addEventListener('load', () => {
+                const form = document.getElementById('accept-rejection-form');
+                const decisionInput = document.getElementById('ademdum-canceling-decision');
                 const acceptButton = document.getElementById('accept-rejection-button');
-                const acceptForm = document.getElementById('accept-rejection-form');
+                const rejectButton = document.getElementById('reject-rejection-button');
 
-                if (!acceptButton || !acceptForm) {
+                if (!form || !decisionInput || !acceptButton || !rejectButton) {
                     return;
                 }
 
-                acceptButton.addEventListener('click', async () => {
+                const submitDecision = async (decision) => {
+                    const decisionTitle = decision === 'accept' ? 'Aceptar desestimación' : 'Rechazar desestimación';
+                    const decisionText = decision === 'accept'
+                        ? 'El adendum quedará desestimado.'
+                        : 'El adendum volverá a estado aceptado.';
+                    const decisionConfirmButtonText = decision === 'accept' ? 'Sí, aceptar' : 'Sí, rechazar';
+
                     if (typeof Swal === 'undefined') {
-                        if (confirm('¿Seguro que deseas desestimar este adendum?')) {
-                            acceptForm.submit();
+                        if (confirm(`¿${decisionText}`)) {
+                            decisionInput.value = decision;
+                            form.submit();
                         }
                         return;
                     }
 
                     const result = await Swal.fire({
-                        title: 'Desestimar adendum',
-                        text: 'Esta acción confirmará el adendum y no se podrá revertir.',
+                        title: decisionTitle,
+                        text: decisionText,
                         icon: 'question',
                         showCancelButton: true,
-                        confirmButtonText: 'Sí, aceptar',
+                        confirmButtonText: decisionConfirmButtonText,
                         cancelButtonText: 'Cancelar',
                         confirmButtonColor: '#435ebe'
                     });
 
                     if (result.isConfirmed) {
-                        //acceptForm.submit();
+                        decisionInput.value = decision;
+                        form.submit();
                     }
-                });
+                };
+
+                acceptButton.addEventListener('click', () => submitDecision('accept'));
+                rejectButton.addEventListener('click', () => submitDecision('reject'));
             });
         </script>
     @endif
