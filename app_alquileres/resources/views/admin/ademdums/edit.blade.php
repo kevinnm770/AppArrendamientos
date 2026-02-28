@@ -62,7 +62,7 @@
                                 Cambiar el periodo de vigencia del contrato
                             </label>
                             <br>
-                            <small class="text-muted">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
+                            <small style="font-size:10pt;color:rgb(67, 94, 190);">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
                         </div>
                     </div>
 
@@ -75,7 +75,7 @@
                             </div>
                         @endif
                         <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
-                        <small class="text-muted">Solo se permite un archivo adjunto por adendum. Si cargas uno nuevo, reemplazará el actual.</small>
+                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Solo se permite un archivo adjunto por adendum. Si cargas uno nuevo, reemplazará el actual.</small>
                         @if ($ademdum->signedDoc)
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" value="1" id="remove_signed_doc" name="remove_signed_doc" {{ old('remove_signed_doc') ? 'checked' : '' }}>
