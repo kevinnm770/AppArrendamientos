@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Agreement extends Model
 {
@@ -63,6 +64,8 @@ class Agreement extends Model
             ->where('status', 'accepted')
             ->whereNotNull('update_start_date_agreement')
             ->whereNotNull('update_end_date_agreement')
-            ->latestOfMany('created_at');
+            //->where('update_start_date_agreement', '<=', Carbon::now())
+            ->where('update_end_date_agreement', '>=', Carbon::now())
+            ->orderBy('created_at', 'desc');
     }
 }

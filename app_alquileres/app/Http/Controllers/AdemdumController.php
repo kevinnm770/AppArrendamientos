@@ -24,7 +24,7 @@ class AdemdumController extends Controller
             'agreement' => $agreement,
             'ademdums' => $agreement->ademdums()->latest('created_at')->get(),
             'latestAdemdum' => $agreement->latestAdemdum,
-            'defaultData' => $agreement->latestAdemdum ?? $agreement,
+            'defaultData' => $agreement->AdemdumUpdatePeriod ?? $agreement,
             'serviceTypeLabels' => $this->serviceTypeLabels(),
         ]);
     }
