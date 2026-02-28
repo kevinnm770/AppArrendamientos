@@ -40,6 +40,14 @@
                     <div class="col-md-4"><strong>Inicio:</strong> {{ optional($ademdum->start_at)->format('d/m/Y') }}</div>
                     <div class="col-md-4"><strong>Fin:</strong> {{ optional($ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</div>
                     <div class="col-md-4"><strong>Emitido:</strong> {{ optional($ademdum->created_at)->format('d/m/Y') }}</div>
+                    <div class="col-md-4">
+                        <strong>Respaldo físico:</strong>
+                        @if ($ademdum->signedDoc)
+                            <a href="{{ route('tenant.ademdums.signed-doc.download', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}" class="btn btn-sm btn-light-primary ms-2">Descargar</a>
+                        @else
+                            No disponible
+                        @endif
+                    </div>
                 </div>
 
                 <hr>

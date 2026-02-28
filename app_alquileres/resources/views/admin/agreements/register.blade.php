@@ -47,7 +47,7 @@
                         No tienes propiedades que no estén ocupadas para crear un nuevo contrato.
                     </div>
                 @else
-                    <form id="agreement-form" method="POST" action="{{ route('admin.agreements.register.store') }}" class="row g-3"
+                    <form id="agreement-form" method="POST" action="{{ route('admin.agreements.register.store') }}" class="row g-3" enctype="multipart/form-data"
                         data-roomer-lookup-url="{{ route('admin.agreements.roomer-by-id-number', ['idNumber' => '__ID__']) }}">
                         @csrf
 
@@ -97,6 +97,12 @@
                             <label for="end_at" class="form-label">Fin</label>
                             <input id="end_at" type="datetime-local" name="end_at" class="form-control"
                                 value="{{ old('end_at') }}">
+                        </div>
+
+                        <div class="col-md-12">
+                            <label for="signed_doc_file" class="form-label">Respaldo físico (opcional)</label>
+                            <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
+                            <small class="text-muted">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
                         </div>
 
                         <hr>

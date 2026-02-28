@@ -47,7 +47,7 @@
                     <div class="col-md-4"><strong>Servicio:</strong> {{ $serviceTypeLabels[$agreement->service_type] ?? $agreement->service_type }}</div>
                 </div>
 
-                <form id="agreement-form" method="POST" action="{{ route('admin.agreements.edit.update', $agreement->id) }}" class="row g-3">
+                <form id="agreement-form" method="POST" action="{{ route('admin.agreements.edit.update', $agreement->id) }}" class="row g-3" enctype="multipart/form-data">
                     @csrf
                     @method('PATCH')
 
@@ -61,6 +61,12 @@
                         <label for="end_at" class="form-label">Fin</label>
                         <input id="end_at" type="datetime-local" name="end_at" class="form-control"
                             value="{{ old('end_at', optional($agreement->end_at)->format('Y-m-d\TH:i')) }}">
+                    </div>
+
+                    <div class="col-md-12">
+                        <label for="signed_doc_file" class="form-label">Respaldo físico (opcional)</label>
+                        <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
+                        <small class="text-muted">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
                     </div>
 
                     <div class="col-12">

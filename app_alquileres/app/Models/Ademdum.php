@@ -34,4 +34,9 @@ class Ademdum extends Model
     {
         return $this->belongsTo(Agreement::class);
     }
+
+    public function signedDoc()
+    {
+        return $this->hasOne(SignedDoc::class);
+    }
 }

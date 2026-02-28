@@ -49,6 +49,14 @@
                         @endif
                     </div>
                     <div class="col-md-4"><strong>Emitido:</strong> {{ optional($agreement->created_at)->format('d/m/Y') }}</div>
+                    <div class="col-md-4">
+                        <strong>Respaldo físico:</strong>
+                        @if ($agreement->signedDoc)
+                            <a href="{{ route('tenant.agreements.signed-doc.download', $agreement->id) }}" class="btn btn-sm btn-light-primary ms-2">Descargar</a>
+                        @else
+                            No disponible
+                        @endif
+                    </div>
                 </div>
 
                 <hr>

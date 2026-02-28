@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Ademdum;
 use App\Models\Agreement;
+use App\Services\SignedDocService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class AdemdumController extends Controller
@@ -30,7 +32,7 @@ class AdemdumController extends Controller
         ]);
     }
 
-    public function store(int $agreementId, Request $request)
+    public function store(int $agreementId, Request $request, SignedDocService $signedDocService)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
         $this->syncExpiredAcceptedAdemdums($agreement);
@@ -44,6 +46,7 @@ class AdemdumController extends Controller
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
             'change_agreement_period' => ['nullable', 'boolean'],
+            'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
         ]);
 
         $changeAgreementPeriod = (bool) ($validated['change_agreement_period'] ?? false);
@@ -69,6 +72,10 @@ class AdemdumController extends Controller
             'terms' => $validated['terms'],
             'status' => 'sent',
         ]);
+
+        if ($request->hasFile('signed_doc_file')) {
+            $signedDocService->storeForAdemdum($ademdum->id, $request->file('signed_doc_file'));
+        }
 
         return redirect()
             ->route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
@@ -155,7 +162,7 @@ class AdemdumController extends Controller
             ->with('success', 'Ademdum aceptado correctamente.');
     }
 
-    public function update(int $agreementId, int $ademdumId, Request $request)
+    public function update(int $agreementId, int $ademdumId, Request $request, SignedDocService $signedDocService)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
         $this->syncExpiredAcceptedAdemdums($agreement);
@@ -172,6 +179,7 @@ class AdemdumController extends Controller
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
             'change_agreement_period' => ['nullable', 'boolean'],
+            'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
         ]);
 
         $changeAgreementPeriod = (bool) ($validated['change_agreement_period'] ?? false);
@@ -198,6 +206,10 @@ class AdemdumController extends Controller
             'update_end_date_agreement' => $changeAgreementPeriod && !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
             'terms' => $validated['terms'],
         ]);
+
+        if ($request->hasFile('signed_doc_file')) {
+            $signedDocService->storeForAdemdum($ademdum->id, $request->file('signed_doc_file'));
+        }
 
         return redirect()
             ->route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
@@ -287,11 +299,37 @@ class AdemdumController extends Controller
             ->with('success', 'Solicitud de desestimación rechazada. El adendum sigue activo.');
     }
 
+
+    public function downloadSignedDoc(int $agreementId, int $ademdumId, Request $request)
+    {
+        $agreement = $this->getAccessibleAgreement($agreementId, $request);
+        $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
+        $signedDoc = $ademdum->signedDoc;
+
+        if (!$signedDoc || !Storage::disk($signedDoc->disk)->exists($signedDoc->path)) {
+            return back()->withErrors(['signed_doc_file' => 'No hay un respaldo físico adjunto para este adendum.']);
+        }
+
+        $compressed = Storage::disk($signedDoc->disk)->get($signedDoc->path);
+        $raw = gzdecode($compressed);
+
+        if ($raw === false) {
+            abort(500, 'No se pudo descomprimir el respaldo físico del adendum.');
+        }
+
+        return response()->streamDownload(function () use ($raw): void {
+            echo $raw;
+        }, $signedDoc->original_name, [
+            'Content-Type' => $signedDoc->mime_type,
+            'Content-Length' => (string) strlen($raw),
+        ]);
+    }
+
     private function getOwnedAgreement(int $agreementId, Request $request): Agreement
     {
         $lessor = $request->user()?->lessor;
 
-        return Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum'])
+        return Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum', 'signedDoc'])
             ->where('lessor_id', $lessor?->id)
             ->findOrFail($agreementId);
     }
@@ -300,7 +338,7 @@ class AdemdumController extends Controller
     {
         $user = $request->user();
 
-        $query = Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum']);
+        $query = Agreement::with(['roomer', 'property', 'ademdums', 'latestAdemdum', 'signedDoc']);
 
         if ($user?->isLessor()) {
             $query->where('lessor_id', $user?->lessor?->id);
@@ -316,6 +354,7 @@ class AdemdumController extends Controller
     private function getAgreementAdemdum(Agreement $agreement, int $ademdumId): Ademdum
     {
         return Ademdum::query()
+            ->with('signedDoc')
             ->where('agreement_id', $agreement->id)
             ->whereKey($ademdumId)
             ->firstOrFail();
