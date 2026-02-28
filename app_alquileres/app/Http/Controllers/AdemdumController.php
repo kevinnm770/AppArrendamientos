@@ -12,6 +12,8 @@ use Illuminate\Validation\Rule;
 
 class AdemdumController extends Controller
 {
+    private const CANCELING_RESPONSE_DEADLINE_HOURS = 24;
+
     public function index(int $agreementId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
@@ -252,6 +254,7 @@ class AdemdumController extends Controller
         $ademdum->update([
             'status' => 'canceling',
             'cancelled_by' => trim($validated['cancelled_by']),
+            'cancelled_at' => now(),
         ]);
 
         return redirect()
@@ -271,6 +274,19 @@ class AdemdumController extends Controller
             return redirect()
                 ->route($viewRoute, ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
                 ->withErrors(['ademdum' => 'Solo puedes responder solicitudes de desestimación en estado "canceling".']);
+        }
+
+        if ($this->isCancelingResponseExpired($ademdum)) {
+            $deadline = $ademdum->cancelled_at?->copy()->addHours(self::CANCELING_RESPONSE_DEADLINE_HOURS) ?? now();
+
+            $ademdum->update([
+                'status' => 'cancelled',
+                'cancelled_at' => $deadline,
+            ]);
+
+            return redirect()
+                ->route($viewRoute, ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+                ->withErrors(['ademdum' => 'El tiempo para responder la desestimación ha finalizado (24h). El ademdum quedó en estado "cancelled".']);
         }
 
         $validated = $request->validate([
@@ -386,6 +402,8 @@ class AdemdumController extends Controller
 
     private function syncExpiredAcceptedAdemdums(Agreement $agreement): void
     {
+        $cancelingDeadlineHours = self::CANCELING_RESPONSE_DEADLINE_HOURS;
+
         Ademdum::query()
             ->where('agreement_id', $agreement->id)
             ->where('status', 'accepted')
@@ -399,5 +417,32 @@ class AdemdumController extends Controller
                     'cancelled_by' => 'Expired period',
                 ]);
             });
+
+        Ademdum::query()
+            ->where('agreement_id', $agreement->id)
+            ->where('status', 'canceling')
+            ->whereNotNull('cancelled_at')
+            ->where('cancelled_at', '<=', now()->subHours($cancelingDeadlineHours))
+            ->get()
+            ->each(function (Ademdum $ademdum) use ($cancelingDeadlineHours): void {
+                $deadline = $ademdum->cancelled_at?->copy()->addHours($cancelingDeadlineHours) ?? now();
+
+                $ademdum->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => $deadline,
+                ]);
+            });
+    }
+
+    private function isCancelingResponseExpired(Ademdum $ademdum): bool
+    {
+        if (!$ademdum->cancelled_at) {
+            return false;
+        }
+
+        return $ademdum->cancelled_at
+            ->copy()
+            ->addHours(self::CANCELING_RESPONSE_DEADLINE_HOURS)
+            ->lessThanOrEqualTo(now());
     }
 }
