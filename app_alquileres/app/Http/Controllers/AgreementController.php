@@ -212,10 +212,11 @@ class AgreementController extends Controller
     public function cancelingResponse(int $agreementId, Request $request)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
+        $viewRoute = $request->user()?->isLessor() ? 'admin.agreements.view' : 'tenant.agreements.view';
 
         if ($agreement->status !== 'canceling') {
             return redirect()
-                ->route('tenant.agreements.view', $agreement->id)
+                ->route($viewRoute, $agreement->id)
                 ->withErrors(['agreement' => 'Solo puedes responder solicitudes de cancelación en estado "canceling".']);
         }
 
@@ -231,7 +232,7 @@ class AgreementController extends Controller
             ]);
 
             return redirect()
-                ->route('tenant.agreements.view', $agreement->id)
+                ->route($viewRoute, $agreement->id)
                 ->with('success', 'Cancelación del contrato aceptada correctamente.');
         }
 
@@ -243,7 +244,7 @@ class AgreementController extends Controller
         ]);
 
         return redirect()
-            ->route('tenant.agreements.view', $agreement->id)
+            ->route($viewRoute, $agreement->id)
             ->with('success', 'Solicitud de cancelación rechazada. El contrato sigue activo.');
     }
 

@@ -89,6 +89,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
         Route::patch('/{agreementId}/edit', [AgreementController::class, 'update'])->name('edit.update');
         Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
         Route::patch('/{agreementId}/canceling', [AgreementController::class, 'canceling'])->name('canceling');
+        Route::patch('/{agreementId}/canceling-response', [AgreementController::class, 'cancelingResponse'])->name('canceling-response');
 
         Route::post('/{agreementId}/delete-token', [AgreementController::class, 'sendDeleteToken'])->name('delete-token');
         Route::delete('/{agreementId}', [AgreementController::class, 'delete'])->name('delete');
@@ -103,6 +104,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
         Route::patch('/{ademdumId}/edit', [AdemdumController::class, 'update'])->name('edit.update');
         Route::get('/{ademdumId}/view', [AdemdumController::class, 'view'])->name('view');
         Route::patch('/{ademdumId}/canceling', [AdemdumController::class, 'canceling'])->name('canceling');
+        Route::patch('/{ademdumId}/canceling-response', [AdemdumController::class, 'cancelingResponse'])->name('canceling-response');
         Route::delete('/{ademdumId}', [AdemdumController::class, 'delete'])->name('delete');
     });
 });
