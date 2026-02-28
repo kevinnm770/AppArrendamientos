@@ -32,11 +32,17 @@
                 <div class="row g-3 mb-4">
                     <div class="col-8 col-lg-4">
                         <label class="form-label" for="status">Estado *</label>
-                        <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
+                        @if ($hasLockedAgreement)
+                            <input type="hidden" name="status" value="occupied">
+                        @endif
+                        <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required @disabled($hasLockedAgreement)>
                             <option value="available" @selected(old('status', $property->status ?? 'available') === 'available')>Disponible</option>
                             <option value="occupied" @selected(old('status', $property->status ?? 'available') === 'occupied')>Ocupada</option>
                             <option value="disabled" @selected(old('status', $property->status ?? 'available') === 'disabled')>Deshabilitada</option>
                         </select>
+                        @if ($hasLockedAgreement)
+                            <small class="d-block mt-1" style="font-size:10pt;color:rgb(67, 94, 190);">El estado queda bloqueado en <strong>Ocupada</strong> por un contrato en estado accepted/canceling.</small>
+                        @endif
                         @error('status')
                             <span class="invalid-feedback" role="alert">
                                 <strong>{{ $message }}</strong>
@@ -227,7 +233,7 @@
                     <div class="row mt-4">
                         <div class="col-0 col-lg-4">
                             <label class="form-label" for="price">Precio (₡) *: </label>
-                            <input class="form-control @error('price') is-invalid @enderror" type="number" name="price" id="price" placeholder="Ej: 230000">
+                            <input class="form-control @error('price') is-invalid @enderror" type="number" name="price" id="price" min="0" step="0.01" value="{{ old('price', $property->price) }}" placeholder="Ej: 230000" required>
                             @error('price')
                                 <span class="invalid-feedback d-block" role="alert">
                                     <strong>{{ $message }}</strong>
@@ -235,9 +241,9 @@
                             @enderror
 
                             <select class="form-select mt-2 @error('price_mode') is-invalid @enderror" id="price_mode" name="price_mode" style="width: max-content;" required>
-                                <option value="perHour">Por hora</option>
-                                <option value="perDay">Por día</option>
-                                <option value="perMonth">Por mes</option>
+                                <option value="perHour" @selected(old('price_mode', $property->price_mode) === 'perHour')>Por hora</option>
+                                <option value="perDay" @selected(old('price_mode', $property->price_mode) === 'perDay')>Por día</option>
+                                <option value="perMonth" @selected(old('price_mode', $property->price_mode) === 'perMonth')>Por mes</option>
                             </select>
                             @error('price_mode')
                                 <span class="invalid-feedback" role="alert">
@@ -248,14 +254,26 @@
 
                         <div class="col-12 col-lg-4 row my-lg-0 my-3">
                             <div class="col-12 mb-2">
-                                <input type="checkbox" name="isSharePhone" id="isSharePhone">
+                                <input type="hidden" name="isSharedPhone" value="0">
+                                <input type="checkbox" name="isSharedPhone" id="isSharedPhone" value="1" @checked(old('isSharedPhone', ($property->isSharedPhone ?? false) ? '1' : '0') === '1')>
                                 <label class="form-label" for="contact_phone">Teléfono: </label>
                                 <input class="form-control" type="text" value="+506 {{ $phone_contact?$phone_contact:'' }}" name="" id="contact_phone" min="0" disabled>
+                                @error('isSharedPhone')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
                             </div>
                             <div class="col-12">
-                                <input type="checkbox" name="isShareEmail" id="isShareEmail">
+                                <input type="hidden" name="isSharedEmail" value="0">
+                                <input type="checkbox" name="isSharedEmail" id="isSharedEmail" value="1" @checked(old('isSharedEmail', ($property->isSharedEmail ?? false) ? '1' : '0') === '1')>
                                 <label class="form-label" for="contact_email">Email: </label>
                                 <input class="form-control" type="email" value="{{ $email_contact?$email_contact:'' }}" name="" id="contact_email" disabled>
+                                @error('isSharedEmail')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
                             </div>
                         </div>
 

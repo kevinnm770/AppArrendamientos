@@ -89,6 +89,10 @@ class PropertyController extends Controller
 
             'materials' => ['nullable', 'json'],
             'included_objects' => ['nullable', 'json'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'price_mode' => ['required', Rule::in(['perHour', 'perDay', 'perMonth'])],
+            'isSharedPhone' => ['required', 'boolean'],
+            'isSharedEmail' => ['required', 'boolean'],
 
             'status' => ['required', Rule::in(['available', 'occupied', 'disabled'])],
             'is_public' => ['nullable', 'boolean'],
@@ -144,6 +148,10 @@ class PropertyController extends Controller
 
                 'included_objects' => $includedObjects,
                 'materials' => $materials,
+                'price' => $validated['price'],
+                'price_mode' => $validated['price_mode'],
+                'isSharedPhone' => $request->boolean('isSharedPhone'),
+                'isSharedEmail' => $request->boolean('isSharedEmail'),
 
                 'status' => $validated['status'],
                 'is_public' => $isPublic,
@@ -200,6 +208,7 @@ class PropertyController extends Controller
         return view('admin.properties.edit', [
             'locationData' => $this->locationData(),
             'property' => $property,
+            'hasLockedAgreement' => $property->agreements()->whereIn('status', ['accepted', 'canceling'])->exists(),
             'phone_contact' => $lessor->phone,
             'email_contact' => $user->email
         ]);
@@ -226,6 +235,10 @@ class PropertyController extends Controller
 
             'materials' => ['nullable', 'json'],
             'included_objects' => ['nullable', 'json'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'price_mode' => ['required', Rule::in(['perHour', 'perDay', 'perMonth'])],
+            'isSharedPhone' => ['required', 'boolean'],
+            'isSharedEmail' => ['required', 'boolean'],
 
             'status' => ['required', Rule::in(['available', 'occupied', 'disabled'])],
             'is_public' => ['nullable', 'boolean'],
@@ -251,6 +264,16 @@ class PropertyController extends Controller
             ->where('lessor_id', $lessor->id)
             ->where('id', $id_prop)
             ->firstOrFail();
+
+        $hasLockedAgreement = $property->agreements()
+            ->whereIn('status', ['accepted', 'canceling'])
+            ->exists();
+
+        if ($hasLockedAgreement && $validated['status'] !== 'occupied') {
+            return back()
+                ->withErrors(['status' => 'Si la propiedad tiene un contrato activo o en cancelación, su estado debe ser "Ocupada".'])
+                ->withInput();
+        }
 
         $materials = json_decode($validated['materials'] ?? '[]', true);
         $includedObjects = json_decode($validated['included_objects'] ?? '[]', true);
@@ -281,8 +304,12 @@ class PropertyController extends Controller
 
                 'included_objects' => $includedObjects,
                 'materials' => $materials,
+                'price' => $validated['price'],
+                'price_mode' => $validated['price_mode'],
+                'isSharedPhone' => $request->boolean('isSharedPhone'),
+                'isSharedEmail' => $request->boolean('isSharedEmail'),
 
-                'status' => $validated['status'],
+                'status' => $hasLockedAgreement ? 'occupied' : $validated['status'],
                 'is_public' => $isPublic,
             ]);
 
