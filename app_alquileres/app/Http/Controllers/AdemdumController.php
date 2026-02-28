@@ -6,6 +6,7 @@ use App\Models\Ademdum;
 use App\Models\Agreement;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AdemdumController extends Controller
 {
@@ -244,6 +245,48 @@ class AdemdumController extends Controller
         return redirect()
             ->route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
             ->with('success', 'Ademdum marcado como "canceling" correctamente.');
+    }
+
+    public function cancelingResponse(int $agreementId, int $ademdumId, Request $request)
+    {
+        $agreement = $this->getAccessibleAgreement($agreementId, $request);
+        $this->syncExpiredAcceptedAdemdums($agreement);
+        $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
+
+        if (!$request->user()?->isRoomer()) {
+            abort(403);
+        }
+
+        if ($ademdum->status !== 'canceling') {
+            return redirect()
+                ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+                ->withErrors(['ademdum' => 'Solo puedes responder solicitudes de desestimación en estado "canceling".']);
+        }
+
+        $validated = $request->validate([
+            'decision' => ['required', Rule::in(['accept', 'reject'])],
+        ]);
+
+        if ($validated['decision'] === 'accept') {
+            $ademdum->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+            ]);
+
+            return redirect()
+                ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+                ->with('success', 'Desestimación del adendum aceptada correctamente.');
+        }
+
+        $ademdum->update([
+            'status' => 'accepted',
+            'cancelled_by' => null,
+            'cancelled_at' => null,
+        ]);
+
+        return redirect()
+            ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+            ->with('success', 'Solicitud de desestimación rechazada. El adendum sigue activo.');
     }
 
     private function getOwnedAgreement(int $agreementId, Request $request): Agreement

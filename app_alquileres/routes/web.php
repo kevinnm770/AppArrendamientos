@@ -137,5 +137,6 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
     Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {
         Route::get('/{ademdumId}/view', [AdemdumController::class, 'view'])->name('view');
         Route::patch('/{ademdumId}/accept', [AdemdumController::class, 'accept'])->name('accept');
+        Route::patch('/{ademdumId}/canceling-response', [AdemdumController::class, 'cancelingResponse'])->name('canceling-response');
     });
 });
