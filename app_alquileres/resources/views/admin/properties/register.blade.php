@@ -226,7 +226,7 @@
                     <div class="row mt-4">
                         <div class="col-0 col-lg-4">
                             <label class="form-label" for="price">Precio (₡) *: </label>
-                            <input class="form-control @error('price') is-invalid @enderror" type="number" name="price" id="price" placeholder="Ej: 230000">
+                            <input class="form-control @error('price') is-invalid @enderror" type="number" name="price" id="price" min="0" step="0.01" value="{{ old('price') }}" placeholder="Ej: 230000" required>
                             @error('price')
                                 <span class="invalid-feedback d-block" role="alert">
                                     <strong>{{ $message }}</strong>
@@ -234,9 +234,9 @@
                             @enderror
 
                             <select class="form-select mt-2 @error('price_mode') is-invalid @enderror" id="price_mode" name="price_mode" style="width: max-content;" required>
-                                <option value="perHour">Por hora</option>
-                                <option value="perDay">Por día</option>
-                                <option value="perMonth">Por mes</option>
+                                <option value="perHour" @selected(old('price_mode') === 'perHour')>Por hora</option>
+                                <option value="perDay" @selected(old('price_mode') === 'perDay')>Por día</option>
+                                <option value="perMonth" @selected(old('price_mode') === 'perMonth')>Por mes</option>
                             </select>
                             @error('price_mode')
                                 <span class="invalid-feedback" role="alert">
@@ -247,14 +247,26 @@
 
                         <div class="col-12 col-lg-4 row my-lg-0 my-3">
                             <div class="col-12 mb-2">
-                                <input type="checkbox" name="isSharePhone" id="isSharePhone">
+                                <input type="hidden" name="isSharedPhone" value="0">
+                                <input type="checkbox" name="isSharedPhone" id="isSharedPhone" value="1" @checked(old('isSharedPhone') === '1')>
                                 <label class="form-label" for="contact_phone">Teléfono: </label>
                                 <input class="form-control" type="text" value="+506 {{ $phone_contact?$phone_contact:'' }}" name="" id="contact_phone" min="0" disabled>
+                                @error('isSharedPhone')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
                             </div>
                             <div class="col-12">
-                                <input type="checkbox" name="isShareEmail" id="isShareEmail">
+                                <input type="hidden" name="isSharedEmail" value="0">
+                                <input type="checkbox" name="isSharedEmail" id="isSharedEmail" value="1" @checked(old('isSharedEmail') === '1')>
                                 <label class="form-label" for="contact_email">Email: </label>
                                 <input class="form-control" type="email" value="{{ $email_contact?$email_contact:'' }}" name="" id="contact_email" disabled>
+                                @error('isSharedEmail')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
                             </div>
                         </div>
 

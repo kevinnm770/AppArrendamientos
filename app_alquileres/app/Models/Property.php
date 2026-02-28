@@ -23,6 +23,10 @@ class Property extends Model
         'garages_capacity',
         'included_objects',
         'materials',
+        'price',
+        'price_mode',
+        'isSharedPhone',
+        'isSharedEmail',
         'status',
         'is_public',
     ];
@@ -30,6 +34,9 @@ class Property extends Model
     protected $casts = [
         'included_objects' => 'array',
         'materials' => 'array',
+        'price' => 'float',
+        'isSharedPhone' => 'boolean',
+        'isSharedEmail' => 'boolean',
         'is_public' => 'boolean',
     ];
 
@@ -47,4 +54,3 @@ class Property extends Model
         return $this->hasMany(Agreement::class);
     }
 }
-
