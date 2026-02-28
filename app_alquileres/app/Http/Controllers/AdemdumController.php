@@ -253,13 +253,11 @@ class AdemdumController extends Controller
         $this->syncExpiredAcceptedAdemdums($agreement);
         $ademdum = $this->getAgreementAdemdum($agreement, $ademdumId);
 
-        if (!$request->user()?->isRoomer()) {
-            abort(403);
-        }
+        $viewRoute = $request->user()?->isLessor() ? 'admin.ademdums.view' : 'tenant.ademdums.view';
 
         if ($ademdum->status !== 'canceling') {
             return redirect()
-                ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+                ->route($viewRoute, ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
                 ->withErrors(['ademdum' => 'Solo puedes responder solicitudes de desestimación en estado "canceling".']);
         }
 
@@ -274,7 +272,7 @@ class AdemdumController extends Controller
             ]);
 
             return redirect()
-                ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+                ->route($viewRoute, ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
                 ->with('success', 'Desestimación del adendum aceptada correctamente.');
         }
 
@@ -285,7 +283,7 @@ class AdemdumController extends Controller
         ]);
 
         return redirect()
-            ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+            ->route($viewRoute, ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
             ->with('success', 'Solicitud de desestimación rechazada. El adendum sigue activo.');
     }
 

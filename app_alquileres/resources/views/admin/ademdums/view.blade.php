@@ -54,6 +54,22 @@
                     </div>
                 </div>
 
+
+                @if ($ademdum->status === 'canceling')
+                    <form method="POST" action="{{ route('admin.ademdums.canceling-response', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}" id="ademdum-canceling-response-form">
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="decision" id="ademdum-canceling-decision">
+                        <div class="alert alert-warning mt-3" role="alert">
+                            <h4>Desestimación de adendum</h4>
+                            <p>El arrendatario desea desestimar este adendum por la siguiente razón:</p>
+                            <p>{{ $ademdum->cancelled_by }}</p>
+                            <hr>
+                            <button type="button" class="btn btn-outline-dark" id="reject-rejection-button">Rechazar</button>
+                        </div>
+                    </form>
+                @endif
+
                 <div class="mt-4 d-flex justify-content-end gap-2">
                     @if ($ademdum->status === 'accepted')
                         <button type="button" class="btn btn-warning" id="canceling-ademdum-button">Dejar sin efecto</button>
@@ -118,4 +134,24 @@
             });
         </script>
     @endif
+
+    @if ($ademdum->status === 'canceling')
+        <script>
+            window.addEventListener('load', () => {
+                const form = document.getElementById('ademdum-canceling-response-form');
+                const decisionInput = document.getElementById('ademdum-canceling-decision');
+                const rejectButton = document.getElementById('reject-rejection-button');
+
+                if (!form || !decisionInput || !rejectButton) {
+                    return;
+                }
+
+                rejectButton.addEventListener('click', () => {
+                    decisionInput.value = 'reject';
+                    form.submit();
+                });
+            });
+        </script>
+    @endif
+
 @endsection

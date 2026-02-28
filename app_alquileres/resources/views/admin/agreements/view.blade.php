@@ -78,10 +78,46 @@
                     </div>
                 @endforelse
 
+
+                @if ($agreement->status === 'canceling')
+                    <form method="POST" action="{{ route('admin.agreements.canceling-response', $agreement->id) }}" id="agreement-canceling-response-form">
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="decision" id="agreement-canceling-decision">
+                        <div class="alert alert-warning mt-3" role="alert">
+                            <h4>Cancelación de contrato</h4>
+                            <p>El arrendatario desea cancelar este contrato por la siguiente razón:</p>
+                            <p>{{ $agreement->canceled_by }}</p>
+                            <hr>
+                            <button type="button" class="btn btn-outline-dark" id="reject-canceling-button">Rechazar</button>
+                        </div>
+                    </form>
+                @endif
+
                 <div class="mt-4 text-end">
                     <a href="{{ route('admin.agreements.index') }}" class="btn btn-light-secondary">Volver</a>
                 </div>
             </div>
         </div>
     </section>
+
+    @if ($agreement->status === 'canceling')
+        <script>
+            window.addEventListener('load', () => {
+                const form = document.getElementById('agreement-canceling-response-form');
+                const decisionInput = document.getElementById('agreement-canceling-decision');
+                const rejectButton = document.getElementById('reject-canceling-button');
+
+                if (!form || !decisionInput || !rejectButton) {
+                    return;
+                }
+
+                rejectButton.addEventListener('click', () => {
+                    decisionInput.value = 'reject';
+                    form.submit();
+                });
+            });
+        </script>
+    @endif
+
 @endsection
