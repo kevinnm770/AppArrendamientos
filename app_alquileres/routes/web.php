@@ -119,6 +119,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
     //Notificaciones
     Route::prefix('agreements/notifications')->name('notifications.')->middleware('auth')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/push-feed', [NotificationController::class, 'pushFeed'])->name('push-feed');
         Route::get('/{notificationId}/view', [NotificationController::class, 'view'])->name('view');
     });
 });
@@ -167,6 +168,7 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
     //Notificaciones
     Route::prefix('agreements/notifications')->name('notifications.')->middleware('auth')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/push-feed', [NotificationController::class, 'pushFeed'])->name('push-feed');
         Route::get('/{notificationId}/view', [NotificationController::class, 'view'])->name('view');
     });
 });

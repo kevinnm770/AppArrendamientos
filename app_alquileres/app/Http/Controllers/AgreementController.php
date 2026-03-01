@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Agreement;
 use App\Models\Property;
 use App\Models\Roomer;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -17,6 +18,10 @@ use Illuminate\Validation\Rule;
 
 class AgreementController extends Controller
 {
+    public function __construct(private readonly NotificationService $notificationService)
+    {
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -30,7 +35,10 @@ class AgreementController extends Controller
                 ->orderByDesc('start_at')
                 ->get();
 
-            $agreements->each(fn (Agreement $agreement) => $this->finalizeExpiredCanceling($agreement, $user->id));
+            $agreements->each(function (Agreement $agreement) use ($user): void {
+                $this->syncExpiredAcceptedAgreement($agreement, $user->id);
+                $this->finalizeExpiredCanceling($agreement, $user->id);
+            });
 
             return view('admin.agreements.index', [
                 'agreements' => $agreements,
@@ -45,7 +53,10 @@ class AgreementController extends Controller
                 ->orderByDesc('start_at')
                 ->get();
 
-            $agreements->each(fn (Agreement $agreement) => $this->finalizeExpiredCanceling($agreement, $user->id));
+            $agreements->each(function (Agreement $agreement) use ($user): void {
+                $this->syncExpiredAcceptedAgreement($agreement, $user->id);
+                $this->finalizeExpiredCanceling($agreement, $user->id);
+            });
 
             return view('tenant.agreements.index', [
                 'agreements' => $agreements,
@@ -197,6 +208,18 @@ class AgreementController extends Controller
             $agreement->property()->update([
                 'status' => 'occupied',
             ]);
+
+            $lessorUserId = $agreement->lessor?->user_id;
+
+            if ($lessorUserId) {
+                $this->notificationService->create(
+                    notifyUserId: (int) $lessorUserId,
+                    title: "El arrendatario aceptó el contrato #{$agreement->id}",
+                    priority: 'high',
+                    body: '',
+                    link: route('admin.agreements.index')
+                );
+            }
         });
 
         return redirect()
@@ -225,6 +248,17 @@ class AgreementController extends Controller
             'updated_by_user_id' => $request->user()->id,
         ]);
 
+        $roomerUserId = $agreement->roomer?->user_id;
+        if ($roomerUserId) {
+            $this->notificationService->create(
+                notifyUserId: (int) $roomerUserId,
+                title: "El arrendador solicitó desestimar el contrato #{$agreement->id}",
+                priority: 'high',
+                body: '',
+                link: route('tenant.agreements.view', $agreement->id)
+            );
+        }
+
         return redirect()
             ->route('admin.agreements.index')
             ->with('success', 'El contrato fue marcado en estado "canceling".');
@@ -251,6 +285,23 @@ class AgreementController extends Controller
                 'updated_by_user_id' => $request->user()->id,
             ]);
 
+            $lessorUserId = $agreement->lessor?->user_id;
+            $roomerUserId = $agreement->roomer?->user_id;
+
+            $title = "El contrato #{$agreement->id} fue desestimado";
+            $body = sprintf(
+                '<p>Se ejecutó la desestimación del contrato <strong>#%d</strong>.</p><p>La relación contractual quedó finalizada y su estado pasó a <strong>cancelled</strong>.</p>',
+                $agreement->id
+            );
+
+            $this->notificationService->createForUsers(
+                array_filter([(int) $lessorUserId, (int) $roomerUserId]),
+                $title,
+                'high',
+                $body,
+                null
+            );
+
             return redirect()
                 ->route($viewRoute, $agreement->id)
                 ->with('success', 'Cancelación del contrato aceptada correctamente.');
@@ -262,6 +313,20 @@ class AgreementController extends Controller
             'canceled_date' => null,
             'updated_by_user_id' => $request->user()->id,
         ]);
+
+        $lessorUserId = $agreement->lessor?->user_id;
+        if ($lessorUserId) {
+            $this->notificationService->create(
+                notifyUserId: (int) $lessorUserId,
+                title: "El arrendatario rechazó la desestimación del contrato #{$agreement->id}",
+                priority: 'high',
+                body: sprintf(
+                    '<p>El arrendatario respondió la solicitud de desestimación del contrato <strong>#%d</strong>.</p><p>Resultado: <strong>rechazada</strong>. El contrato continúa vigente en estado <strong>accepted</strong>.</p>',
+                    $agreement->id
+                ),
+                link: null
+            );
+        }
 
         return redirect()
             ->route($viewRoute, $agreement->id)
@@ -426,6 +491,17 @@ class AgreementController extends Controller
             $signedDocService->storeForAgreement($agreement->id, $request->file('signed_doc_file'));
         }
 
+        $roomerUserId = $agreement->roomer?->user_id;
+        if ($roomerUserId) {
+            $this->notificationService->create(
+                notifyUserId: (int) $roomerUserId,
+                title: "Tienes un nuevo contrato #{$agreement->id} pendiente de revisión",
+                priority: 'high',
+                body: '',
+                link: route('tenant.agreements.view', $agreement->id)
+            );
+        }
+
         return redirect()
             ->route('admin.agreements.index')
             ->with('success', 'Contrato registrado correctamente.');
@@ -474,6 +550,7 @@ class AgreementController extends Controller
 
         $agreement = $query->findOrFail($agreementId);
 
+        $this->syncExpiredAcceptedAgreement($agreement, $user?->id);
         $this->finalizeExpiredCanceling($agreement, $user?->id);
 
         return $agreement->fresh(['roomer', 'property', 'ademdums', 'latestAdemdum', 'signedDoc']);
@@ -493,6 +570,47 @@ class AgreementController extends Controller
             'status' => 'cancelled',
             'updated_by_user_id' => $updatedByUserId,
         ]);
+
+        $lessorUserId = $agreement->lessor?->user_id;
+        $roomerUserId = $agreement->roomer?->user_id;
+
+        $this->notificationService->createForUsers(
+            array_filter([(int) $lessorUserId, (int) $roomerUserId]),
+            "El contrato #{$agreement->id} fue desestimado automáticamente",
+            'high',
+            sprintf(
+                '<p>La desestimación del contrato <strong>#%d</strong> se ejecutó automáticamente al vencer el plazo de respuesta.</p><p>El estado final es <strong>cancelled</strong>.</p>',
+                $agreement->id
+            ),
+            null
+        );
+    }
+
+
+    private function syncExpiredAcceptedAgreement(Agreement $agreement, ?int $updatedByUserId = null): void
+    {
+        if ($agreement->status !== 'accepted' || !$agreement->end_at || $agreement->end_at->isFuture()) {
+            return;
+        }
+
+        $agreement->update([
+            'status' => 'finished',
+            'updated_by_user_id' => $updatedByUserId,
+        ]);
+
+        $lessorUserId = $agreement->lessor?->user_id;
+        $roomerUserId = $agreement->roomer?->user_id;
+
+        $this->notificationService->createForUsers(
+            array_filter([(int) $lessorUserId, (int) $roomerUserId]),
+            "El contrato #{$agreement->id} finalizó por vigencia",
+            'high',
+            sprintf(
+                '<p>El contrato <strong>#%d</strong> finalizó automáticamente al cumplirse su fecha de vigencia.</p><p>El estado final es <strong>finished</strong>.</p>',
+                $agreement->id
+            ),
+            null
+        );
     }
 
     private function hasDateCollision(string $column, int $id, Carbon $startAt, ?Carbon $endAt, ?int $ignoreAgreementId = null): bool
