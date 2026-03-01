@@ -10,9 +10,17 @@ class NotificationController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $user = $request->user();
+
+        if ($user->isLessor()) {
+            return view('admin.notifications.index');
+        }
+
+        if ($user->isRoomer()) {
+            //return view('tenant.notifications.index');
+        }
     }
 
     /**

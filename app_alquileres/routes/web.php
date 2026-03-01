@@ -5,6 +5,7 @@ use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\roomerController;
@@ -96,8 +97,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
         Route::delete('/{agreementId}', [AgreementController::class, 'delete'])->name('delete');
     });
 
-
-
     // Facturas
     Route::prefix('invoices')->name('invoices.')->middleware('auth')->group(function () {
         Route::get('/', [InvoiceController::class, 'index'])->name('index');
@@ -115,6 +114,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
         Route::patch('/{ademdumId}/canceling', [AdemdumController::class, 'canceling'])->name('canceling');
         Route::patch('/{ademdumId}/canceling-response', [AdemdumController::class, 'cancelingResponse'])->name('canceling-response');
         Route::delete('/{ademdumId}', [AdemdumController::class, 'delete'])->name('delete');
+    });
+
+    //Notificaciones
+    Route::prefix('agreements/notifications')->name('notifications.')->middleware('auth')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
     });
 });
 

@@ -88,14 +88,6 @@
 
             <li
                 class="sidebar-item">
-                <a href="#" class='sidebar-link'>
-                    <i class="bi bi-chat-dots-fill"></i>
-                    <span>Mensajes</span>
-                </a>
-            </li>
-
-            <li
-                class="sidebar-item">
                 <a href="form-layout.html" class='sidebar-link'>
                     <i class="bi bi-bell-fill"></i>
                     <span>Notificaciones</span>

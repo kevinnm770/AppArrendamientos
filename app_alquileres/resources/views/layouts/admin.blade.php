@@ -110,24 +110,27 @@
             </li>
 
             <li
-                class="sidebar-item">
+                class="sidebar-item has-sub">
                 <a href="{{ route('admin.invoices.index') }}" class='sidebar-link'>
                     <i class="bi bi-receipt"></i>
                     <span>Facturas</span>
                 </a>
+
+                <ul class="submenu ">
+
+                    <li class="submenu-item  ">
+                        <a href="#" class="submenu-link">Controlar</a>
+                    </li>
+
+                    <li class="submenu-item  ">
+                        <a href="{{ route('admin.invoices.index') }}" class="submenu-link">Registrar</a>
+                    </li>
+                </ul>
             </li>
 
             <li
                 class="sidebar-item">
-                <a href="#" class='sidebar-link'>
-                    <i class="bi bi-chat-dots-fill"></i>
-                    <span>Mensajes</span>
-                </a>
-            </li>
-
-            <li
-                class="sidebar-item">
-                <a href="form-layout.html" class='sidebar-link'>
+                <a href="{{ route('admin.notifications.index') }}" class='sidebar-link'>
                     <i class="bi bi-bell-fill"></i>
                     <span>Notificaciones</span>
                 </a>
