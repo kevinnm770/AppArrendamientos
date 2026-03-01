@@ -14,13 +14,16 @@ class NotificationController extends Controller
     {
         $user = $request->user();
 
+        $notifications = Notification::query()
+            ->where('notify_id', $user->id)
+            ->latest('created_at')
+            ->get();
+
         if ($user->isLessor()) {
-            return view('admin.notifications.index');
+            return view('admin.notifications.index', compact('notifications'));
         }
 
-        if ($user->isRoomer()) {
-            //return view('tenant.notifications.index');
-        }
+        return response()->json($notifications);
     }
 
     /**

@@ -17,6 +17,14 @@
         </div>
     </div>
 
+    @php
+        $priorityClasses = [
+            'high' => 'danger',
+            'medium' => 'warning',
+            'low' => 'success',
+        ];
+    @endphp
+
     <div class="card">
         <div class="card-content">
             <div class="card-body">
@@ -27,20 +35,31 @@
                     <table class="table table-lg">
                         <thead>
                             <tr>
-                                <th>Titulo</th>
+                                <th>Título</th>
                                 <th>Prioridad</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="cursor: pointer;" onclick="window.location.href='{{$notification->link}}'">
-                                <td class="text-bold-500">{{$notification->title}}</td>
-                                <td><span class="alert alert-light-{{$notification->priority}} p-1">{{strtoupper($notification->priority)}}</span></td>
-                            </tr>
+                            @forelse ($notifications as $notification)
+                                <tr style="cursor: pointer;"
+                                    onclick="window.location.href='{{ $notification->link ?? '#' }}'">
+                                    <td class="text-bold-500">{{ $notification->title }}</td>
+                                    <td>
+                                        <span
+                                            class="alert alert-light-{{ $priorityClasses[$notification->priority] ?? 'secondary' }} p-1">
+                                            {{ strtoupper($notification->priority) }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="2" class="text-center text-muted">No hay notificaciones disponibles.</td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
-
 @endsection
