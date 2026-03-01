@@ -14,6 +14,7 @@ class Notification extends Model
         'notify_id',
         'title',
         'body',
+        'priority',
         'link',
         'status',
     ];
