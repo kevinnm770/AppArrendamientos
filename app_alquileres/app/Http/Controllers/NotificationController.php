@@ -38,9 +38,13 @@ class NotificationController extends Controller
         $notification = Notification::query()
             ->where('id', $notificationId)
             ->where('notify_id', $user->id)
-            ->whereNotNull('body')
-            ->where('body', '!=', '')
             ->firstOrFail();
+
+        if ($notification->status === 'sent') {
+            $notification->update([
+                'status' => 'read',
+            ]);
+        }
 
         if ($user->isLessor()) {
             return view('admin.notifications.view', compact('notification'));

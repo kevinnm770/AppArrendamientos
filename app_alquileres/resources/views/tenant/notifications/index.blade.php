@@ -43,7 +43,7 @@
                         <tbody>
                             @forelse ($notifications as $notification)
                                 <tr style="cursor: pointer;"
-                                    onclick="window.location.href='{{ $notification->link ?? '#' }}'">
+                                    onclick="window.location.href='{{ route('tenant.notifications.view', $notification->id) }}'">
                                     <td class="text-bold-500">{{ $notification->title }}</td>
                                     <td>
                                         <span
