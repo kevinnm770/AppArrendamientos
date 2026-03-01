@@ -64,7 +64,7 @@ class Agreement extends Model
             ->whereIn('status', ['accepted', 'canceling'])
             ->whereNotNull('update_start_date_agreement')
             ->whereNotNull('update_end_date_agreement')
-            //->where('update_start_date_agreement', '<=', Carbon::now())
+            ->where('update_start_date_agreement', '<=', Carbon::now())
             ->where('update_end_date_agreement', '>=', Carbon::now())
             ->orderBy('created_at', 'desc');
     }
