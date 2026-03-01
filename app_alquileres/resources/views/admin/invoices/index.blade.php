@@ -4,10 +4,10 @@
     <section class="section">
         <div class="card mb-4">
             <div class="card-header">
-                <h4 class="card-title">Nueva factura electrónica (Costa Rica)</h4>
+                <h4 class="card-title">Nueva factura</h4>
             </div>
             <div class="card-body">
-                <p class="text-muted mb-3">Referencia sugerida para API económica/gratis: <strong>CRLibre</strong>.</p>
+                <p class="text-muted mb-3">Puedes registrar una factura <strong>electrónica</strong> o <strong>simple</strong> según lo necesites.</p>
 
                 @if ($errors->any())
                     <div class="alert alert-danger">
@@ -35,6 +35,14 @@
                                     #{{ $agreement->id }} - {{ $agreement->property->name ?? 'Sin propiedad' }} / {{ $agreement->roomer->legal_name ?? 'Sin arrendatario' }}
                                 </option>
                             @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Tipo de factura</label>
+                        <select name="invoice_type" class="form-select" id="invoice_type" required>
+                            <option value="electronic" @selected(old('invoice_type', 'electronic') === 'electronic')>Electrónica</option>
+                            <option value="simple" @selected(old('invoice_type') === 'simple')>Simple</option>
                         </select>
                     </div>
 
@@ -99,22 +107,22 @@
                         </select>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-md-2 electronic-only">
                         <label class="form-label">Tipo doc FE</label>
-                        <input type="text" name="document_type" class="form-control" value="{{ old('document_type', '01') }}" maxlength="2" required>
+                        <input type="text" name="document_type" class="form-control" value="{{ old('document_type', '01') }}" maxlength="2">
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-md-2 electronic-only">
                         <label class="form-label">Situación</label>
-                        <input type="text" name="situation" class="form-control" value="{{ old('situation', '1') }}" maxlength="1" required>
+                        <input type="text" name="situation" class="form-control" value="{{ old('situation', '1') }}" maxlength="1">
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-md-2 electronic-only">
                         <label class="form-label">Código actividad</label>
                         <input type="text" name="activity_code" class="form-control" value="{{ old('activity_code') }}" maxlength="6">
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-4 electronic-only">
                         <label class="form-label">Actividad económica</label>
                         <input type="text" name="economic_activity" class="form-control" value="{{ old('economic_activity') }}">
                     </div>
@@ -152,7 +160,13 @@
                                 <td>{{ optional($invoice->date)->format('Y-m-d') }}</td>
                                 <td>{{ $invoice->currency }} {{ number_format((float) $invoice->total, 2) }}</td>
                                 <td>{{ $statusOptions[$invoice->status] ?? $invoice->status }}</td>
-                                <td>{{ $haciendaStatusOptions[$invoice->electronicDetail->hacienda_status ?? 'pending'] ?? 'Pendiente' }}</td>
+                                <td>
+                                    @if ($invoice->electronicDetail)
+                                        {{ $haciendaStatusOptions[$invoice->electronicDetail->hacienda_status ?? 'pending'] ?? 'Pendiente' }}
+                                    @else
+                                        No aplica
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
@@ -174,5 +188,33 @@
                 </ul>
             </div>
         </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const invoiceTypeInput = document.getElementById('invoice_type');
+                const electronicOnlyFields = document.querySelectorAll('.electronic-only');
+
+                if (!invoiceTypeInput) {
+                    return;
+                }
+
+                const toggleElectronicFields = function() {
+                    const showElectronicFields = invoiceTypeInput.value === 'electronic';
+
+                    electronicOnlyFields.forEach(function(fieldWrapper) {
+                        fieldWrapper.style.display = showElectronicFields ? '' : 'none';
+
+                        const input = fieldWrapper.querySelector('input, select, textarea');
+
+                        if (input && ['document_type', 'situation'].includes(input.name)) {
+                            input.required = showElectronicFields;
+                        }
+                    });
+                };
+
+                invoiceTypeInput.addEventListener('change', toggleElectronicFields);
+                toggleElectronicFields();
+            });
+        </script>
     </section>
 @endsection

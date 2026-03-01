@@ -52,6 +52,7 @@ class InvoiceController extends Controller
 
         $validated = $request->validate([
             'agreement_id' => ['required', Rule::exists('agreements', 'id')->where('lessor_id', $lessor->id)],
+            'invoice_type' => ['required', Rule::in(['electronic', 'simple'])],
             'invoice_number' => ['required', 'string', 'max:255'],
             'date' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:date'],
@@ -68,8 +69,8 @@ class InvoiceController extends Controller
             'notes' => ['nullable', 'string'],
             'activity_code' => ['nullable', 'string', 'max:6'],
             'economic_activity' => ['nullable', 'string', 'max:255'],
-            'document_type' => ['required', 'string', 'size:2'],
-            'situation' => ['required', 'string', 'size:1'],
+            'document_type' => ['required_if:invoice_type,electronic', 'nullable', 'string', 'size:2'],
+            'situation' => ['required_if:invoice_type,electronic', 'nullable', 'string', 'size:1'],
         ]);
 
         $agreement = Agreement::with('roomer')
@@ -112,18 +113,24 @@ class InvoiceController extends Controller
             'updated_by_user_id' => $request->user()->id,
         ]);
 
-        $invoice->electronicDetail()->create([
-            'activity_code' => $validated['activity_code'] ?? null,
-            'economic_activity' => $validated['economic_activity'] ?? null,
-            'electronic_key' => Invoice::generateElectronicKey(),
-            'consecutive_number' => Invoice::generateConsecutiveNumber($lessor->id, (int) $invoice->id),
-            'document_type' => $validated['document_type'],
-            'situation' => $validated['situation'],
-            'hacienda_status' => 'pending',
-        ]);
+        if ($validated['invoice_type'] === 'electronic') {
+            $invoice->electronicDetail()->create([
+                'activity_code' => $validated['activity_code'] ?? null,
+                'economic_activity' => $validated['economic_activity'] ?? null,
+                'electronic_key' => Invoice::generateElectronicKey(),
+                'consecutive_number' => Invoice::generateConsecutiveNumber($lessor->id, (int) $invoice->id),
+                'document_type' => $validated['document_type'],
+                'situation' => $validated['situation'],
+                'hacienda_status' => 'pending',
+            ]);
+        }
+
+        $message = $validated['invoice_type'] === 'electronic'
+            ? 'Factura electrónica creada con datos de Costa Rica.'
+            : 'Factura simple creada exitosamente.';
 
         return redirect()
             ->route('admin.invoices.index')
-            ->with('success', 'Factura creada con datos de factura electrónica de Costa Rica.');
+            ->with('success', $message);
     }
 }
