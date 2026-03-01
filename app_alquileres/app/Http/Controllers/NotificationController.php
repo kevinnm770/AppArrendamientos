@@ -24,7 +24,7 @@ class NotificationController extends Controller
         if ($user->isLessor()) {
             return view('admin.notifications.index', compact('notifications'));
         }
-        if ($user->isLessor()) {
+        if ($user->isRoomer()) {
             return view('tenant.notifications.index', compact('notifications'));
         }
 
@@ -51,6 +51,25 @@ class NotificationController extends Controller
         }
 
         abort(403);
+    }
+
+
+    public function pushFeed(Request $request)
+    {
+        $user = $request->user();
+        $lastId = (int) $request->query('last_id', 0);
+
+        $notifications = Notification::query()
+            ->where('notify_id', $user->id)
+            ->where('status', 'sent')
+            ->where('id', '>', $lastId)
+            ->orderBy('id')
+            ->limit(20)
+            ->get(['id', 'title', 'body', 'link', 'created_at']);
+
+        return response()->json([
+            'notifications' => $notifications,
+        ]);
     }
 
     /**

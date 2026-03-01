@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Ademdum;
 use App\Models\Agreement;
+use App\Services\NotificationService;
 use App\Services\SignedDocService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -13,6 +14,10 @@ use Illuminate\Validation\Rule;
 class AdemdumController extends Controller
 {
     private const CANCELING_RESPONSE_DEADLINE_HOURS = 24;
+
+    public function __construct(private readonly NotificationService $notificationService)
+    {
+    }
 
     public function index(int $agreementId, Request $request)
     {
@@ -77,6 +82,17 @@ class AdemdumController extends Controller
 
         if ($request->hasFile('signed_doc_file')) {
             $signedDocService->storeForAdemdum($ademdum->id, $request->file('signed_doc_file'));
+        }
+
+        $roomerUserId = $agreement->roomer?->user_id;
+        if ($roomerUserId) {
+            $this->notificationService->create(
+                notifyUserId: (int) $roomerUserId,
+                title: "Tienes un nuevo adendum #{$ademdum->id} pendiente de revisión",
+                priority: 'high',
+                body: '',
+                link: route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+            );
         }
 
         return redirect()
@@ -158,6 +174,17 @@ class AdemdumController extends Controller
             'tenant_confirmed_at' => now(),
             'locked_at' => now(),
         ]);
+
+        $lessorUserId = $agreement->lessor?->user_id;
+        if ($lessorUserId) {
+            $this->notificationService->create(
+                notifyUserId: (int) $lessorUserId,
+                title: "El arrendatario aceptó el adendum #{$ademdum->id}",
+                priority: 'high',
+                body: '',
+                link: route('admin.agreements.index')
+            );
+        }
 
         return redirect()
             ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
@@ -260,6 +287,17 @@ class AdemdumController extends Controller
             'cancelled_at' => now(),
         ]);
 
+        $roomerUserId = $agreement->roomer?->user_id;
+        if ($roomerUserId) {
+            $this->notificationService->create(
+                notifyUserId: (int) $roomerUserId,
+                title: "El arrendador solicitó desestimar el adendum #{$ademdum->id}",
+                priority: 'high',
+                body: '',
+                link: route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
+            );
+        }
+
         return redirect()
             ->route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
             ->with('success', 'Ademdum marcado como "canceling" correctamente.');
@@ -302,6 +340,20 @@ class AdemdumController extends Controller
                 'cancelled_at' => now(),
             ]);
 
+            $lessorUserId = $agreement->lessor?->user_id;
+            $roomerUserId = $agreement->roomer?->user_id;
+
+            $this->notificationService->createForUsers(
+                array_filter([(int) $lessorUserId, (int) $roomerUserId]),
+                "El adendum #{$ademdum->id} fue desestimado",
+                'high',
+                sprintf(
+                    '<p>Se ejecutó la desestimación del adendum <strong>#%d</strong>.</p><p>El adendum quedó en estado <strong>cancelled</strong>.</p>',
+                    $ademdum->id
+                ),
+                null
+            );
+
             return redirect()
                 ->route($viewRoute, ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
                 ->with('success', 'Desestimación del adendum aceptada correctamente.');
@@ -312,6 +364,20 @@ class AdemdumController extends Controller
             'cancelled_by' => null,
             'cancelled_at' => null,
         ]);
+
+        $lessorUserId = $agreement->lessor?->user_id;
+        if ($lessorUserId) {
+            $this->notificationService->create(
+                notifyUserId: (int) $lessorUserId,
+                title: "El arrendatario rechazó la desestimación del adendum #{$ademdum->id}",
+                priority: 'high',
+                body: sprintf(
+                    '<p>El arrendatario respondió la solicitud de desestimación del adendum <strong>#%d</strong>.</p><p>Resultado: <strong>rechazada</strong>. El adendum continúa activo en estado <strong>accepted</strong>.</p>',
+                    $ademdum->id
+                ),
+                link: null
+            );
+        }
 
         return redirect()
             ->route($viewRoute, ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
@@ -413,12 +479,26 @@ class AdemdumController extends Controller
             ->whereNotNull('end_at')
             ->where('end_at', '<', now())
             ->get()
-            ->each(function (Ademdum $ademdum): void {
+            ->each(function (Ademdum $ademdum) use ($agreement): void {
                 $ademdum->update([
                     'status' => 'cancelled',
                     'cancelled_at' => $ademdum->end_at,
                     'cancelled_by' => 'Expired period',
                 ]);
+
+                $lessorUserId = $agreement->lessor?->user_id;
+                $roomerUserId = $agreement->roomer?->user_id;
+
+                $this->notificationService->createForUsers(
+                    array_filter([(int) $lessorUserId, (int) $roomerUserId]),
+                    "El adendum #{$ademdum->id} finalizó por vigencia",
+                    'high',
+                    sprintf(
+                        '<p>El adendum <strong>#%d</strong> finalizó automáticamente al cumplirse su fecha de vigencia.</p><p>El estado final es <strong>cancelled</strong>.</p>',
+                        $ademdum->id
+                    ),
+                    null
+                );
             });
 
         Ademdum::query()
@@ -427,13 +507,27 @@ class AdemdumController extends Controller
             ->whereNotNull('cancelled_at')
             ->where('cancelled_at', '<=', now()->subHours($cancelingDeadlineHours))
             ->get()
-            ->each(function (Ademdum $ademdum) use ($cancelingDeadlineHours): void {
+            ->each(function (Ademdum $ademdum) use ($agreement, $cancelingDeadlineHours): void {
                 $deadline = $ademdum->cancelled_at?->copy()->addHours($cancelingDeadlineHours) ?? now();
 
                 $ademdum->update([
                     'status' => 'cancelled',
                     'cancelled_at' => $deadline,
                 ]);
+
+                $lessorUserId = $agreement->lessor?->user_id;
+                $roomerUserId = $agreement->roomer?->user_id;
+
+                $this->notificationService->createForUsers(
+                    array_filter([(int) $lessorUserId, (int) $roomerUserId]),
+                    "El adendum #{$ademdum->id} fue desestimado automáticamente",
+                    'high',
+                    sprintf(
+                        '<p>La desestimación del adendum <strong>#%d</strong> se ejecutó automáticamente al vencer el plazo de respuesta.</p><p>El estado final es <strong>cancelled</strong>.</p>',
+                        $ademdum->id
+                    ),
+                    null
+                );
             });
     }
 

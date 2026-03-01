@@ -212,6 +212,72 @@
 <script src="{{asset('/assets/extensions/quill/quill.min.js')}}"></script>
 <script src="{{asset('/assets/static/js/pages/quill.js')}}"></script>
 
+
+<script>
+    (function () {
+        if (!('Notification' in window)) {
+            return;
+        }
+
+        const storageKey = 'last_push_notification_id';
+        let lastId = Number(localStorage.getItem(storageKey) || 0);
+
+        const requestBrowserPermission = async () => {
+            if (Notification.permission === 'default') {
+                try {
+                    await Notification.requestPermission();
+                } catch (error) {
+                    // noop
+                }
+            }
+        };
+
+        const pollNotifications = async () => {
+            try {
+                const response = await fetch(`{{ route('admin.notifications.push-feed') }}?last_id=${lastId}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const payload = await response.json();
+                const notifications = payload.notifications || [];
+
+                notifications.forEach((item) => {
+                    if (item.id > lastId) {
+                        lastId = item.id;
+                    }
+
+                    if (Notification.permission === 'granted') {
+                        const browserNotification = new Notification(item.title, {
+                            body: item.body || 'Tienes una nueva notificación.',
+                        });
+
+                        if (item.link) {
+                            browserNotification.onclick = () => {
+                                window.location.href = item.link;
+                            };
+                        }
+                    }
+                });
+
+                localStorage.setItem(storageKey, String(lastId));
+            } catch (error) {
+                // noop
+            }
+        };
+
+        requestBrowserPermission().finally(() => {
+            pollNotifications();
+            setInterval(pollNotifications, 15000);
+        });
+    })();
+</script>
+
 </body>
 
 </html>
