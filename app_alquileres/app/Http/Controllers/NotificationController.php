@@ -31,9 +31,26 @@ class NotificationController extends Controller
         return response()->json($notifications);
     }
 
-    public function view(int $id)
+    public function view(int $notificationId, Request $request)
     {
+        $user = $request->user();
 
+        $notification = Notification::query()
+            ->where('id', $notificationId)
+            ->where('notify_id', $user->id)
+            ->whereNotNull('body')
+            ->where('body', '!=', '')
+            ->firstOrFail();
+
+        if ($user->isLessor()) {
+            return view('admin.notifications.view', compact('notification'));
+        }
+
+        if ($user->isRoomer()) {
+            return view('tenant.notifications.view', compact('notification'));
+        }
+
+        abort(403);
     }
 
     /**
