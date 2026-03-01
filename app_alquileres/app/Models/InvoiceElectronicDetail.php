@@ -42,59 +42,59 @@ class InvoiceElectronicDetail extends Model
     // Scopes
     public function scopeStatus($query, string $status)
     {
-        return $query->where('electronic_status', $status);
+        return $query->where('hacienda_status', $status);
     }
 
     public function scopeAccepted($query)
     {
-        return $query->where('electronic_status', 'accepted');
+        return $query->where('hacienda_status', 'accepted');
     }
 
     public function scopeRejected($query)
     {
-        return $query->where('electronic_status', 'rejected');
+        return $query->where('hacienda_status', 'rejected');
     }
 
     public function scopePending($query)
     {
-        return $query->where('electronic_status', 'pending');
+        return $query->where('hacienda_status', 'pending');
     }
 
     // Métodos de utilidad
     public function isAccepted(): bool
     {
-        return $this->electronic_status === 'accepted';
+        return $this->hacienda_status === 'accepted';
     }
 
     public function isRejected(): bool
     {
-        return $this->electronic_status === 'rejected';
+        return $this->hacienda_status === 'rejected';
     }
 
     public function isSent(): bool
     {
-        return $this->electronic_status === 'sent';
+        return !empty($this->sent_to_hacienda_at);
     }
 
     public function getHaciendaUrl(): string
     {
         // URL para consultar en Hacienda
-        return "https://www.hacienda.go.cr/consultafactura?clave={$this->hacienda_key}";
+        return "https://www.hacienda.go.cr/consultafactura?clave={$this->electronic_key}";
     }
 
     public function markAsSent(): void
     {
         $this->update([
-            'electronic_status' => 'sent',
-            'sent_at' => now(),
+            'hacienda_status' => 'pending',
+            'sent_to_hacienda_at' => now(),
         ]);
     }
 
     public function markAsAccepted(): void
     {
         $this->update([
-            'electronic_status' => 'accepted',
-            'accepted_at' => now(),
+            'hacienda_status' => 'accepted',
+            'hacienda_response_at' => now(),
         ]);
 
         // Actualizar factura padre
@@ -107,15 +107,12 @@ class InvoiceElectronicDetail extends Model
     public function markAsRejected(string $reason = null): void
     {
         $data = [
-            'electronic_status' => 'rejected',
-            'rejected_at' => now(),
+            'hacienda_status' => 'rejected',
+            'hacienda_response_at' => now(),
         ];
 
         if ($reason) {
-            $data['ptec_response'] = array_merge(
-                $this->ptec_response ?? [],
-                ['rejection_reason' => $reason]
-            );
+            $data['hacienda_message'] = $reason;
         }
 
         $this->update($data);

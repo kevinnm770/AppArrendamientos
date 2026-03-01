@@ -4,6 +4,7 @@ use App\Http\Controllers\AdemdumController;
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\roomerController;
@@ -96,6 +97,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
     });
 
 
+
+    // Facturas
+    Route::prefix('invoices')->name('invoices.')->middleware('auth')->group(function () {
+        Route::get('/', [InvoiceController::class, 'index'])->name('index');
+        Route::post('/', [InvoiceController::class, 'store'])->name('store');
+    });
+
     Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {
         Route::get('/', [AdemdumController::class, 'index'])->name('index');
         Route::post('/', [AdemdumController::class, 'store'])->name('store');
@@ -135,6 +143,13 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
         Route::get('/{agreementId}/view', [AgreementController::class, 'view'])->name('view');
         Route::patch('/{agreementId}/accept', [AgreementController::class, 'accept'])->name('accept');
         Route::patch('/{agreementId}/canceling-response', [AgreementController::class, 'cancelingResponse'])->name('canceling-response');
+    });
+
+
+    // Facturas
+    Route::prefix('invoices')->name('invoices.')->middleware('auth')->group(function () {
+        Route::get('/', [InvoiceController::class, 'index'])->name('index');
+        Route::post('/', [InvoiceController::class, 'store'])->name('store');
     });
 
     Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {

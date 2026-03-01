@@ -6,6 +6,32 @@ use Illuminate\Database\Eloquent\Model;
 
 class Invoice extends Model
 {
+    public const STATUS_OPTIONS = [
+        'draft' => 'Borrador',
+        'sent' => 'Enviada',
+        'confirmed' => 'Confirmada',
+        'paid' => 'Pagada',
+        'overdue' => 'Vencida',
+        'void' => 'Anulada',
+    ];
+
+    public const SALE_CONDITION_OPTIONS = [
+        'cash' => 'Contado',
+        'credit' => 'Crédito',
+        'consignment' => 'Consignación',
+        'layaway' => 'Apartado',
+        'service' => 'Cobro de servicio',
+    ];
+
+    public const PAYMENT_METHOD_OPTIONS = [
+        'cash' => 'Efectivo',
+        'card' => 'Tarjeta',
+        'transfer' => 'Transferencia',
+        'check' => 'Cheque',
+        'collection' => 'Recaudado por tercero',
+        'other' => 'Otro',
+    ];
+
     protected $fillable = [
         'agreement_id',
         'lessor_id',
@@ -81,33 +107,6 @@ class Invoice extends Model
         return $this->hasOne(InvoiceElectronicDetail::class);
     }
 
-    // Accesos rápidos vía Agreement
-    public function getLessorAttribute()
-    {
-        return $this->agreement->lessor;
-    }
-
-    public function getRoomerAttribute()
-    {
-        return $this->agreement->roomer;
-    }
-
-    public function getPropertyAttribute()
-    {
-        return $this->agreement->property;
-    }
-
-    // Scopes
-    public function scopeSimple($query)
-    {
-        return $query->where('type', 'simple');
-    }
-
-    public function scopeElectronic($query)
-    {
-        return $query->where('type', 'electronic');
-    }
-
     public function scopeStatus($query, string $status)
     {
         return $query->where('status', $status);
@@ -120,40 +119,8 @@ class Invoice extends Model
             ->where('due_date', '>=', now()->subYears(5));
     }
 
-    // Métodos de utilidad
-    public function isElectronic(): bool
-    {
-        return $this->type === 'electronic';
-    }
-
-    public function isSimple(): bool
-    {
-        return $this->type === 'simple';
-    }
-
-    public function total(): float
-    {
-        $tax = $this->subtotal * ($this->tax_percent / 100);
-        $discount = $this->subtotal * ($this->discount_percent / 100);
-        return $this->subtotal + $tax - $discount + $this->late_fee_total;
-    }
-
-    public function taxAmount(): float
-    {
-        return $this->subtotal * ($this->tax_percent / 100);
-    }
-
-    public function discountAmount(): float
-    {
-        return $this->subtotal * ($this->discount_percent / 100);
-    }
-
     public function canBeSentToHacienda(): bool
     {
-        if (!$this->isElectronic()) {
-            return false;
-        }
-
         if ($this->status !== 'draft') {
             return false;
         }
@@ -162,8 +129,8 @@ class Invoice extends Model
             return false;
         }
 
-        return !empty($this->electronicDetail->emisor_nit)
-            && !empty($this->electronicDetail->receptor_nit);
+        return !empty($this->electronicDetail->electronic_key)
+            && !empty($this->electronicDetail->consecutive_number);
     }
 
     public function canBeCancelled(): bool
@@ -174,5 +141,31 @@ class Invoice extends Model
     public function isLocked(): bool
     {
         return $this->locked_at !== null;
+    }
+
+    public static function statusOptions(): array
+    {
+        return self::STATUS_OPTIONS;
+    }
+
+    public static function saleConditionOptions(): array
+    {
+        return self::SALE_CONDITION_OPTIONS;
+    }
+
+    public static function paymentMethodOptions(): array
+    {
+        return self::PAYMENT_METHOD_OPTIONS;
+    }
+
+    public static function generateElectronicKey(): string
+    {
+        return now()->format('dmy') . str_pad((string) random_int(0, 99999999999999999999999999999999999999), 38, '0', STR_PAD_LEFT);
+    }
+
+    public static function generateConsecutiveNumber(int $lessorId, int $invoiceId): string
+    {
+        return str_pad((string) $lessorId, 10, '0', STR_PAD_LEFT)
+            . str_pad((string) $invoiceId, 10, '0', STR_PAD_LEFT);
     }
 }
