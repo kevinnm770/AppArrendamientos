@@ -111,7 +111,7 @@
 
             <li
                 class="sidebar-item">
-                <a href="#" class='sidebar-link'>
+                <a href="{{ route('admin.invoices.index') }}" class='sidebar-link'>
                     <i class="bi bi-receipt"></i>
                     <span>Facturas</span>
                 </a>
