@@ -69,6 +69,13 @@ class Agreement extends Model
             ->orderBy('created_at', 'desc');
     }
 
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class)
+                    ->orderBy('date', 'desc');
+    }
+
     public function signedDoc()
     {
         return $this->hasOne(SignedDoc::class);
