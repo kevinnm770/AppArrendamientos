@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Notification;
+use App\Models\User;
 
 class NotificationService
 {
@@ -13,7 +14,7 @@ class NotificationService
         ?string $body = null,
         ?string $link = null
     ): Notification {
-        return Notification::create([
+        $notification = Notification::create([
             'notify_id' => $notifyUserId,
             'title' => $title,
             'body' => $body ?? '',
@@ -21,6 +22,14 @@ class NotificationService
             'link' => $link,
             'status' => 'sent',
         ]);
+
+        if (filled($body)) {
+            $notification->update([
+                'link' => $this->resolveNotificationViewLink($notifyUserId, $notification->id),
+            ]);
+        }
+
+        return $notification;
     }
 
     public function createForUsers(
@@ -33,5 +42,20 @@ class NotificationService
         foreach (array_unique($notifyUserIds) as $notifyUserId) {
             $this->create((int) $notifyUserId, $title, $priority, $body, $link);
         }
+    }
+
+    private function resolveNotificationViewLink(int $notifyUserId, int $notificationId): string
+    {
+        $user = User::query()->find($notifyUserId);
+
+        if ($user?->isLessor()) {
+            return route('admin.notifications.view', $notificationId);
+        }
+
+        if ($user?->isRoomer()) {
+            return route('tenant.notifications.view', $notificationId);
+        }
+
+        return '#';
     }
 }
