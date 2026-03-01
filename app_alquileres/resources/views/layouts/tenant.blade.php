@@ -88,7 +88,7 @@
 
             <li
                 class="sidebar-item">
-                <a href="form-layout.html" class='sidebar-link'>
+                <a href="{{ route('tenant.notifications.index') }}" class='sidebar-link'>
                     <i class="bi bi-bell-fill"></i>
                     <span>Notificaciones</span>
                 </a>
