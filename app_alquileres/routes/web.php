@@ -119,6 +119,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
     //Notificaciones
     Route::prefix('agreements/notifications')->name('notifications.')->middleware('auth')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/{notificationId}/view', [NotificationController::class, 'view'])->name('view');
     });
 });
 
@@ -161,5 +162,11 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(
         Route::get('/{ademdumId}/signed-doc/download', [AdemdumController::class, 'downloadSignedDoc'])->name('signed-doc.download');
         Route::patch('/{ademdumId}/accept', [AdemdumController::class, 'accept'])->name('accept');
         Route::patch('/{ademdumId}/canceling-response', [AdemdumController::class, 'cancelingResponse'])->name('canceling-response');
+    });
+
+    //Notificaciones
+    Route::prefix('agreements/notifications')->name('notifications.')->middleware('auth')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/{notificationId}/view', [NotificationController::class, 'view'])->name('view');
     });
 });

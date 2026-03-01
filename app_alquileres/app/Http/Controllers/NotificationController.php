@@ -16,14 +16,24 @@ class NotificationController extends Controller
 
         $notifications = Notification::query()
             ->where('notify_id', $user->id)
+            ->where('status', 'sent')
+            ->orderByRaw("FIELD(priority, 'high', 'medium', 'low')")
             ->latest('created_at')
             ->get();
 
         if ($user->isLessor()) {
             return view('admin.notifications.index', compact('notifications'));
         }
+        if ($user->isLessor()) {
+            return view('tenant.notifications.index', compact('notifications'));
+        }
 
         return response()->json($notifications);
+    }
+
+    public function view(int $id)
+    {
+
     }
 
     /**
