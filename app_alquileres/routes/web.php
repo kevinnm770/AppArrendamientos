@@ -18,7 +18,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/propiedades', [PublicPropertyController::class, 'index'])->name('public.properties.index');
+Route::get('/rentals', [PublicPropertyController::class, 'index'])->name('public.rentals.index');
 
 //Auth::routes(['register' => false]);
 
