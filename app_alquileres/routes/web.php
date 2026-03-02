@@ -7,6 +7,7 @@ use App\Http\Controllers\LoginController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PropertyController;
+use App\Http\Controllers\PublicPropertyController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\roomerController;
 use App\Http\Controllers\UserController;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/propiedades', [PublicPropertyController::class, 'index'])->name('public.properties.index');
 
 //Auth::routes(['register' => false]);
 
