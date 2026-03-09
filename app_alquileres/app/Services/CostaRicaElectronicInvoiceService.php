@@ -10,6 +10,7 @@ class CostaRicaElectronicInvoiceService
 {
     public function __construct(
         protected CrLibreClient $crLibreClient,
+        protected CostaRicaKeyGenerator $keyGenerator,
     ) {
     }
 
@@ -66,6 +67,11 @@ class CostaRicaElectronicInvoiceService
         if (!$detail) {
             throw new RuntimeException('La factura no posee detalle electrónico para enviar a CRLibre.');
         }
+
+        $this->keyGenerator->validateIdentifiers(
+            (string) $detail->hacienda_consecutive,
+            (string) $detail->hacienda_key,
+        );
 
         try {
             $response = $this->crLibreClient->sendVoucher($this->buildCrLibrePayload($invoice), $token);
