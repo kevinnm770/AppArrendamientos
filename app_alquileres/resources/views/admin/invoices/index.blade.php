@@ -4,10 +4,16 @@
     <section class="section">
         <div class="card mb-4">
             <div class="card-header">
-                <h4 class="card-title">Nueva factura</h4>
+                <h4 class="card-title mb-0">Nueva factura</h4>
             </div>
             <div class="card-body">
-                <p class="text-muted mb-3">Puedes registrar una factura <strong>electrónica</strong> o <strong>simple</strong> según lo necesites.</p>
+                <p class="text-muted mb-2">
+                    Emisión de comprobantes para arrendamiento conforme a práctica de facturación electrónica en Costa Rica.
+                </p>
+                <p class="small text-muted mb-4">
+                    Esta vista prioriza los datos usuales de Hacienda para FE de arrendadores (identificación, actividad económica, condición de venta,
+                    medio de pago y metadatos electrónicos) sin alterar la lógica actual del sistema.
+                </p>
 
                 @if ($errors->any())
                     <div class="alert alert-danger">
@@ -23,8 +29,37 @@
                     <div class="alert alert-success">{{ session('success') }}</div>
                 @endif
 
-                <form method="POST" action="{{ route('admin.invoices.store') }}" class="row g-3">
+                <div class="alert alert-info mb-4" role="alert">
+                    <strong>Referencia Hacienda (arrendadores):</strong> para factura electrónica asegúrate de registrar correctamente tipo de documento,
+                    situación, actividad económica y datos de venta/pago. La clave numérica y XML final se gestionan en el flujo electrónico.
+                </div>
+
+                <form method="POST" action="{{ route('admin.invoices.store') }}" class="row g-3" id="invoice-form">
                     @csrf
+
+                    <div class="col-12">
+                        <h6 class="text-uppercase text-muted fw-bold mb-1">1) Encabezado del comprobante</h6>
+                        <hr class="mt-1 mb-2">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Tipo de factura</label>
+                        <select name="invoice_type" class="form-select" id="invoice_type" required>
+                            <option value="electronic" @selected(old('invoice_type', 'electronic') === 'electronic')>Electrónica</option>
+                            <option value="simple" @selected(old('invoice_type') === 'simple')>Simple</option>
+                        </select>
+                        <small class="text-muted">Usa "Electrónica" para envío y trazabilidad con Hacienda.</small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Número factura</label>
+                        <input type="text" name="invoice_number" class="form-control" value="{{ old('invoice_number') }}" required>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha de emisión</label>
+                        <input type="date" name="date" class="form-control" value="{{ old('date', now()->toDateString()) }}" required>
+                    </div>
 
                     <div class="col-md-6">
                         <label class="form-label">Contrato</label>
@@ -38,27 +73,14 @@
                         </select>
                     </div>
 
-                    <div class="col-md-3">
-                        <label class="form-label">Tipo de factura</label>
-                        <select name="invoice_type" class="form-select" id="invoice_type" required>
-                            <option value="electronic" @selected(old('invoice_type', 'electronic') === 'electronic')>Electrónica</option>
-                            <option value="simple" @selected(old('invoice_type') === 'simple')>Simple</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-3">
-                        <label class="form-label">Número factura</label>
-                        <input type="text" name="invoice_number" class="form-control" value="{{ old('invoice_number') }}" required>
-                    </div>
-
-                    <div class="col-md-3">
-                        <label class="form-label">Fecha</label>
-                        <input type="date" name="date" class="form-control" value="{{ old('date', now()->toDateString()) }}" required>
-                    </div>
-
                     <div class="col-md-6">
                         <label class="form-label">Descripción</label>
-                        <textarea name="description" class="form-control" rows="2" required>{{ old('description') }}</textarea>
+                        <textarea name="description" class="form-control" rows="2" required placeholder="Ej: Canon de arrendamiento mensual, periodo enero 2026">{{ old('description') }}</textarea>
+                    </div>
+
+                    <div class="col-12 mt-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-1">2) Montos y condiciones comerciales</h6>
+                        <hr class="mt-1 mb-2">
                     </div>
 
                     <div class="col-md-2">
@@ -91,14 +113,14 @@
 
                     <div class="col-md-2">
                         <label class="form-label">Condición venta</label>
-                        <select name="sale_condition" class="form-select" required>
+                        <select name="sale_condition" class="form-select" id="sale_condition" required>
                             @foreach ($saleConditionOptions as $value => $label)
                                 <option value="{{ $value }}" @selected(old('sale_condition', 'cash') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label">Medio de pago</label>
                         <select name="payment_method" class="form-select" required>
                             @foreach ($paymentMethodOptions as $value => $label)
@@ -107,24 +129,37 @@
                         </select>
                     </div>
 
-                    <div class="col-md-2 electronic-only">
+                    <div class="col-md-3 d-none" id="credit-term-wrapper">
+                        <label class="form-label">Plazo crédito (referencia)</label>
+                        <input type="number" min="1" class="form-control" placeholder="Días" aria-label="Plazo crédito referencial">
+                        <small class="text-muted">Campo informativo de apoyo visual (sin persistencia).</small>
+                    </div>
+
+                    <div class="col-12 mt-3 electronic-only">
+                        <h6 class="text-uppercase text-muted fw-bold mb-1">3) Datos electrónicos (Hacienda)</h6>
+                        <hr class="mt-1 mb-2">
+                    </div>
+
+                    <div class="col-md-3 electronic-only">
                         <label class="form-label">Tipo doc FE</label>
                         <input type="text" name="document_type" class="form-control" value="{{ old('document_type', '01') }}" maxlength="2">
+                        <small class="text-muted">Ej. 01 para FE (según catálogo operativo).</small>
                     </div>
 
-                    <div class="col-md-2 electronic-only">
+                    <div class="col-md-3 electronic-only">
                         <label class="form-label">Situación</label>
                         <input type="text" name="situation" class="form-control" value="{{ old('situation', '1') }}" maxlength="1">
+                        <small class="text-muted">Normal, contingencia o sin internet según escenario.</small>
                     </div>
 
-                    <div class="col-md-2 electronic-only">
+                    <div class="col-md-3 electronic-only">
                         <label class="form-label">Código actividad</label>
-                        <input type="text" name="activity_code" class="form-control" value="{{ old('activity_code') }}" maxlength="6">
+                        <input type="text" name="activity_code" class="form-control" value="{{ old('activity_code') }}" maxlength="6" placeholder="Ej: 682001">
                     </div>
 
-                    <div class="col-md-4 electronic-only">
+                    <div class="col-md-3 electronic-only">
                         <label class="form-label">Actividad económica</label>
-                        <input type="text" name="economic_activity" class="form-control" value="{{ old('economic_activity') }}">
+                        <input type="text" name="economic_activity" class="form-control" value="{{ old('economic_activity') }}" placeholder="Arrendamiento de bienes inmuebles">
                     </div>
 
                     <div class="col-12">
@@ -226,6 +261,8 @@
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 const invoiceTypeInput = document.getElementById('invoice_type');
+                const saleConditionInput = document.getElementById('sale_condition');
+                const creditTermWrapper = document.getElementById('credit-term-wrapper');
                 const electronicOnlyFields = document.querySelectorAll('.electronic-only');
 
                 if (!invoiceTypeInput) {
@@ -246,8 +283,19 @@
                     });
                 };
 
+                const toggleCreditTerm = function() {
+                    if (!saleConditionInput || !creditTermWrapper) {
+                        return;
+                    }
+
+                    const creditValues = ['credit', '02'];
+                    creditTermWrapper.classList.toggle('d-none', !creditValues.includes(String(saleConditionInput.value)));
+                };
+
                 invoiceTypeInput.addEventListener('change', toggleElectronicFields);
+                saleConditionInput?.addEventListener('change', toggleCreditTerm);
                 toggleElectronicFields();
+                toggleCreditTerm();
             });
         </script>
     </section>
