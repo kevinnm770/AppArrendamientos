@@ -28,6 +28,18 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+
+
+    'crlibre' => [
+        'base_url' => env('CRLIBRE_BASE_URL', 'https://api.crlibre.com'),
+        'username' => env('CRLIBRE_USERNAME'),
+        'api_key' => env('CRLIBRE_API_KEY'),
+        'password' => env('CRLIBRE_PASSWORD'),
+        'environment' => env('CRLIBRE_ENVIRONMENT', 'stag'),
+        'timeout' => env('CRLIBRE_TIMEOUT', 20),
+        'connect_timeout' => env('CRLIBRE_CONNECT_TIMEOUT', 10),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
