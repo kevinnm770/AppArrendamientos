@@ -28,6 +28,7 @@ class CostaRicaElectronicInvoiceService
     {
         return [
             'pending' => 'Pendiente',
+            'sent' => 'Enviada',
             'accepted' => 'Aceptada',
             'rejected' => 'Rechazada',
             'error' => 'Error',
@@ -39,9 +40,9 @@ class CostaRicaElectronicInvoiceService
         $invoice->loadMissing(['lessor', 'roomer', 'agreement.property', 'electronicDetail']);
 
         return [
-            'tipoDocumento' => $invoice->electronicDetail?->document_type,
-            'clave' => $invoice->electronicDetail?->electronic_key,
-            'consecutivo' => $invoice->electronicDetail?->consecutive_number,
+            'tipoDocumento' => '01',
+            'clave' => $invoice->electronicDetail?->hacienda_key,
+            'consecutivo' => $invoice->electronicDetail?->hacienda_consecutive,
             'fechaEmision' => optional($invoice->issued_at)->toIso8601String(),
             'emisor' => [
                 'nombre' => $invoice->lessor?->legal_name,

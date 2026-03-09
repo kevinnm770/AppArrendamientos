@@ -129,8 +129,8 @@ class Invoice extends Model
             return false;
         }
 
-        return !empty($this->electronicDetail->electronic_key)
-            && !empty($this->electronicDetail->consecutive_number);
+        return !empty($this->electronicDetail->hacienda_key)
+            && !empty($this->electronicDetail->hacienda_consecutive);
     }
 
     public function canBeCancelled(): bool

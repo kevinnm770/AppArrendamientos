@@ -162,7 +162,7 @@
                                 <td>{{ $statusOptions[$invoice->status] ?? $invoice->status }}</td>
                                 <td>
                                     @if ($invoice->electronicDetail)
-                                        {{ $haciendaStatusOptions[$invoice->electronicDetail->hacienda_status ?? 'pending'] ?? 'Pendiente' }}
+                                        {{ $haciendaStatusOptions[$invoice->electronicDetail->electronic_status ?? 'pending'] ?? 'Pendiente' }}
                                     @else
                                         No aplica
                                     @endif
