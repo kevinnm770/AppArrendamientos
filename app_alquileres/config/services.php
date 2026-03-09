@@ -28,18 +28,17 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-
-
     'crlibre' => [
-        'base_url' => env('CRLIBRE_BASE_URL', 'https://api.crlibre.com'),
+        'base_url' => env('CRLIBRE_BASE_URL', 'https://api-demo.crlibre.org/api.php'),
         'username' => env('CRLIBRE_USERNAME'),
         'api_key' => env('CRLIBRE_API_KEY'),
         'password' => env('CRLIBRE_PASSWORD'),
         'environment' => env('CRLIBRE_ENVIRONMENT', 'stag'),
+        'client_id_stage' => env('CRLIBRE_CLIENT_ID_STAGE', 'api-stag'),
+        'client_id_prod' => env('CRLIBRE_CLIENT_ID_PROD', 'api-prod'),
         'timeout' => env('CRLIBRE_TIMEOUT', 20),
         'connect_timeout' => env('CRLIBRE_CONNECT_TIMEOUT', 10),
     ],
-
 
     'cr_einvoice' => [
         'branch' => env('CR_EINVOICE_BRANCH', '001'),

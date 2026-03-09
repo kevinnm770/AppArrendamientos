@@ -41,8 +41,20 @@ class SyncElectronicInvoiceStatusJob implements ShouldQueue
 
         try {
             $response = $service->getVoucherStatus($detail);
-            $status = strtolower((string) Arr::get($response, 'payload.status', Arr::get($response, 'payload.estado', 'pending')));
-            $message = (string) Arr::get($response, 'payload.message', Arr::get($response, 'payload.mensaje', 'Estado consultado en proveedor.'));
+            $payload = $response['payload'] ?? [];
+            $status = strtolower((string) (
+                Arr::get($payload, 'ind-estado')
+                ?? Arr::get($payload, 'resp.ind-estado')
+                ?? Arr::get($payload, 'status')
+                ?? Arr::get($payload, 'estado')
+                ?? 'pending'
+            ));
+            $message = (string) (
+                Arr::get($payload, 'respuesta-xml')
+                ?? Arr::get($payload, 'message')
+                ?? Arr::get($payload, 'mensaje')
+                ?? 'Estado consultado en proveedor.'
+            );
 
             $detail->refresh();
             $detail->forceFill(['status_checked_at' => now()])->save();

@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Agreement;
 use App\Jobs\SendElectronicInvoiceJob;
 use App\Jobs\SyncElectronicInvoiceStatusJob;
+use App\Models\Agreement;
 use App\Models\Invoice;
 use App\Models\InvoiceElectronicDetail;
 use App\Services\CostaRicaElectronicInvoiceService;
-use App\Services\CostaRicaKeyGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -23,7 +22,7 @@ class InvoiceController extends Controller
             return redirect()->route('admin.index');
         }
 
-        $invoices = Invoice::with(['agreement.property', 'roomer', 'electronicDetail'])
+        $invoices = Invoice::with(['agreement.property', 'roomer.user', 'electronicDetail'])
             ->where('lessor_id', $lessor->id)
             ->orderByDesc('date')
             ->orderByDesc('id')
@@ -45,7 +44,6 @@ class InvoiceController extends Controller
             'providers' => $electronicInvoiceService->providers(),
         ]);
     }
-
 
     public function sendElectronic(Request $request, int $invoiceId)
     {
@@ -105,7 +103,7 @@ class InvoiceController extends Controller
         return Invoice::with('electronicDetail')->where('lessor_id', $lessor->id)->find($invoiceId);
     }
 
-    public function store(Request $request, CostaRicaKeyGenerator $keyGenerator)
+    public function store(Request $request)
     {
         $lessor = $request->user()?->lessor;
 
@@ -145,17 +143,19 @@ class InvoiceController extends Controller
         $taxTotal = round(($subtotal - $discountTotal) * ($taxPercent / 100), 2);
         $total = round($subtotal - $discountTotal + $taxTotal + $lateFeeTotal, 2);
 
+        $issuedAt = now()->setDateFrom($validated['date']);
+
         $invoice = Invoice::create([
             'agreement_id' => $agreement->id,
             'lessor_id' => $lessor->id,
             'roomer_id' => $agreement->roomer_id,
             'invoice_number' => $validated['invoice_number'],
             'date' => $validated['date'],
-            'issued_at' => now(),
+            'issued_at' => $issuedAt,
             'due_date' => $validated['due_date'] ?? null,
             'description' => $validated['description'],
             'currency' => $validated['currency'],
-            'exchange_rate' => $validated['exchange_rate'] ?? null,
+            'exchange_rate' => $validated['currency'] === 'CRC' ? 1 : ($validated['exchange_rate'] ?? null),
             'subtotal' => $subtotal,
             'tax_percent' => $taxPercent,
             'discount_percent' => $discountPercent,
@@ -173,44 +173,30 @@ class InvoiceController extends Controller
         ]);
 
         if ($validated['invoice_type'] === 'electronic') {
-            $electronicIdentifiers = $keyGenerator->generate(
-                issuerIdNumber: (string) ($lessor->id_number ?? ''),
-                internalSequence: (int) $invoice->id,
-                issuedAt: $invoice->issued_at,
-                branch: (string) config('services.cr_einvoice.branch', '001'),
-                terminal: (string) config('services.cr_einvoice.terminal', '00001'),
-                documentType: (string) config('services.cr_einvoice.document_type', CostaRicaKeyGenerator::DEFAULT_DOCUMENT_TYPE),
-            );
-
-            $keyGenerator->validateIdentifiers(
-                $electronicIdentifiers['consecutive'],
-                $electronicIdentifiers['key'],
-            );
-
             $invoice->electronicDetail()->create([
-                'hacienda_key' => $electronicIdentifiers['key'],
-                'hacienda_consecutive' => $electronicIdentifiers['consecutive'],
-                'sucursal' => $electronicIdentifiers['branch'],
-                'terminal' => $electronicIdentifiers['terminal'],
-                'document_type' => $electronicIdentifiers['document_type'],
-                'internal_number' => $electronicIdentifiers['internal_number'],
+                'hacienda_key' => null,
+                'hacienda_consecutive' => null,
+                'sucursal' => (string) config('services.cr_einvoice.branch', '001'),
+                'terminal' => (string) config('services.cr_einvoice.terminal', '00001'),
+                'document_type' => (string) config('services.cr_einvoice.document_type', '01'),
+                'internal_number' => str_pad((string) $invoice->id, 10, '0', STR_PAD_LEFT),
                 'emisor_nit' => (string) ($lessor->id_number ?? ''),
                 'emisor_name' => (string) ($lessor->legal_name ?? ''),
                 'receptor_nit' => (string) ($agreement->roomer?->id_number ?? ''),
                 'receptor_name' => (string) ($agreement->roomer?->legal_name ?? ''),
                 'electronic_status' => InvoiceElectronicDetail::STATE_PENDING,
-                'last_transition_message' => 'Factura electrónica creada en borrador.',
+                'last_transition_message' => 'Factura electrónica creada y pendiente de registro en CRLibre.',
                 'transition_log' => [[
                     'from' => null,
                     'to' => InvoiceElectronicDetail::STATE_PENDING,
-                    'message' => 'Factura electrónica creada en borrador.',
+                    'message' => 'Factura electrónica creada y pendiente de registro en CRLibre.',
                     'at' => now()->toIso8601String(),
                 ]],
             ]);
         }
 
         $message = $validated['invoice_type'] === 'electronic'
-            ? 'Factura electrónica creada con datos de Costa Rica.'
+            ? 'Factura electrónica creada. La clave oficial se solicitará a CRLibre al momento del envío.'
             : 'Factura simple creada exitosamente.';
 
         return redirect()
