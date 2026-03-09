@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agreement;
+use App\Jobs\SendElectronicInvoiceJob;
+use App\Jobs\SyncElectronicInvoiceStatusJob;
 use App\Models\Invoice;
+use App\Models\InvoiceElectronicDetail;
 use App\Services\CostaRicaElectronicInvoiceService;
 use App\Services\CostaRicaKeyGenerator;
 use Illuminate\Http\Request;
@@ -41,6 +44,65 @@ class InvoiceController extends Controller
             'haciendaStatusOptions' => $electronicInvoiceService->haciendaStatusOptions(),
             'providers' => $electronicInvoiceService->providers(),
         ]);
+    }
+
+
+    public function sendElectronic(Request $request, int $invoiceId)
+    {
+        $invoice = $this->resolveLessorInvoice($request, $invoiceId);
+
+        if (!$invoice || !$invoice->electronicDetail) {
+            return redirect()->route('admin.invoices.index')->withErrors('La factura no tiene detalle electrónico.');
+        }
+
+        if (!in_array($invoice->electronicDetail->electronic_status, [InvoiceElectronicDetail::STATE_PENDING, InvoiceElectronicDetail::STATE_REJECTED, InvoiceElectronicDetail::STATE_ERROR], true)) {
+            return redirect()->route('admin.invoices.index')->withErrors('La factura no se puede encolar para envío desde su estado actual.');
+        }
+
+        SendElectronicInvoiceJob::dispatch($invoice->id);
+
+        return redirect()->route('admin.invoices.index')->with('success', 'Factura encolada para envío electrónico.');
+    }
+
+    public function retryElectronic(Request $request, int $invoiceId)
+    {
+        $invoice = $this->resolveLessorInvoice($request, $invoiceId);
+
+        if (!$invoice || !$invoice->electronicDetail) {
+            return redirect()->route('admin.invoices.index')->withErrors('La factura no tiene detalle electrónico.');
+        }
+
+        if (!in_array($invoice->electronicDetail->electronic_status, [InvoiceElectronicDetail::STATE_REJECTED, InvoiceElectronicDetail::STATE_ERROR], true)) {
+            return redirect()->route('admin.invoices.index')->withErrors('Solo se permiten reintentos para facturas rechazadas o con error.');
+        }
+
+        SendElectronicInvoiceJob::dispatch($invoice->id, true);
+
+        return redirect()->route('admin.invoices.index')->with('success', 'Reintento de envío encolado.');
+    }
+
+    public function checkElectronicStatus(Request $request, int $invoiceId)
+    {
+        $invoice = $this->resolveLessorInvoice($request, $invoiceId);
+
+        if (!$invoice || !$invoice->electronicDetail) {
+            return redirect()->route('admin.invoices.index')->withErrors('La factura no tiene detalle electrónico.');
+        }
+
+        SyncElectronicInvoiceStatusJob::dispatch($invoice->id, true);
+
+        return redirect()->route('admin.invoices.index')->with('success', 'Consulta manual de estado encolada.');
+    }
+
+    protected function resolveLessorInvoice(Request $request, int $invoiceId): ?Invoice
+    {
+        $lessor = $request->user()?->lessor;
+
+        if (!$lessor) {
+            return null;
+        }
+
+        return Invoice::with('electronicDetail')->where('lessor_id', $lessor->id)->find($invoiceId);
     }
 
     public function store(Request $request, CostaRicaKeyGenerator $keyGenerator)
@@ -136,7 +198,14 @@ class InvoiceController extends Controller
                 'emisor_name' => (string) ($lessor->legal_name ?? ''),
                 'receptor_nit' => (string) ($agreement->roomer?->id_number ?? ''),
                 'receptor_name' => (string) ($agreement->roomer?->legal_name ?? ''),
-                'electronic_status' => 'pending',
+                'electronic_status' => InvoiceElectronicDetail::STATE_PENDING,
+                'last_transition_message' => 'Factura electrónica creada en borrador.',
+                'transition_log' => [[
+                    'from' => null,
+                    'to' => InvoiceElectronicDetail::STATE_PENDING,
+                    'message' => 'Factura electrónica creada en borrador.',
+                    'at' => now()->toIso8601String(),
+                ]],
             ]);
         }
 

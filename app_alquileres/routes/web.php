@@ -104,6 +104,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
     Route::prefix('invoices')->name('invoices.')->middleware('auth')->group(function () {
         Route::get('/', [InvoiceController::class, 'index'])->name('index');
         Route::post('/', [InvoiceController::class, 'store'])->name('store');
+        Route::post('/{invoiceId}/electronic/send', [InvoiceController::class, 'sendElectronic'])->name('electronic.send');
+        Route::post('/{invoiceId}/electronic/retry', [InvoiceController::class, 'retryElectronic'])->name('electronic.retry');
+        Route::post('/{invoiceId}/electronic/check-status', [InvoiceController::class, 'checkElectronicStatus'])->name('electronic.check-status');
     });
 
     Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {

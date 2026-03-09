@@ -36,6 +36,7 @@ class CostaRicaElectronicInvoiceService
     {
         return [
             'pending' => 'Pendiente',
+            'queued' => 'En cola',
             'sent' => 'Enviada',
             'accepted' => 'Aceptada',
             'rejected' => 'Rechazada',
