@@ -20,6 +20,8 @@ class InvoiceElectronicDetail extends Model
         'rejected_at',
         'xml_content',
         'xml_hash',
+        'request_id',
+        'error_code',
         'ptec_response',
     ];
 

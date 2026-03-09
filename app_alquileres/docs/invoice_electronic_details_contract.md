@@ -19,7 +19,9 @@ Este módulo usa un único contrato de columnas para el detalle electrónico de 
 | `rejected_at` | `timestamp` nullable | No | Fecha/hora de rechazo. |
 | `xml_content` | `longText` nullable | No | XML generado o firmado. |
 | `xml_hash` | `string(100)` nullable | No | Hash del XML para control de integridad. |
-| `ptec_response` | `json` nullable | No | Respuesta del proveedor/API tributaria. |
+| `request_id` | `string(120)` nullable | No | Identificador de la solicitud en el proveedor (si se devuelve). |
+| `error_code` | `string(100)` nullable | No | Código de error normalizado de integración HTTP/API. |
+| `ptec_response` | `json` nullable | No | Payload completo de respuesta/error del proveedor/API tributaria. |
 | `created_at`, `updated_at` | `timestamps` | Sí | Auditoría base de Eloquent. |
 
 ## Estados oficiales

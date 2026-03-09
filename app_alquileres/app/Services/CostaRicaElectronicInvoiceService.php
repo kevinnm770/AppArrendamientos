@@ -3,9 +3,16 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Models\InvoiceElectronicDetail;
+use RuntimeException;
 
 class CostaRicaElectronicInvoiceService
 {
+    public function __construct(
+        protected CrLibreClient $crLibreClient,
+    ) {
+    }
+
     public function providers(): array
     {
         return [
@@ -33,6 +40,116 @@ class CostaRicaElectronicInvoiceService
             'rejected' => 'Rechazada',
             'error' => 'Error',
         ];
+    }
+
+    public function createCrLibreUser(array $data): array
+    {
+        return $this->crLibreClient->createUser($data);
+    }
+
+    public function loginCrLibre(array $credentials = []): array
+    {
+        return $this->crLibreClient->login($credentials);
+    }
+
+    public function logoutCrLibre(?string $token = null): array
+    {
+        return $this->crLibreClient->logout($token);
+    }
+
+    public function sendVoucher(Invoice $invoice, ?string $token = null): array
+    {
+        $invoice->loadMissing('electronicDetail');
+
+        $detail = $invoice->electronicDetail;
+
+        if (!$detail) {
+            throw new RuntimeException('La factura no posee detalle electrónico para enviar a CRLibre.');
+        }
+
+        try {
+            $response = $this->crLibreClient->sendVoucher($this->buildCrLibrePayload($invoice), $token);
+
+            $this->recordExchangeMetadata($detail, [
+                'request_id' => $response['request_id'] ?? null,
+                'error_code' => $response['error_code'] ?? null,
+                'response_payload' => $response['payload'] ?? null,
+            ]);
+
+            return $response;
+        } catch (RuntimeException $exception) {
+            $this->recordExchangeMetadata($detail, [
+                'error_code' => $this->extractErrorCode($exception),
+                'response_payload' => [
+                    'message' => $exception->getMessage(),
+                ],
+            ]);
+
+            throw $exception;
+        }
+    }
+
+    public function getVoucherStatus(InvoiceElectronicDetail $detail, ?string $token = null): array
+    {
+        $identifier = $detail->hacienda_key ?: $detail->hacienda_consecutive;
+
+        if (!$identifier) {
+            throw new RuntimeException('No se encontró clave ni consecutivo para consultar estado en CRLibre.');
+        }
+
+        try {
+            $response = $this->crLibreClient->getVoucherStatus($identifier, $token);
+
+            $this->recordExchangeMetadata($detail, [
+                'request_id' => $response['request_id'] ?? null,
+                'error_code' => $response['error_code'] ?? null,
+                'response_payload' => $response['payload'] ?? null,
+            ]);
+
+            return $response;
+        } catch (RuntimeException $exception) {
+            $this->recordExchangeMetadata($detail, [
+                'error_code' => $this->extractErrorCode($exception),
+                'response_payload' => [
+                    'message' => $exception->getMessage(),
+                ],
+            ]);
+
+            throw $exception;
+        }
+    }
+
+    public function getVoucherStatusByTrackId(InvoiceElectronicDetail $detail, string $trackId, ?string $token = null): array
+    {
+        try {
+            $response = $this->crLibreClient->getVoucherStatusByTrackId($trackId, $token);
+
+            $this->recordExchangeMetadata($detail, [
+                'request_id' => $response['request_id'] ?? null,
+                'error_code' => $response['error_code'] ?? null,
+                'response_payload' => $response['payload'] ?? null,
+            ]);
+
+            return $response;
+        } catch (RuntimeException $exception) {
+            $this->recordExchangeMetadata($detail, [
+                'error_code' => $this->extractErrorCode($exception),
+                'response_payload' => [
+                    'message' => $exception->getMessage(),
+                ],
+            ]);
+
+            throw $exception;
+        }
+    }
+
+    public function recordExchangeMetadata(InvoiceElectronicDetail $detail, array $metadata): void
+    {
+        $detail->forceFill([
+            'request_id' => $metadata['request_id'] ?? $detail->request_id,
+            'error_code' => $metadata['error_code'] ?? null,
+            'ptec_response' => $metadata['response_payload'] ?? $detail->ptec_response,
+        ])->save();
     }
 
     public function buildCrLibrePayload(Invoice $invoice): array
@@ -75,5 +192,10 @@ class CostaRicaElectronicInvoiceService
                 ],
             ],
         ];
+    }
+
+    protected function extractErrorCode(RuntimeException $exception): string
+    {
+        return 'CRLIBRE_' . ($exception->getCode() ?: 'UNKNOWN');
     }
 }
