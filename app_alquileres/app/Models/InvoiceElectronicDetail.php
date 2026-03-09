@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class InvoiceElectronicDetail extends Model
 {
+    public const STATE_DRAFT = 'draft';
+    public const STATE_PENDING = 'pending';
+    public const STATE_QUEUED = 'queued';
+    public const STATE_SENT = 'sent';
+    public const STATE_ACCEPTED = 'accepted';
+    public const STATE_REJECTED = 'rejected';
+    public const STATE_ERROR = 'error';
+
     protected $fillable = [
         'invoice_id',
         'hacienda_key',
@@ -19,9 +27,14 @@ class InvoiceElectronicDetail extends Model
         'receptor_nit',
         'receptor_name',
         'electronic_status',
+        'queued_at',
         'sent_at',
         'accepted_at',
         'rejected_at',
+        'status_checked_at',
+        'error_at',
+        'last_transition_message',
+        'transition_log',
         'xml_content',
         'xml_hash',
         'request_id',
@@ -30,9 +43,13 @@ class InvoiceElectronicDetail extends Model
     ];
 
     protected $casts = [
+        'queued_at' => 'datetime',
         'sent_at' => 'datetime',
         'accepted_at' => 'datetime',
         'rejected_at' => 'datetime',
+        'status_checked_at' => 'datetime',
+        'error_at' => 'datetime',
+        'transition_log' => 'array',
         'ptec_response' => 'array',
     ];
 
@@ -59,7 +76,12 @@ class InvoiceElectronicDetail extends Model
 
     public function scopePending($query)
     {
-        return $query->where('electronic_status', 'pending');
+        return $query->whereIn('electronic_status', ['pending', 'queued']);
+    }
+
+    public function scopeQueued($query)
+    {
+        return $query->where('electronic_status', 'queued');
     }
 
     public function scopeSent($query)
@@ -80,7 +102,7 @@ class InvoiceElectronicDetail extends Model
 
     public function isPending(): bool
     {
-        return $this->electronic_status === 'pending';
+        return in_array($this->electronic_status, ['pending', 'queued'], true);
     }
 
     public function isSent(): bool
@@ -94,45 +116,79 @@ class InvoiceElectronicDetail extends Model
         return "https://www.hacienda.go.cr/consultafactura?clave={$this->hacienda_key}";
     }
 
-    public function markAsSent(): void
+    public function canTransitionTo(string $to): bool
     {
-        $this->update([
-            'electronic_status' => 'sent',
-            'sent_at' => now(),
-        ]);
-    }
-
-    public function markAsAccepted(): void
-    {
-        $this->update([
-            'electronic_status' => 'accepted',
-            'accepted_at' => now(),
-        ]);
-
-        // Actualizar factura padre
-        $this->invoice->update([
-            'status' => 'confirmed',
-            'locked_at' => now(),
-        ]);
-    }
-
-    public function markAsRejected(string $reason = null): void
-    {
-        $data = [
-            'electronic_status' => 'rejected',
-            'rejected_at' => now(),
+        $transitions = [
+            self::STATE_PENDING => [self::STATE_QUEUED, self::STATE_ERROR],
+            self::STATE_QUEUED => [self::STATE_SENT, self::STATE_ERROR],
+            self::STATE_SENT => [self::STATE_ACCEPTED, self::STATE_REJECTED, self::STATE_ERROR],
+            self::STATE_ERROR => [self::STATE_QUEUED],
+            self::STATE_REJECTED => [self::STATE_QUEUED],
+            self::STATE_ACCEPTED => [],
         ];
 
-        if ($reason) {
-            $data['ptec_response'] = ['message' => $reason];
+        return in_array($to, $transitions[$this->electronic_status] ?? [], true);
+    }
+
+    public function transitionTo(string $to, ?string $message = null): void
+    {
+        if ($this->electronic_status !== $to && !$this->canTransitionTo($to)) {
+            return;
         }
+
+        $now = now();
+        $data = [
+            'electronic_status' => $to,
+            'last_transition_message' => $message,
+        ];
+
+        if ($to === self::STATE_QUEUED) {
+            $data['queued_at'] = $now;
+            $data['error_code'] = null;
+        }
+
+        if ($to === self::STATE_SENT) {
+            $data['sent_at'] = $now;
+        }
+
+        if ($to === self::STATE_ACCEPTED) {
+            $data['accepted_at'] = $now;
+            $data['status_checked_at'] = $now;
+            $data['error_at'] = null;
+        }
+
+        if ($to === self::STATE_REJECTED) {
+            $data['rejected_at'] = $now;
+            $data['status_checked_at'] = $now;
+        }
+
+        if ($to === self::STATE_ERROR) {
+            $data['error_at'] = $now;
+            $data['status_checked_at'] = $now;
+        }
+
+        $transitions = $this->transition_log ?? [];
+        $transitions[] = [
+            'from' => $this->electronic_status,
+            'to' => $to,
+            'message' => $message,
+            'at' => $now->toIso8601String(),
+        ];
+
+        $data['transition_log'] = $transitions;
 
         $this->update($data);
 
-        // Actualizar factura padre
-        $this->invoice->update([
-            'status' => 'draft',
-            'locked_at' => null,
-        ]);
+        if ($to === self::STATE_ACCEPTED) {
+            $this->invoice->update(['status' => 'confirmed', 'locked_at' => $now]);
+        }
+
+        if (in_array($to, [self::STATE_REJECTED, self::STATE_ERROR], true)) {
+            $this->invoice->update(['status' => 'draft', 'locked_at' => null]);
+        }
+
+        if (in_array($to, [self::STATE_QUEUED, self::STATE_SENT], true)) {
+            $this->invoice->update(['status' => 'sent']);
+        }
     }
 }

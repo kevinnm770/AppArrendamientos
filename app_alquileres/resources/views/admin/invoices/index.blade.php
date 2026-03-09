@@ -149,6 +149,8 @@
                             <th>Total</th>
                             <th>Estado factura</th>
                             <th>Estado Hacienda</th>
+                            <th>Acciones FE</th>
+                            <th>Trazabilidad</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -167,10 +169,42 @@
                                         No aplica
                                     @endif
                                 </td>
+                                <td>
+                                    @if ($invoice->electronicDetail)
+                                        <div class="d-grid gap-1">
+                                            <form method="POST" action="{{ route('admin.invoices.electronic.send', $invoice->id) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-primary">Enviar</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('admin.invoices.electronic.retry', $invoice->id) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-warning">Reintentar</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('admin.invoices.electronic.check-status', $invoice->id) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-info">Consultar estado</button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($invoice->electronicDetail)
+                                        <small class="d-block text-muted">Cola: {{ optional($invoice->electronicDetail->queued_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
+                                        <small class="d-block text-muted">Enviado: {{ optional($invoice->electronicDetail->sent_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
+                                        <small class="d-block text-muted">Aceptado: {{ optional($invoice->electronicDetail->accepted_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
+                                        <small class="d-block text-muted">Rechazado: {{ optional($invoice->electronicDetail->rejected_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
+                                        <small class="d-block text-muted">Error: {{ optional($invoice->electronicDetail->error_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
+                                        <small class="d-block"><strong>Último mensaje:</strong> {{ $invoice->electronicDetail->last_transition_message ?? '-' }}</small>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center text-muted">Aún no tienes facturas.</td>
+                                <td colspan="9" class="text-center text-muted">Aún no tienes facturas.</td>
                             </tr>
                         @endforelse
                     </tbody>
