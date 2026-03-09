@@ -67,10 +67,6 @@ class InvoiceController extends Controller
             'payment_method' => ['required', Rule::in(array_keys(Invoice::paymentMethodOptions()))],
             'reference_code' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
-            'activity_code' => ['nullable', 'string', 'max:6'],
-            'economic_activity' => ['nullable', 'string', 'max:255'],
-            'document_type' => ['required_if:invoice_type,electronic', 'nullable', 'string', 'size:2'],
-            'situation' => ['required_if:invoice_type,electronic', 'nullable', 'string', 'size:1'],
         ]);
 
         $agreement = Agreement::with('roomer')
@@ -115,13 +111,13 @@ class InvoiceController extends Controller
 
         if ($validated['invoice_type'] === 'electronic') {
             $invoice->electronicDetail()->create([
-                'activity_code' => $validated['activity_code'] ?? null,
-                'economic_activity' => $validated['economic_activity'] ?? null,
-                'electronic_key' => Invoice::generateElectronicKey(),
-                'consecutive_number' => Invoice::generateConsecutiveNumber($lessor->id, (int) $invoice->id),
-                'document_type' => $validated['document_type'],
-                'situation' => $validated['situation'],
-                'hacienda_status' => 'pending',
+                'hacienda_key' => Invoice::generateElectronicKey(),
+                'hacienda_consecutive' => Invoice::generateConsecutiveNumber($lessor->id, (int) $invoice->id),
+                'emisor_nit' => (string) ($lessor->id_number ?? ''),
+                'emisor_name' => (string) ($lessor->legal_name ?? ''),
+                'receptor_nit' => (string) ($agreement->roomer?->id_number ?? ''),
+                'receptor_name' => (string) ($agreement->roomer?->legal_name ?? ''),
+                'electronic_status' => 'pending',
             ]);
         }
 

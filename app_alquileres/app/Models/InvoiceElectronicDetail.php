@@ -8,30 +8,26 @@ class InvoiceElectronicDetail extends Model
 {
     protected $fillable = [
         'invoice_id',
-        'activity_code',
-        'economic_activity',
-        'electronic_key',
-        'consecutive_number',
-        'document_type',
-        'situation',
-        'xml_name',
-        'xml_signed',
-        'hacienda_status',
-        'sent_to_hacienda_at',
-        'hacienda_response_at',
-        'hacienda_response',
-        'hacienda_track_id',
-        'hacienda_message',
-        'email_status',
-        'sent_to_client_at',
-        'last_sync_at',
+        'hacienda_key',
+        'hacienda_consecutive',
+        'emisor_nit',
+        'emisor_name',
+        'receptor_nit',
+        'receptor_name',
+        'electronic_status',
+        'sent_at',
+        'accepted_at',
+        'rejected_at',
+        'xml_content',
+        'xml_hash',
+        'ptec_response',
     ];
 
     protected $casts = [
-        'sent_to_hacienda_at' => 'datetime',
-        'hacienda_response_at' => 'datetime',
-        'sent_to_client_at' => 'datetime',
-        'last_sync_at' => 'datetime',
+        'sent_at' => 'datetime',
+        'accepted_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'ptec_response' => 'array',
     ];
 
     public function invoice()
@@ -42,59 +38,69 @@ class InvoiceElectronicDetail extends Model
     // Scopes
     public function scopeStatus($query, string $status)
     {
-        return $query->where('hacienda_status', $status);
+        return $query->where('electronic_status', $status);
     }
 
     public function scopeAccepted($query)
     {
-        return $query->where('hacienda_status', 'accepted');
+        return $query->where('electronic_status', 'accepted');
     }
 
     public function scopeRejected($query)
     {
-        return $query->where('hacienda_status', 'rejected');
+        return $query->where('electronic_status', 'rejected');
     }
 
     public function scopePending($query)
     {
-        return $query->where('hacienda_status', 'pending');
+        return $query->where('electronic_status', 'pending');
+    }
+
+    public function scopeSent($query)
+    {
+        return $query->where('electronic_status', 'sent');
     }
 
     // Métodos de utilidad
     public function isAccepted(): bool
     {
-        return $this->hacienda_status === 'accepted';
+        return $this->electronic_status === 'accepted';
     }
 
     public function isRejected(): bool
     {
-        return $this->hacienda_status === 'rejected';
+        return $this->electronic_status === 'rejected';
+    }
+
+    public function isPending(): bool
+    {
+        return $this->electronic_status === 'pending';
     }
 
     public function isSent(): bool
     {
-        return !empty($this->sent_to_hacienda_at);
+        return $this->electronic_status === 'sent' && !empty($this->sent_at);
     }
 
     public function getHaciendaUrl(): string
     {
         // URL para consultar en Hacienda
-        return "https://www.hacienda.go.cr/consultafactura?clave={$this->electronic_key}";
+        return "https://www.hacienda.go.cr/consultafactura?clave={$this->hacienda_key}";
     }
 
     public function markAsSent(): void
     {
         $this->update([
-            'hacienda_status' => 'pending',
-            'sent_to_hacienda_at' => now(),
+            'electronic_status' => 'sent',
+            'sent_at' => now(),
         ]);
     }
 
     public function markAsAccepted(): void
     {
         $this->update([
-            'hacienda_status' => 'accepted',
-            'hacienda_response_at' => now(),
+            'electronic_status' => 'accepted',
+            'accepted_at' => now(),
         ]);
 
         // Actualizar factura padre
@@ -107,12 +113,12 @@ class InvoiceElectronicDetail extends Model
     public function markAsRejected(string $reason = null): void
     {
         $data = [
-            'hacienda_status' => 'rejected',
-            'hacienda_response_at' => now(),
+            'electronic_status' => 'rejected',
+            'rejected_at' => now(),
         ];
 
         if ($reason) {
-            $data['hacienda_message'] = $reason;
+            $data['ptec_response'] = ['message' => $reason];
         }
 
         $this->update($data);
