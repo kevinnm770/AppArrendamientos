@@ -40,6 +40,13 @@ return [
         'connect_timeout' => env('CRLIBRE_CONNECT_TIMEOUT', 10),
     ],
 
+
+    'cr_einvoice' => [
+        'branch' => env('CR_EINVOICE_BRANCH', '001'),
+        'terminal' => env('CR_EINVOICE_TERMINAL', '00001'),
+        'document_type' => env('CR_EINVOICE_DOCUMENT_TYPE', '01'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

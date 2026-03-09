@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Agreement;
 use App\Models\Invoice;
 use App\Services\CostaRicaElectronicInvoiceService;
+use App\Services\CostaRicaKeyGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -42,7 +43,7 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, CostaRicaKeyGenerator $keyGenerator)
     {
         $lessor = $request->user()?->lessor;
 
@@ -110,9 +111,27 @@ class InvoiceController extends Controller
         ]);
 
         if ($validated['invoice_type'] === 'electronic') {
+            $electronicIdentifiers = $keyGenerator->generate(
+                issuerIdNumber: (string) ($lessor->id_number ?? ''),
+                internalSequence: (int) $invoice->id,
+                issuedAt: $invoice->issued_at,
+                branch: (string) config('services.cr_einvoice.branch', '001'),
+                terminal: (string) config('services.cr_einvoice.terminal', '00001'),
+                documentType: (string) config('services.cr_einvoice.document_type', CostaRicaKeyGenerator::DEFAULT_DOCUMENT_TYPE),
+            );
+
+            $keyGenerator->validateIdentifiers(
+                $electronicIdentifiers['consecutive'],
+                $electronicIdentifiers['key'],
+            );
+
             $invoice->electronicDetail()->create([
-                'hacienda_key' => Invoice::generateElectronicKey(),
-                'hacienda_consecutive' => Invoice::generateConsecutiveNumber($lessor->id, (int) $invoice->id),
+                'hacienda_key' => $electronicIdentifiers['key'],
+                'hacienda_consecutive' => $electronicIdentifiers['consecutive'],
+                'sucursal' => $electronicIdentifiers['branch'],
+                'terminal' => $electronicIdentifiers['terminal'],
+                'document_type' => $electronicIdentifiers['document_type'],
+                'internal_number' => $electronicIdentifiers['internal_number'],
                 'emisor_nit' => (string) ($lessor->id_number ?? ''),
                 'emisor_name' => (string) ($lessor->legal_name ?? ''),
                 'receptor_nit' => (string) ($agreement->roomer?->id_number ?? ''),
