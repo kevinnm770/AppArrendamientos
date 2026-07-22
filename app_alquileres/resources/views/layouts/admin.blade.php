@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="{{asset('/assets/compiled/css/app.css')}}">
     <link rel="stylesheet" href="{{asset('/assets/compiled/css/app-dark.css')}}">
     <link rel="stylesheet" href="{{asset('/assets/compiled/css/iconly.css')}}">
+    <link rel="stylesheet" href="{{asset('/assets/compiled/css/brand-theme.css')}}">
 </head>
 
 <body>
@@ -26,7 +27,13 @@
     <div class="sidebar-header position-relative">
         <div class="d-flex justify-content-between align-items-center">
             <div class="logo">
-                <a href="{{route('admin.index')}}"><img src="{{asset('/assets/compiled/svg/logo.svg')}}" alt="Logo" srcset=""></a>
+                <a href="{{route('admin.index')}}" class="brand-badge-link">
+                    <span class="brand-badge">AA</span>
+                    <span class="brand-name">App Arrendamientos</span>
+                </a>
+            </div>
+            <div class="sidebar-toggler  x">
+                <a href="#" class="sidebar-hide d-xl-none d-block"><i class="bi bi-x bi-middle"></i></a>
             </div>
             <div class="theme-toggle d-flex gap-2  align-items-center mt-2">
                 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true"
@@ -56,61 +63,52 @@
                     </path>
                 </svg>
             </div>
-            <div class="sidebar-toggler  x">
-                <a href="#" class="sidebar-hide d-xl-none d-block"><i class="bi bi-x bi-middle"></i></a>
-            </div>
         </div>
     </div>
     <div class="sidebar-menu">
         <ul class="menu">
-            <li
-                class="sidebar-item active ">
+            <li class="sidebar-item {{ request()->routeIs('admin.index') ? 'active' : '' }}">
                 <a href="{{route('admin.index')}}" class='sidebar-link'>
                     <i class="bi bi-grid-1x2-fill"></i>
                     <span>Inicio</span>
                 </a>
-
-
             </li>
 
-            <li
-                class="sidebar-item has-sub">
+            <li class="sidebar-item has-sub {{ request()->routeIs('admin.properties.*') ? 'active' : '' }}">
                 <a href="#" class='sidebar-link'>
                     <i class="bi bi-houses-fill"></i>
                     <span>Propiedades</span>
                 </a>
                 <ul class="submenu ">
 
-                    <li class="submenu-item  ">
+                    <li class="submenu-item {{ request()->routeIs('admin.properties.index') || request()->routeIs('admin.properties.edit') ? 'active' : '' }}">
                         <a href="{{route('admin.properties.index')}}" class="submenu-link">Administrar</a>
                     </li>
 
-                    <li class="submenu-item  ">
+                    <li class="submenu-item {{ request()->routeIs('admin.properties.register') ? 'active' : '' }}">
                         <a href="{{route('admin.properties.register')}}" class="submenu-link">Registrar</a>
                     </li>
                 </ul>
             </li>
 
-            <li
-                class="sidebar-item has-sub">
+            <li class="sidebar-item has-sub {{ request()->routeIs('admin.agreements.*') || request()->routeIs('admin.ademdums.*') ? 'active' : '' }}">
                 <a href="#" class='sidebar-link'>
                     <i class="bi bi-file-earmark-text-fill"></i>
                     <span>Contratos</span>
                 </a>
                 <ul class="submenu ">
 
-                    <li class="submenu-item  ">
+                    <li class="submenu-item {{ request()->routeIs('admin.agreements.index') || request()->routeIs('admin.agreements.view') || request()->routeIs('admin.agreements.edit') || request()->routeIs('admin.ademdums.*') ? 'active' : '' }}">
                         <a href="{{route('admin.agreements.index')}}" class="submenu-link">Controlar</a>
                     </li>
 
-                    <li class="submenu-item  ">
+                    <li class="submenu-item {{ request()->routeIs('admin.agreements.register') ? 'active' : '' }}">
                         <a href="{{route('admin.agreements.register')}}" class="submenu-link">Registrar</a>
                     </li>
                 </ul>
             </li>
 
-            <li
-                class="sidebar-item has-sub">
+            <li class="sidebar-item has-sub {{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">
                 <a href="{{ route('admin.invoices.index') }}" class='sidebar-link'>
                     <i class="bi bi-receipt"></i>
                     <span>Facturas</span>
@@ -122,14 +120,13 @@
                         <a href="#" class="submenu-link">Controlar</a>
                     </li>
 
-                    <li class="submenu-item  ">
+                    <li class="submenu-item {{ request()->routeIs('admin.invoices.index') ? 'active' : '' }}">
                         <a href="{{ route('admin.invoices.index') }}" class="submenu-link">Registrar</a>
                     </li>
                 </ul>
             </li>
 
-            <li
-                class="sidebar-item">
+            <li class="sidebar-item {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">
                 <a href="{{ route('admin.notifications.index') }}" class='sidebar-link'>
                     <i class="bi bi-bell-fill"></i>
                     <span>Notificaciones</span>
@@ -138,33 +135,28 @@
 
             <hr>
 
-            <li
-                class="sidebar-item has-sub">
-                <a href="#" class='sidebar-link'>
-                    <i class="bi bi-gear-fill"></i>
-                    <span>Configuración</span>
+            <li class="sidebar-item {{ request()->routeIs('admin.configuration.*') ? 'active' : '' }}">
+                <a href="{{ url('admin/configuration') }}" class="sidebar-link">
+                    <img src="{{ Auth::user()->profile_photo_path ? asset('storage/'.Auth::user()->profile_photo_path) : asset('storage/profiles_images/UserProfile_default.png') }}" class="sidebar-avatar" alt="Foto de perfil">
+                    <span>Perfil</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="sidebar-footer">
+        <ul class="menu my-0">
+            <li class="sidebar-item">
+                <a href="{{ route('logout') }}" class="sidebar-link"
+                    onclick="event.preventDefault();
+                                    document.getElementById('logout-form').submit();">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Cerrar sesión</span>
                 </a>
 
-                <ul class="submenu ">
-
-                    <li class="submenu-item  ">
-                        <a href="{{url('admin/configuration')}}" class="submenu-link">Perfil</a>
-
-                    </li>
-
-                    <li class="submenu-item  ">
-                        <a class="dropdown-item" href="{{ route('logout') }}"
-                            onclick="event.preventDefault();
-                                            document.getElementById('logout-form').submit();">
-                            {{ __('Logout') }}
-                        </a>
-
-                        <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
-                            @csrf
-                        </form>
-
-                    </li>
-                </ul>
+                <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
+                    @csrf
+                </form>
             </li>
         </ul>
     </div>

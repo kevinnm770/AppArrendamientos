@@ -1,16 +1,19 @@
 <?php
 
+use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\AdemdumController;
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\PublicPropertyController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\roomerController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VerificationController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -18,7 +21,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/rentals', [PublicPropertyController::class, 'index'])->name('public.rentals.index');
+Route::get('/rentals', [PublicPropertyController::class, 'index'])->name('public.properties.index');
 
 //Auth::routes(['register' => false]);
 
@@ -32,7 +35,22 @@ Route::prefix('auth')->name('auth.')->middleware('guest')->group(function () {
     Route::get('/register', [RegisterController::class, 'index'])->name('register');
 
     Route::post('/register', [RegisterController::class, 'store'])->name('register.store');
+
+    // Recuperación de contraseña
+    Route::get('/forgot-password', [PasswordResetController::class, 'create'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'store'])->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'reset'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'update'])->name('password.update');
 });
+
+// Seguridad de la cuenta: cambio de contraseña y de correo con doble confirmación
+Route::post('/account/password-change/request', [AccountSecurityController::class, 'requestPasswordChange'])->name('account.password-change.request');
+Route::get('/account/password-change/{id}/confirm', [AccountSecurityController::class, 'confirmPasswordChange'])->name('account.password-change.confirm');
+
+Route::post('/account/email-change/request', [AccountSecurityController::class, 'requestEmailChange'])->name('account.email-change.request');
+Route::get('/account/email-change/{id}/confirm-current', [AccountSecurityController::class, 'confirmEmailCurrent'])->name('account.email-change.confirm-current');
+Route::get('/account/email-change/{id}/confirm-new', [AccountSecurityController::class, 'confirmEmailNew'])->name('account.email-change.confirm-new');
+Route::get('/account/email-change/{id}/cancel', [AccountSecurityController::class, 'cancelEmailChange'])->name('account.email-change.cancel');
 
 Route::post('/logout', function () {
     Auth::logout();
@@ -42,7 +60,12 @@ Route::post('/logout', function () {
     return redirect()->route('auth.login');
 })->middleware('auth')->name('logout');
 
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(function () {
+// Verificación de correo electrónico
+Route::get('/email/verify', [VerificationController::class, 'notice'])->name('verification.notice');
+Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])->name('verification.verify');
+Route::post('/email/verification-notification', [VerificationController::class, 'resend'])->name('verification.send');
+
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'])->group(function () {
 
     // Inicio
     Route::get('/', [lessorController::class, 'index'])->name('index');
@@ -130,7 +153,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'lessor'])->group(fu
     });
 });
 
-Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'roomer'])->group(function () {
+Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'verified', 'roomer'])->group(function () {
 
     // Inicio
     Route::get('/', [roomerController::class, 'index'])->name('index');

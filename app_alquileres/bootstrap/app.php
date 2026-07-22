@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'lessor' => \App\Http\Middleware\EnsureUserIsLessor::class,
             'roomer' => \App\Http\Middleware\EnsureUserIsRoomer::class,
         ]);
+
+        $middleware->redirectGuestsTo(fn () => route('auth.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

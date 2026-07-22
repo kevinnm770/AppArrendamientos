@@ -91,7 +91,7 @@ class PublicPropertyController extends Controller
             ->unique()
             ->values();
 
-        return view('public.properties.index', [
+        return view('public.rentals.index', [
             'properties' => $properties,
             'provinceOptions' => $provinceOptions,
             'cantonOptions' => $cantonOptions,

@@ -19,7 +19,7 @@ var optionsProfileVisit = {
       data: [9, 20, 30, 20, 10, 20, 30, 20, 10, 20, 30, 20],
     },
   ],
-  colors: "#435ebe",
+  colors: "#212C4C",
   xaxis: {
     categories: [
       "Jan",
@@ -40,7 +40,7 @@ var optionsProfileVisit = {
 let optionsVisitorsProfile = {
   series: [70, 30],
   labels: ["Male", "Female"],
-  colors: ["#435ebe", "#55c6e8"],
+  colors: ["#212C4C", "#4CD2D9"],
   chart: {
     type: "donut",
     width: "100%",

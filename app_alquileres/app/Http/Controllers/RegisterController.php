@@ -97,18 +97,12 @@ class RegisterController extends Controller
             // 3) Login automático (opcional)
             Auth::login($user);
 
-            if($user->isLessor()){
-                return redirect()
-                    ->route('admin.index')
-                    ->with('success', 'Registro completado correctamente.');
-            }
-            if($user->isRoomer()){
-                return redirect()
-                    ->route('tenant.index')
-                    ->with('success', 'Registro completado correctamente.');
-            }
+            // 4) Enviar correo de verificación
+            $user->sendEmailVerificationNotification();
 
-
+            return redirect()
+                ->route('verification.notice')
+                ->with('success', 'Registro completado correctamente. Verifica tu correo para continuar.');
         });
     }
 }

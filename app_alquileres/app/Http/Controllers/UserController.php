@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EmailChangeRequest;
+use App\Models\PasswordChangeRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage as FacadesStorage;
@@ -28,7 +30,22 @@ class UserController extends Controller
             }
         }
 
-        return view('configuration.index',compact('user','datarole'));
+        $pendingEmailChange = EmailChangeRequest::where('user_id', $user->id)
+            ->whereNull('cancelled_at')
+            ->where('expires_at', '>', now())
+            ->where(function ($query) {
+                $query->whereNull('current_confirmed_at')->orWhereNull('new_confirmed_at');
+            })
+            ->latest()
+            ->first();
+
+        $pendingPasswordChange = PasswordChangeRequest::where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->latest()
+            ->first();
+
+        return view('configuration.index', compact('user', 'datarole', 'pendingEmailChange', 'pendingPasswordChange'));
     }
 
     /**
@@ -80,19 +97,12 @@ class UserController extends Controller
                 'max:15',
                 Rule::unique('users', 'name')->ignore($user_datos->id),
             ],
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')->ignore($user_datos->id),
-            ],
             'profile_photo_path' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
         ];
 
         $request->validate($rules);
 
         $user_datos->name = $request->name;
-        $user_datos->email = $request->email;
 
         if ($request->hasFile('profile_photo_path')) {
             if ($user_datos->profile_photo_path && FacadesStorage::disk('public')->exists($user_datos->profile_photo_path)) {

@@ -5,6 +5,10 @@
 @extends($layout)
 
 @section('content')
+    @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+
     <div class="row">
         <div class="col-md-6 col-12">
             <div class="card">
@@ -20,26 +24,27 @@
                             @csrf
                             @method('PATCH')
 
-                            <div class="container-image" style="height: 70px;width:70px;max-content;border-radius:50%;background-color:gray;">
-                                @if (!empty($user?->profile_photo_path))
-                                    <img src="{{ asset('storage/'.$user->profile_photo_path) }}"
-                                        height="100%" width="100%" style="border-radius:50%;" id="ImgUser" alt="Imagen de usuario">
-                                @else
-                                    <img src="{{ asset('storage/profiles_images/UserProfile_default.png') }}"
-                                        height="100%" width="100%" style="border-radius:50%;" id="ImgUser" alt="Imagen de usuario">
-                                @endif
+                            <div class="text-center mb-3">
+                                <label for="profile_photo_path" class="profile-photo-picker" title="Cambiar foto de perfil">
+                                    @if (!empty($user?->profile_photo_path))
+                                        <img src="{{ asset('storage/'.$user->profile_photo_path) }}" id="ImgUser" alt="Imagen de usuario">
+                                    @else
+                                        <img src="{{ asset('storage/profiles_images/UserProfile_default.png') }}" id="ImgUser" alt="Imagen de usuario">
+                                    @endif
+                                    <span class="profile-photo-overlay"><i class="bi bi-camera-fill"></i></span>
+                                </label>
+
+                                <input type="file"
+                                    name="profile_photo_path"
+                                    id="profile_photo_path"
+                                    class="d-none @error('profile_photo_path') is-invalid @enderror"
+                                    accept="image/*"
+                                    onchange="previewUserImage(event)">
+
+                                @error('profile_photo_path')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
-
-                            <input type="file"
-                                name="profile_photo_path"
-                                id="profile_photo_path"
-                                class="form-control mb-3 @error('profile_photo_path') is-invalid @enderror"
-                                accept="image/*"
-                                onchange="previewUserImage(event)">
-
-                            @error('profile_photo_path')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
 
                             <script>
                                 function previewUserImage(e) {
@@ -59,19 +64,6 @@
                                 required>
 
                             @error('name')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-
-                            <label for="email">Correo electrónico</label>
-                            <input type="text"
-                                class="form-control mb-3 @error('email') is-invalid @enderror"
-                                placeholder="user@email.com"
-                                id="email"
-                                name="email"
-                                value="{{ old('email', $user->email ?? '') }}"
-                                required>
-
-                            @error('email')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
 
@@ -289,6 +281,117 @@
                             @endif
 
                             <button type="submit" class="btn btn-primary me-1 mb-1">Guardar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Correo electrónico</h4>
+                </div>
+                <div class="card-content">
+                    <div class="card-body">
+                        <p class="mb-3">Correo actual: <strong>{{ $user->email }}</strong></p>
+
+                        @if ($pendingEmailChange)
+                            <div class="alert alert-secondary">
+                                Tienes una solicitud pendiente para cambiar tu correo a
+                                <strong>{{ $pendingEmailChange->new_email }}</strong>.
+                                Falta confirmar:
+                                @if (!$pendingEmailChange->current_confirmed_at)
+                                    el correo actual
+                                @endif
+                                @if (!$pendingEmailChange->current_confirmed_at && !$pendingEmailChange->new_confirmed_at)
+                                    y
+                                @endif
+                                @if (!$pendingEmailChange->new_confirmed_at)
+                                    el correo nuevo
+                                @endif
+                                . Revisa ambas bandejas de entrada.
+                            </div>
+                        @endif
+
+                        <form class="form form-vertical" action="{{ route('account.email-change.request') }}" method="POST">
+                            @csrf
+
+                            <label for="new_email">Nuevo correo electrónico</label>
+                            <input type="email"
+                                class="form-control mb-3 @error('new_email') is-invalid @enderror"
+                                placeholder="nuevo@correo.com"
+                                id="new_email"
+                                name="new_email"
+                                value="{{ old('new_email') }}"
+                                required>
+
+                            @error('new_email')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+
+                            <small class="text-muted d-block mb-3">
+                                Enviaremos una autorización a tu correo actual y una verificación al correo nuevo. El cambio se aplica solo cuando ambos confirmen.
+                            </small>
+
+                            <button type="submit" class="btn btn-primary me-1 mb-1">Solicitar cambio de correo</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Contraseña</h4>
+                </div>
+                <div class="card-content">
+                    <div class="card-body">
+                        @if ($pendingPasswordChange)
+                            <div class="alert alert-secondary">
+                                Tienes una solicitud pendiente para cambiar tu contraseña. Revisa tu correo para confirmarla.
+                            </div>
+                        @endif
+
+                        <form class="form form-vertical" action="{{ route('account.password-change.request') }}" method="POST">
+                            @csrf
+
+                            <label for="current_password">Contraseña actual</label>
+                            <input type="password"
+                                class="form-control mb-3 @error('current_password') is-invalid @enderror"
+                                id="current_password"
+                                name="current_password"
+                                required>
+
+                            @error('current_password')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+
+                            <label for="password">Nueva contraseña</label>
+                            <input type="password"
+                                class="form-control mb-3 @error('password') is-invalid @enderror"
+                                id="password"
+                                name="password"
+                                required>
+
+                            @error('password')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+
+                            <label for="password_confirmation">Confirmar nueva contraseña</label>
+                            <input type="password"
+                                class="form-control mb-3"
+                                id="password_confirmation"
+                                name="password_confirmation"
+                                required>
+
+                            <small class="text-muted d-block mb-3">
+                                Te enviaremos un enlace de confirmación por correo. La contraseña cambiará solo cuando lo confirmes.
+                            </small>
+
+                            <button type="submit" class="btn btn-primary me-1 mb-1">Solicitar cambio de contraseña</button>
                         </form>
                     </div>
                 </div>

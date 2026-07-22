@@ -1,0 +1,266 @@
+/*
+ * App Arrendamientos — brand theme override
+ * Recolors the Mazer/Bootstrap admin theme to the navy (#212C4C) / cyan (#4CD2D9)
+ * palette used across the public site and auth pages. Loaded after app.css,
+ * app-dark.css and iconly.css.
+ *
+ * IMPORTANT: app-dark.css scopes almost every rule under the selector
+ * "html[data-bs-theme=dark] .whatever", which has higher specificity than a
+ * plain ".whatever" rule — it wins even though this file loads later. Every
+ * override below that must also apply in dark mode is therefore duplicated
+ * with the same "html[data-bs-theme=\"dark\"]" prefix so it matches or beats
+ * that specificity.
+ *
+ * Cyan (--brand-secondary) is the dominant interactive color in BOTH light and
+ * dark mode. Filled elements (buttons, active nav, badges, progress, pagination)
+ * always use pure cyan with a dark contrast label. Plain text/borders sitting
+ * directly on the page background (links, outline buttons, tab labels) use the
+ * darker --brand-secondary-strong in light mode for legibility on white, and the
+ * pure cyan in dark mode where it reads clearly against the dark navy surfaces.
+ */
+
+:root {
+    --brand-primary: #212C4C;
+    --brand-primary-strong: #161d33;
+    --brand-secondary: #4CD2D9;
+    --brand-secondary-strong: #33b4bb;
+    --brand-secondary-contrast: #0b2027;
+
+    --bs-primary: var(--brand-secondary);
+    --bs-primary-rgb: 76, 210, 217;
+    --bs-primary-text-emphasis: #1a6e73;
+    --bs-primary-bg-subtle: #dbf5f6;
+    --bs-primary-border-subtle: #a9e6e9;
+    --bs-link-color: var(--brand-secondary-strong);
+    --bs-link-color-rgb: 51, 180, 187;
+    --bs-link-hover-color: var(--brand-primary-strong);
+    --bs-link-hover-color-rgb: 22, 29, 51;
+}
+
+html[data-bs-theme="dark"] {
+    --bs-primary: var(--brand-secondary);
+    --bs-primary-rgb: 76, 210, 217;
+    --bs-primary-text-emphasis: #a6ecef;
+    --bs-primary-bg-subtle: #163539;
+    --bs-primary-border-subtle: #204d52;
+    --bs-link-color: var(--brand-secondary);
+    --bs-link-color-rgb: 76, 210, 217;
+    --bs-link-hover-color: #7fe0e5;
+    --bs-link-hover-color-rgb: 127, 224, 229;
+}
+
+/* Buttons — filled: always pure cyan with dark contrast text */
+.btn-primary,
+html[data-bs-theme="dark"] .btn-primary {
+    --bs-btn-bg: var(--brand-secondary);
+    --bs-btn-border-color: var(--brand-secondary);
+    --bs-btn-color: var(--brand-secondary-contrast);
+    --bs-btn-hover-bg: var(--brand-secondary-strong);
+    --bs-btn-hover-border-color: var(--brand-secondary-strong);
+    --bs-btn-hover-color: var(--brand-secondary-contrast);
+    --bs-btn-focus-shadow-rgb: 76, 210, 217;
+    --bs-btn-active-bg: var(--brand-secondary-strong);
+    --bs-btn-active-border-color: var(--brand-secondary-strong);
+    --bs-btn-active-color: var(--brand-secondary-contrast);
+    --bs-btn-disabled-bg: var(--brand-secondary);
+    --bs-btn-disabled-border-color: var(--brand-secondary);
+}
+/* Outline/link — text on page background: darker teal in light, pure cyan in dark */
+.btn-outline-primary {
+    --bs-btn-color: var(--brand-secondary-strong);
+    --bs-btn-border-color: var(--brand-secondary-strong);
+    --bs-btn-hover-bg: var(--brand-secondary-strong);
+    --bs-btn-hover-border-color: var(--brand-secondary-strong);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-focus-shadow-rgb: 51, 180, 187;
+    --bs-btn-active-bg: var(--brand-secondary-strong);
+    --bs-btn-active-border-color: var(--brand-secondary-strong);
+    --bs-btn-disabled-color: var(--brand-secondary-strong);
+    --bs-btn-disabled-border-color: var(--brand-secondary-strong);
+}
+.btn-link { --bs-btn-color: var(--brand-secondary-strong); --bs-btn-hover-color: var(--brand-primary-strong); --bs-btn-active-color: var(--brand-primary-strong); --bs-btn-focus-shadow-rgb: 51, 180, 187; }
+html[data-bs-theme="dark"] .btn-outline-primary {
+    --bs-btn-color: var(--brand-secondary);
+    --bs-btn-border-color: var(--brand-secondary);
+    --bs-btn-hover-bg: var(--brand-secondary);
+    --bs-btn-hover-border-color: var(--brand-secondary);
+    --bs-btn-hover-color: var(--brand-secondary-contrast);
+    --bs-btn-active-bg: var(--brand-secondary);
+    --bs-btn-active-border-color: var(--brand-secondary);
+    --bs-btn-active-color: var(--brand-secondary-contrast);
+}
+html[data-bs-theme="dark"] .btn-link { --bs-btn-color: var(--brand-secondary); }
+
+/* Form controls */
+.form-control:focus {
+    border-color: var(--brand-secondary);
+    box-shadow: 0 0 0 .25rem rgba(76, 210, 217, .25);
+}
+html[data-bs-theme="dark"] .form-control:focus {
+    border-color: var(--brand-secondary);
+    box-shadow: 0 0 0 .25rem rgba(76, 210, 217, .25);
+}
+.form-check-input:checked,
+.form-check .form-check-input.form-check-primary,
+.form-check.form-check-primary .form-check-input,
+html[data-bs-theme="dark"] .form-check-input:checked,
+html[data-bs-theme="dark"] .form-check .form-check-input.form-check-primary,
+html[data-bs-theme="dark"] .form-check.form-check-primary .form-check-input {
+    background-color: var(--brand-secondary);
+    border-color: var(--brand-secondary);
+}
+.form-range::-webkit-slider-thumb,
+html[data-bs-theme="dark"] .form-range::-webkit-slider-thumb { background-color: var(--brand-secondary); }
+.form-range::-moz-range-thumb,
+html[data-bs-theme="dark"] .form-range::-moz-range-thumb { background-color: var(--brand-secondary); }
+
+/* Dropdowns, pills, pagination, progress, list groups, alerts — filled: pure cyan */
+.dropdown-menu,
+html[data-bs-theme="dark"] .dropdown-menu { --bs-dropdown-link-active-bg: var(--brand-secondary); --bs-dropdown-link-active-color: var(--brand-secondary-contrast); }
+.dropdown-menu-dark,
+html[data-bs-theme="dark"] .dropdown-menu-dark { --bs-dropdown-link-active-bg: var(--brand-secondary); --bs-dropdown-link-active-color: var(--brand-secondary-contrast); }
+.nav-pills,
+html[data-bs-theme="dark"] .nav-pills { --bs-nav-pills-link-active-bg: var(--brand-secondary); --bs-nav-pills-link-active-color: var(--brand-secondary-contrast); }
+.pagination,
+html[data-bs-theme="dark"] .pagination {
+    --bs-pagination-color: var(--brand-secondary-strong);
+    --bs-pagination-focus-color: var(--brand-primary-strong);
+    --bs-pagination-focus-box-shadow: 0 0 0 .25rem rgba(76, 210, 217, .25);
+    --bs-pagination-active-bg: var(--brand-secondary);
+    --bs-pagination-active-border-color: var(--brand-secondary);
+    --bs-pagination-active-color: var(--brand-secondary-contrast);
+}
+html[data-bs-theme="dark"] .pagination { --bs-pagination-color: var(--brand-secondary); }
+.pagination.pagination-primary .page-item.active .page-link,
+html[data-bs-theme="dark"] .pagination.pagination-primary .page-item.active .page-link {
+    background-color: var(--brand-secondary);
+    border-color: var(--brand-secondary);
+    color: var(--brand-secondary-contrast);
+    box-shadow: 0 2px 5px rgba(76, 210, 217, .4);
+}
+.progress,
+html[data-bs-theme="dark"] .progress { --bs-progress-bar-bg: var(--brand-secondary); }
+.progress.progress-primary .progress-bar,
+html[data-bs-theme="dark"] .progress.progress-primary .progress-bar { background-color: var(--brand-secondary); }
+.list-group,
+html[data-bs-theme="dark"] .list-group {
+    --bs-list-group-active-bg: var(--brand-secondary);
+    --bs-list-group-active-border-color: var(--brand-secondary);
+    --bs-list-group-active-color: var(--brand-secondary-contrast);
+}
+.alert-primary,
+html[data-bs-theme="dark"] .alert-primary { background-color: var(--brand-secondary); color: var(--brand-secondary-contrast); }
+
+/* Sidebar — active item always pure cyan fill; submenu text uses the readable variant */
+.sidebar-wrapper .menu .sidebar-item.active > .sidebar-link,
+html[data-bs-theme="dark"] .sidebar-wrapper .menu .sidebar-item.active > .sidebar-link {
+    background-color: var(--brand-secondary);
+    color: var(--brand-secondary-contrast);
+}
+.sidebar-wrapper .menu .sidebar-item.active > .sidebar-link i,
+.sidebar-wrapper .menu .sidebar-item.active > .sidebar-link span,
+html[data-bs-theme="dark"] .sidebar-wrapper .menu .sidebar-item.active > .sidebar-link i,
+html[data-bs-theme="dark"] .sidebar-wrapper .menu .sidebar-item.active > .sidebar-link span { color: var(--brand-secondary-contrast); }
+.sidebar-wrapper .menu .submenu .submenu-item.active > a,
+.sidebar-wrapper .menu .submenu .submenu-item a:hover { color: var(--brand-secondary-strong); }
+html[data-bs-theme="dark"] .sidebar-wrapper .menu .submenu .submenu-item.active > a,
+html[data-bs-theme="dark"] .sidebar-wrapper .menu .submenu .submenu-item a:hover { color: var(--brand-secondary); }
+
+/* Tabs */
+.nav-tabs .nav-link.active { color: var(--brand-secondary-strong); }
+.nav-tabs .nav-link.active:after { background-color: var(--brand-secondary-strong); box-shadow: 0 2px 5px rgba(51, 180, 187, .5); }
+html[data-bs-theme="dark"] .nav-tabs .nav-link.active { color: var(--brand-secondary); }
+html[data-bs-theme="dark"] .nav-tabs .nav-link.active:after { background-color: var(--brand-secondary); box-shadow: 0 2px 5px rgba(76, 210, 217, .5); }
+
+/* Brand mark in the sidebar header (replaces the stock Mazer logo) */
+.sidebar-header .d-flex { flex-wrap: wrap; row-gap: .5rem; }
+.sidebar-header .logo { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.brand-badge,
+html[data-bs-theme="dark"] .brand-badge {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    background: var(--brand-primary);
+    color: var(--brand-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: .95rem;
+}
+html[data-bs-theme="dark"] .brand-badge { background: var(--brand-secondary); color: var(--brand-secondary-contrast); }
+.brand-badge-link { display: flex; align-items: center; gap: .6rem; text-decoration: none; min-width: 0; }
+.brand-name { font-size: 1rem; font-weight: 700; color: #25396f; line-height: 1.15; }
+html[data-bs-theme="dark"] .brand-name { color: #eef1f8; }
+
+/* Theme toggle row — give it its own full-width row so it never overflows the header */
+.sidebar-header .theme-toggle {
+    flex-basis: 100%;
+    margin-top: .5rem !important;
+    justify-content: flex-start;
+}
+
+/* Sidebar layout — header stays put, nav scrolls, footer (logout) always pinned to the bottom */
+.sidebar-wrapper {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+}
+.sidebar-header { flex-shrink: 0; }
+.sidebar-menu {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+}
+.sidebar-footer {
+    flex-shrink: 0;
+    border-top: 1px solid rgba(37, 57, 111, .12);
+    padding: .5rem 0 1rem;
+}
+html[data-bs-theme="dark"] .sidebar-footer { border-top-color: rgba(255, 255, 255, .08); }
+
+/* Sidebar avatar next to "Perfil" */
+.sidebar-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(37, 57, 111, .25);
+}
+html[data-bs-theme="dark"] .sidebar-avatar { border-color: rgba(255, 255, 255, .3); }
+
+/* Profile photo picker — click the avatar to open the hidden file input */
+.profile-photo-picker {
+    display: block;
+    position: relative;
+    width: 96px;
+    height: 96px;
+    margin: 0 auto;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+    border: 3px solid var(--brand-secondary);
+    box-shadow: 0 8px 20px -10px rgba(33, 44, 76, .4);
+}
+.profile-photo-picker img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.profile-photo-picker .profile-photo-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(11, 32, 39, .55);
+    color: #fff;
+    font-size: 1.25rem;
+    opacity: 0;
+    transition: opacity .15s ease;
+}
+.profile-photo-picker:hover .profile-photo-overlay,
+.profile-photo-picker:focus-within .profile-photo-overlay { opacity: 1; }
