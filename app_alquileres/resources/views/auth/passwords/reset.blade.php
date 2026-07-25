@@ -10,6 +10,7 @@
         @csrf
 
         <input type="hidden" name="token" value="{{ $token }}">
+        <input type="hidden" name="role" value="{{ $role ?? old('role') }}">
 
         <div class="field">
             <label for="email">Correo electrónico</label>

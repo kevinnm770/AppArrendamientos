@@ -81,7 +81,7 @@ class AdemdumController extends Controller
         ]);
 
         if ($request->hasFile('signed_doc_file')) {
-            $signedDocService->storeForAdemdum($ademdum->id, $request->file('signed_doc_file'));
+            $signedDocService->storeForAdemdum($agreement->id, $ademdum->id, $request->file('signed_doc_file'));
         }
 
         $roomerUserId = $agreement->roomer?->user_id;
@@ -238,7 +238,7 @@ class AdemdumController extends Controller
         ]);
 
         if ($request->hasFile('signed_doc_file')) {
-            $signedDocService->storeForAdemdum($ademdum->id, $request->file('signed_doc_file'));
+            $signedDocService->storeForAdemdum($agreement->id, $ademdum->id, $request->file('signed_doc_file'));
         } elseif ((bool) ($validated['remove_signed_doc'] ?? false)) {
             $signedDocService->deleteForAdemdum($ademdum->id);
         }
@@ -248,7 +248,7 @@ class AdemdumController extends Controller
             ->with('success', 'Ademdum actualizado correctamente.');
     }
 
-    public function delete(int $agreementId, int $ademdumId, Request $request)
+    public function delete(int $agreementId, int $ademdumId, Request $request, SignedDocService $signedDocService)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
         $this->syncExpiredAcceptedAdemdums($agreement);
@@ -258,6 +258,7 @@ class AdemdumController extends Controller
             return back()->withErrors(['ademdum' => 'Este ademdum ya no se puede eliminar porque su estado no es "sent".']);
         }
 
+        $signedDocService->deleteForAdemdum($ademdum->id);
         $ademdum->delete();
 
         return redirect()
@@ -449,8 +450,7 @@ class AdemdumController extends Controller
     {
         return [
             'home' => 'Hogar',
-            'lodging' => 'Hospedaje',
-            'event' => 'Evento',
+            'commercial' => 'Comercial',
         ];
     }
 

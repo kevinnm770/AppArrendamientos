@@ -110,7 +110,7 @@
 
                 <div class="mt-4 d-flex justify-content-end gap-2">
                     @if ($agreement->status === 'sent')
-                        <form method="POST" action="{{ route('tenant.agreements.accept', $agreement->id) }}" onsubmit="return confirm('¿Seguro que deseas aceptar este contrato?');">
+                        <form method="POST" class="m-0" action="{{ route('tenant.agreements.accept', $agreement->id) }}" onsubmit="return confirm('¿Seguro que deseas aceptar este contrato?');">
                             @csrf
                             @method('PATCH')
                             <button type="submit" class="btn btn-primary">Aceptar</button>

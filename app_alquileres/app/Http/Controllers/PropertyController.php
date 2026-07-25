@@ -4,15 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\Property;
 use App\Models\PropertyPhoto;
+use App\Rules\MaxVideoDuration;
+use App\Services\PropertyPhotoStorageService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class PropertyController extends Controller
 {
+    public function __construct(private readonly PropertyPhotoStorageService $photoStorage)
+    {
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -33,8 +39,7 @@ class PropertyController extends Controller
             'properties' => $properties,
             'serviceTypeLabels' => [
                 'home' => 'Hogar',
-                'lodging' => 'Hospedaje',
-                'event' => 'Evento',
+                'commercial' => 'Comercial',
             ],
             'statusLabels' => [
                 'available' => 'Disponible',
@@ -72,7 +77,7 @@ class PropertyController extends Controller
         // 1) Validación (sin merge / sin filtrado manual)
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'service_type' => ['required', Rule::in(['home', 'lodging', 'event'])],
+            'service_type' => ['required', Rule::in(['home', 'commercial'])],
             'description' => ['nullable', 'string'],
 
             'location_province' => ['required', Rule::in(['Cartago', 'San José', 'Alajuela', 'Heredia', 'Limón', 'Puntarenas', 'Guanacaste'])],
@@ -90,7 +95,7 @@ class PropertyController extends Controller
             'materials' => ['nullable', 'json'],
             'included_objects' => ['nullable', 'json'],
             'price' => ['required', 'numeric', 'min:0'],
-            'price_mode' => ['required', Rule::in(['perHour', 'perDay', 'perMonth'])],
+            'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'isSharedPhone' => ['required', 'boolean'],
             'isSharedEmail' => ['required', 'boolean'],
 
@@ -99,10 +104,10 @@ class PropertyController extends Controller
 
             // Photos: permitir filas vacías (se ignoran si no hay archivo)
             'photos' => ['nullable', 'array'],
-            'photos.*.file' => ['nullable', 'image', 'max:5120'],
+            'photos.*.file' => ['nullable', 'mimes:jpg,jpeg,png,webp,bmp,tiff,mp4,mov,webm,ogg', 'max:20480', new MaxVideoDuration()],
             'photos.*.position' => ['required_with:photos.*.file', 'integer', 'min:1'],
             'photos.*.caption' => ['required_with:photos.*.file', 'string', 'max:255'],
-            'photos.*.taken_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
+            'photos.*.taken_at' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
         $user = $request->user();
@@ -149,7 +154,7 @@ class PropertyController extends Controller
                 'included_objects' => $includedObjects,
                 'materials' => $materials,
                 'price' => $validated['price'],
-                'price_mode' => $validated['price_mode'],
+                'currency' => $validated['currency'],
                 'isSharedPhone' => $request->boolean('isSharedPhone'),
                 'isSharedEmail' => $request->boolean('isSharedEmail'),
 
@@ -165,15 +170,16 @@ class PropertyController extends Controller
                 }
 
                 $file = $request->file("photos.$i.file");
-                $path = $file->store('photos_properties', 'public');
+                $path = $this->photoStorage->store($file, $property->id);
 
                 $takenAt = !empty($photo['taken_at'])
-                    ? Carbon::createFromFormat('Y-m-d\TH:i', $photo['taken_at'])
+                    ? Carbon::createFromFormat('Y-m-d', $photo['taken_at'])
                     : null;
 
                 PropertyPhoto::create([
                     'property_id' => $property->id,
                     'path' => $path,
+                    'media_type' => $this->mediaTypeFor($file),
                     'position' => (int)($photo['position'] ?? ($i + 1)),
                     'caption' => (string)($photo['caption'] ?? ''),
                     'taken_at' => $takenAt,
@@ -218,7 +224,7 @@ class PropertyController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'service_type' => ['required', Rule::in(['home', 'lodging', 'event'])],
+            'service_type' => ['required', Rule::in(['home', 'commercial'])],
             'description' => ['nullable', 'string'],
 
             'location_province' => ['required', Rule::in(['Cartago', 'San José', 'Alajuela', 'Heredia', 'Limón', 'Puntarenas', 'Guanacaste'])],
@@ -236,7 +242,7 @@ class PropertyController extends Controller
             'materials' => ['nullable', 'json'],
             'included_objects' => ['nullable', 'json'],
             'price' => ['required', 'numeric', 'min:0'],
-            'price_mode' => ['required', Rule::in(['perHour', 'perDay', 'perMonth'])],
+            'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'isSharedPhone' => ['required', 'boolean'],
             'isSharedEmail' => ['required', 'boolean'],
 
@@ -245,10 +251,10 @@ class PropertyController extends Controller
 
             'photos' => ['nullable', 'array'],
             'photos.*.id' => ['nullable', 'integer', 'exists:propertyphotos,id'],
-            'photos.*.file' => ['nullable', 'image', 'max:5120', 'required_without:photos.*.id'],
+            'photos.*.file' => ['nullable', 'mimes:jpg,jpeg,png,webp,bmp,tiff,mp4,mov,webm,ogg', 'max:20480', 'required_without:photos.*.id', new MaxVideoDuration()],
             'photos.*.position' => ['required', 'integer', 'min:1'],
             'photos.*.caption' => ['required', 'string', 'max:255'],
-            'photos.*.taken_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
+            'photos.*.taken_at' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
         $user = $request->user();
@@ -311,7 +317,7 @@ class PropertyController extends Controller
                 'included_objects' => $includedObjects,
                 'materials' => $materials,
                 'price' => $validated['price'],
-                'price_mode' => $validated['price_mode'],
+                'currency' => $validated['currency'],
                 'isSharedPhone' => $request->boolean('isSharedPhone'),
                 'isSharedEmail' => $request->boolean('isSharedEmail'),
 
@@ -324,7 +330,7 @@ class PropertyController extends Controller
             foreach ($photosInput as $i => $photo) {
                 $photoId = $photo['id'] ?? null;
                 $takenAt = !empty($photo['taken_at'])
-                    ? Carbon::createFromFormat('Y-m-d\TH:i', $photo['taken_at'])
+                    ? Carbon::createFromFormat('Y-m-d', $photo['taken_at'])
                     : null;
 
                 if ($photoId) {
@@ -340,29 +346,35 @@ class PropertyController extends Controller
                         'taken_at' => $takenAt,
                     ];
 
+                    $oldPath = null;
+
                     if ($request->hasFile("photos.$i.file")) {
                         $file = $request->file("photos.$i.file");
-                        $path = $file->store('photos_properties', 'public');
-                        if ($existingPhoto->path) {
-                            Storage::disk('public')->delete($existingPhoto->path);
-                        }
-                        $updateData['path'] = $path;
+                        $updateData['path'] = $this->photoStorage->store($file, $property->id);
+                        $updateData['media_type'] = $this->mediaTypeFor($file);
                         $updateData['created_by_user_id'] = $user?->id;
+                        $oldPath = $existingPhoto->path;
                     }
 
                     $existingPhoto->update($updateData);
                     $submittedIds[] = $photoId;
+
+                    // Solo se borra la foto vieja de R2 una vez confirmado el reemplazo en la BD.
+                    if ($oldPath) {
+                        $this->photoStorage->delete($oldPath);
+                    }
                 } else {
                     if (!$request->hasFile("photos.$i.file")) {
                         continue;
                     }
 
                     $file = $request->file("photos.$i.file");
-                    $path = $file->store('photos_properties', 'public');
+                    $path = $this->photoStorage->store($file, $property->id);
 
                     PropertyPhoto::create([
                         'property_id' => $property->id,
                         'path' => $path,
+                        'media_type' => $this->mediaTypeFor($file),
                         'position' => (int)($photo['position'] ?? ($i + 1)),
                         'caption' => (string)($photo['caption'] ?? ''),
                         'taken_at' => $takenAt,
@@ -373,9 +385,7 @@ class PropertyController extends Controller
 
             $photosToDelete = $existingPhotos->except($submittedIds);
             foreach ($photosToDelete as $photo) {
-                if ($photo->path) {
-                    Storage::disk('public')->delete($photo->path);
-                }
+                $this->photoStorage->delete($photo->path);
                 $photo->delete();
             }
 
@@ -424,9 +434,7 @@ class PropertyController extends Controller
 
         return DB::transaction(function () use ($property) {
             foreach ($property->photos as $photo) {
-                if ($photo->path) {
-                    Storage::disk('public')->delete($photo->path);
-                }
+                $this->photoStorage->delete($photo->path);
             }
 
             $property->photos()->delete();
@@ -436,6 +444,11 @@ class PropertyController extends Controller
                 ->route('admin.properties.index')
                 ->with('success', 'Propiedad eliminada correctamente.');
         });
+    }
+
+    private function mediaTypeFor(UploadedFile $file): string
+    {
+        return str_starts_with((string) $file->getMimeType(), 'video/') ? 'video' : 'image';
     }
 
     private function locationData(): array

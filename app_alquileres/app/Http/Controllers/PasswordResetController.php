@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PasswordResetRequest;
+use App\Models\User;
+use App\Notifications\PasswordResetRequested;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PasswordResetController extends Controller
@@ -23,15 +26,47 @@ class PasswordResetController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate(['email' => ['required', 'email']]);
+        $request->validate([
+            'email' => ['required', 'email'],
+            'role' => ['required', Rule::in(['lessor', 'roomer'])],
+        ]);
 
-        $status = Password::sendResetLink($request->only('email'));
+        $user = User::where('email', $request->email)->where('role', $request->role)->first();
 
-        if ($status !== Password::RESET_LINK_SENT) {
+        if (!$user) {
             throw ValidationException::withMessages([
-                'email' => [__($status)],
+                'email' => 'No encontramos una cuenta con ese correo para el rol seleccionado.',
             ]);
         }
+
+        $recentRequest = PasswordResetRequest::where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->where('created_at', '>', now()->subSeconds(60))
+            ->exists();
+
+        if ($recentRequest) {
+            throw ValidationException::withMessages([
+                'email' => 'Ya te enviamos un enlace hace poco. Espera un minuto antes de solicitar otro.',
+            ]);
+        }
+
+        PasswordResetRequest::where('user_id', $user->id)->whereNull('used_at')->delete();
+
+        $token = Str::random(64);
+
+        PasswordResetRequest::create([
+            'user_id' => $user->id,
+            'token' => Hash::make($token),
+            'expires_at' => now()->addMinutes(60),
+        ]);
+
+        $url = route('auth.password.reset', [
+            'token' => $token,
+            'email' => $user->email,
+            'role' => $user->role,
+        ]);
+
+        $user->notify(new PasswordResetRequested($url));
 
         return back()->with('status', 'Te enviamos un enlace para restablecer tu contraseña.');
     }
@@ -41,6 +76,7 @@ class PasswordResetController extends Controller
         return view('auth.passwords.reset', [
             'token' => $token,
             'email' => $request->query('email'),
+            'role' => $request->query('role'),
         ]);
     }
 
@@ -49,26 +85,29 @@ class PasswordResetController extends Controller
         $request->validate([
             'token' => ['required'],
             'email' => ['required', 'email'],
+            'role' => ['required', Rule::in(['lessor', 'roomer'])],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user) use ($request) {
-                $user->forceFill([
-                    'password' => Hash::make($request->password),
-                    'remember_token' => Str::random(60),
-                ])->save();
+        $user = User::where('email', $request->email)->where('role', $request->role)->first();
 
-                event(new PasswordReset($user));
-            }
-        );
+        $pending = $user
+            ? PasswordResetRequest::where('user_id', $user->id)->whereNull('used_at')->latest()->first()
+            : null;
 
-        if ($status !== Password::PASSWORD_RESET) {
+        if (!$user || !$pending || $pending->isExpired() || !Hash::check($request->token, $pending->token)) {
             throw ValidationException::withMessages([
-                'email' => [__($status)],
+                'email' => 'Este enlace de restablecimiento no es válido o expiró.',
             ]);
         }
+
+        $user->forceFill([
+            'password' => Hash::make($request->password),
+        ])->save();
+
+        $pending->update(['used_at' => now()]);
+
+        event(new PasswordReset($user));
 
         return redirect()
             ->route('auth.login')

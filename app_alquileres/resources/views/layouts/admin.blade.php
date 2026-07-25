@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Dashboard - Mazer Admin Dashboard</title>
 
     <link rel="shortcut icon" href="{{asset('/assets/compiled/svg/favicon.svg')}}" type="image/x-icon">
@@ -74,62 +75,40 @@
                 </a>
             </li>
 
-            <li class="sidebar-item has-sub {{ request()->routeIs('admin.properties.*') ? 'active' : '' }}">
-                <a href="#" class='sidebar-link'>
+            <li class="sidebar-item {{ request()->routeIs('admin.properties.*') ? 'active' : '' }}">
+                <a href="{{route('admin.properties.index')}}" class='sidebar-link'>
                     <i class="bi bi-houses-fill"></i>
                     <span>Propiedades</span>
                 </a>
-                <ul class="submenu ">
-
-                    <li class="submenu-item {{ request()->routeIs('admin.properties.index') || request()->routeIs('admin.properties.edit') ? 'active' : '' }}">
-                        <a href="{{route('admin.properties.index')}}" class="submenu-link">Administrar</a>
-                    </li>
-
-                    <li class="submenu-item {{ request()->routeIs('admin.properties.register') ? 'active' : '' }}">
-                        <a href="{{route('admin.properties.register')}}" class="submenu-link">Registrar</a>
-                    </li>
-                </ul>
             </li>
 
-            <li class="sidebar-item has-sub {{ request()->routeIs('admin.agreements.*') || request()->routeIs('admin.ademdums.*') ? 'active' : '' }}">
-                <a href="#" class='sidebar-link'>
+            <li class="sidebar-item {{ request()->routeIs('admin.agreements.*') || request()->routeIs('admin.ademdums.*') ? 'active' : '' }}">
+                <a href="{{route('admin.agreements.index')}}" class='sidebar-link'>
                     <i class="bi bi-file-earmark-text-fill"></i>
                     <span>Contratos</span>
                 </a>
-                <ul class="submenu ">
-
-                    <li class="submenu-item {{ request()->routeIs('admin.agreements.index') || request()->routeIs('admin.agreements.view') || request()->routeIs('admin.agreements.edit') || request()->routeIs('admin.ademdums.*') ? 'active' : '' }}">
-                        <a href="{{route('admin.agreements.index')}}" class="submenu-link">Controlar</a>
-                    </li>
-
-                    <li class="submenu-item {{ request()->routeIs('admin.agreements.register') ? 'active' : '' }}">
-                        <a href="{{route('admin.agreements.register')}}" class="submenu-link">Registrar</a>
-                    </li>
-                </ul>
             </li>
 
-            <li class="sidebar-item has-sub {{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">
+            <li class="sidebar-item {{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">
                 <a href="{{ route('admin.invoices.index') }}" class='sidebar-link'>
                     <i class="bi bi-receipt"></i>
                     <span>Facturas</span>
                 </a>
+            </li>
 
-                <ul class="submenu ">
-
-                    <li class="submenu-item  ">
-                        <a href="#" class="submenu-link">Controlar</a>
-                    </li>
-
-                    <li class="submenu-item {{ request()->routeIs('admin.invoices.index') ? 'active' : '' }}">
-                        <a href="{{ route('admin.invoices.index') }}" class="submenu-link">Registrar</a>
-                    </li>
-                </ul>
+            <li class="sidebar-item {{ request()->routeIs('admin.messages.*') ? 'active' : '' }}">
+                <a href="{{ route('admin.messages.index') }}" class='sidebar-link'>
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span>Mensajes</span>
+                    <span id="sidebar-messages-badge" class="badge rounded-pill ms-auto d-none" style="background-color:#4CD2D9;color:#212C4C;">0</span>
+                </a>
             </li>
 
             <li class="sidebar-item {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">
                 <a href="{{ route('admin.notifications.index') }}" class='sidebar-link'>
                     <i class="bi bi-bell-fill"></i>
                     <span>Notificaciones</span>
+                    <span id="sidebar-notifications-badge" class="badge rounded-pill ms-auto d-none" style="background-color:#4CD2D9;color:#212C4C;">0</span>
                 </a>
             </li>
 
@@ -138,7 +117,10 @@
             <li class="sidebar-item {{ request()->routeIs('admin.configuration.*') ? 'active' : '' }}">
                 <a href="{{ url('admin/configuration') }}" class="sidebar-link">
                     <img src="{{ Auth::user()->profile_photo_path ? asset('storage/'.Auth::user()->profile_photo_path) : asset('storage/profiles_images/UserProfile_default.png') }}" class="sidebar-avatar" alt="Foto de perfil">
-                    <span>Perfil</span>
+                    <span class="sidebar-link-title">
+                        Perfil
+                        <small class="sidebar-role-tag">Arrendador(a)</small>
+                    </span>
                 </a>
             </li>
         </ul>
@@ -180,11 +162,10 @@
 <footer>
     <div class="footer clearfix mb-0 text-muted">
         <div class="float-start">
-            <p>2023 &copy; Mazer</p>
+            <p>2026 &copy; Mazer</p>
         </div>
         <div class="float-end">
-            <p>Crafted with <span class="text-danger"><i class="bi bi-heart-fill icon-mid"></i></span>
-                by <a href="https://saugi.me">Saugi</a></p>
+            <p>Created by <a target="_blank" href="https://ncodedigital.com">nCode</a></p>
         </div>
     </div>
 </footer>
@@ -267,6 +248,51 @@
             pollNotifications();
             setInterval(pollNotifications, 15000);
         });
+    })();
+</script>
+
+<script>
+    (function () {
+        const messagesBadge = document.getElementById('sidebar-messages-badge');
+        const notificationsBadge = document.getElementById('sidebar-notifications-badge');
+
+        if (!messagesBadge && !notificationsBadge) {
+            return;
+        }
+
+        const setBadge = (el, count) => {
+            if (!el) {
+                return;
+            }
+
+            if (count > 0) {
+                el.textContent = count > 99 ? '99+' : count;
+                el.classList.remove('d-none');
+            } else {
+                el.classList.add('d-none');
+            }
+        };
+
+        const refreshBadges = async () => {
+            try {
+                const response = await fetch('{{ route('admin.badges') }}', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const payload = await response.json();
+                setBadge(messagesBadge, payload.unread_messages || 0);
+                setBadge(notificationsBadge, payload.unread_notifications || 0);
+            } catch (error) {
+                // noop
+            }
+        };
+
+        refreshBadges();
+        setInterval(refreshBadges, 15000);
     })();
 </script>
 

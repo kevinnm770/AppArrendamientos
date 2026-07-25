@@ -33,7 +33,10 @@ class RegisterController extends Controller
 
             // User
             'username' => ['required', 'string', 'max:15', Rule::unique('users', 'name')],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'email' => [
+                'required', 'email', 'max:255',
+                Rule::unique('users', 'email')->where(fn ($query) => $query->where('role', $request->role)),
+            ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
 
             // Perfil (para lessor o roomer)
@@ -44,15 +47,15 @@ class RegisterController extends Controller
 
         return DB::transaction(function () use ($request) {
 
+            $role = $request->role;
+
             // 1) Crear user
             $user = User::create([
                 'name' => $request->username,
                 'email' => $request->email,
+                'role' => $role,
                 'password' => Hash::make($request->password),
             ]);
-
-            // 2) Crear SOLO 1 perfil según role
-            $role = $request->role;
 
             if ($role === 'lessor') {
                 // Evitar duplicidad por id_number dentro de lessors

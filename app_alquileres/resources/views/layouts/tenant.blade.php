@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Dashboard - Mazer Admin Dashboard</title>
 
     <link rel="shortcut icon" href="{{asset('/assets/compiled/svg/favicon.svg')}}" type="image/x-icon">
@@ -85,10 +86,19 @@
                 </a>
             </li>
 
+            <li class="sidebar-item {{ request()->routeIs('tenant.messages.*') ? 'active' : '' }}">
+                <a href="{{ route('tenant.messages.index') }}" class='sidebar-link'>
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span>Mensajes</span>
+                    <span id="sidebar-messages-badge" class="badge rounded-pill ms-auto d-none" style="background-color:#4CD2D9;color:#212C4C;">0</span>
+                </a>
+            </li>
+
             <li class="sidebar-item {{ request()->routeIs('tenant.notifications.*') ? 'active' : '' }}">
                 <a href="{{ route('tenant.notifications.index') }}" class='sidebar-link'>
                     <i class="bi bi-bell-fill"></i>
                     <span>Notificaciones</span>
+                    <span id="sidebar-notifications-badge" class="badge rounded-pill ms-auto d-none" style="background-color:#4CD2D9;color:#212C4C;">0</span>
                 </a>
             </li>
 
@@ -97,7 +107,10 @@
             <li class="sidebar-item {{ request()->routeIs('tenant.configuration.*') ? 'active' : '' }}">
                 <a href="{{ url('/tenant/configuration') }}" class="sidebar-link">
                     <img src="{{ Auth::user()->profile_photo_path ? asset('storage/'.Auth::user()->profile_photo_path) : asset('storage/profiles_images/UserProfile_default.png') }}" class="sidebar-avatar" alt="Foto de perfil">
-                    <span>Perfil</span>
+                    <span class="sidebar-link-title">
+                        Perfil
+                        <small class="sidebar-role-tag">Inquilino(a)</small>
+                    </span>
                 </a>
             </li>
         </ul>
@@ -142,8 +155,7 @@
             <p>2023 &copy; Mazer</p>
         </div>
         <div class="float-end">
-            <p>Crafted with <span class="text-danger"><i class="bi bi-heart-fill icon-mid"></i></span>
-                by <a href="https://saugi.me">Saugi</a></p>
+            <p>Created by <a target="_blank" href="https://ncodedigital.com">nCode</a></p>
         </div>
     </div>
 </footer>
@@ -224,6 +236,51 @@
             pollNotifications();
             setInterval(pollNotifications, 15000);
         });
+    })();
+</script>
+
+<script>
+    (function () {
+        const messagesBadge = document.getElementById('sidebar-messages-badge');
+        const notificationsBadge = document.getElementById('sidebar-notifications-badge');
+
+        if (!messagesBadge && !notificationsBadge) {
+            return;
+        }
+
+        const setBadge = (el, count) => {
+            if (!el) {
+                return;
+            }
+
+            if (count > 0) {
+                el.textContent = count > 99 ? '99+' : count;
+                el.classList.remove('d-none');
+            } else {
+                el.classList.add('d-none');
+            }
+        };
+
+        const refreshBadges = async () => {
+            try {
+                const response = await fetch('{{ route('tenant.badges') }}', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const payload = await response.json();
+                setBadge(messagesBadge, payload.unread_messages || 0);
+                setBadge(notificationsBadge, payload.unread_notifications || 0);
+            } catch (error) {
+                // noop
+            }
+        };
+
+        refreshBadges();
+        setInterval(refreshBadges, 15000);
     })();
 </script>
 

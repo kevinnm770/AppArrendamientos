@@ -8,12 +8,18 @@
                 <p class="text-subtitle text-muted">En esta sección puedes ver y fiscalizar tus contratos con tus arrendatarios.</p>
             </div>
             <div class="col-12 col-md-6 order-md-2 order-first">
-                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}">Admin</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Agreements</li>
-                    </ol>
-                </nav>
+                <div class="d-flex flex-column align-items-start align-items-md-end gap-2">
+                    <a href="{{ route('admin.agreements.register') }}" class="btn-brand-action">
+                        <i class="bi bi-plus-lg"></i>
+                        <span>Registrar</span>
+                    </a>
+                    <nav aria-label="breadcrumb" class="breadcrumb-header">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{{ route('admin.index') }}">Admin</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Agreements</li>
+                        </ol>
+                    </nav>
+                </div>
             </div>
         </div>
     </div>

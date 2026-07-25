@@ -3,9 +3,12 @@
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\AdemdumController;
 use App\Http\Controllers\AgreementController;
+use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ConversationController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PropertyController;
@@ -69,6 +72,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
 
     // Inicio
     Route::get('/', [lessorController::class, 'index'])->name('index');
+
+    // Contadores de la barra lateral (mensajes/notificaciones sin leer)
+    Route::get('/badges', [BadgeController::class, 'counts'])->middleware('auth')->name('badges');
 
     // Configuraciones de cuenta
     Route::prefix('configuration')->name('configuration.')->middleware('auth')->group(function () {
@@ -148,8 +154,22 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
     //Notificaciones
     Route::prefix('agreements/notifications')->name('notifications.')->middleware('auth')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/all', [NotificationController::class, 'all'])->name('all');
+        Route::patch('/mark-all-seen', [NotificationController::class, 'markAllSeen'])->name('mark-all-seen');
         Route::get('/push-feed', [NotificationController::class, 'pushFeed'])->name('push-feed');
         Route::get('/{notificationId}/view', [NotificationController::class, 'view'])->name('view');
+    });
+
+    // Mensajes (chat por contrato)
+    Route::prefix('messages')->name('messages.')->middleware('auth')->group(function () {
+        Route::get('/', [ConversationController::class, 'index'])->name('index');
+        Route::get('/threads', [ConversationController::class, 'threads'])->name('threads');
+        Route::get('/{agreementId}', [ConversationController::class, 'show'])->name('show');
+        Route::get('/{agreementId}/poll', [ConversationController::class, 'poll'])->name('poll');
+        Route::get('/{agreementId}/history', [ConversationController::class, 'history'])->name('history');
+        Route::post('/{agreementId}', [MessageController::class, 'store'])->name('store');
+        Route::patch('/{agreementId}/{messageId}', [MessageController::class, 'update'])->name('update');
+        Route::delete('/{agreementId}/{messageId}', [MessageController::class, 'destroy'])->name('destroy');
     });
 });
 
@@ -157,6 +177,9 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'verified', 'roome
 
     // Inicio
     Route::get('/', [roomerController::class, 'index'])->name('index');
+
+    // Contadores de la barra lateral (mensajes/notificaciones sin leer)
+    Route::get('/badges', [BadgeController::class, 'counts'])->middleware('auth')->name('badges');
 
     // Configuraciones de cuenta
     Route::prefix('configuration')->name('configuration.')->middleware('auth')->group(function () {
@@ -197,7 +220,21 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'verified', 'roome
     //Notificaciones
     Route::prefix('agreements/notifications')->name('notifications.')->middleware('auth')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/all', [NotificationController::class, 'all'])->name('all');
+        Route::patch('/mark-all-seen', [NotificationController::class, 'markAllSeen'])->name('mark-all-seen');
         Route::get('/push-feed', [NotificationController::class, 'pushFeed'])->name('push-feed');
         Route::get('/{notificationId}/view', [NotificationController::class, 'view'])->name('view');
+    });
+
+    // Mensajes (chat por contrato)
+    Route::prefix('messages')->name('messages.')->middleware('auth')->group(function () {
+        Route::get('/', [ConversationController::class, 'index'])->name('index');
+        Route::get('/threads', [ConversationController::class, 'threads'])->name('threads');
+        Route::get('/{agreementId}', [ConversationController::class, 'show'])->name('show');
+        Route::get('/{agreementId}/poll', [ConversationController::class, 'poll'])->name('poll');
+        Route::get('/{agreementId}/history', [ConversationController::class, 'history'])->name('history');
+        Route::post('/{agreementId}', [MessageController::class, 'store'])->name('store');
+        Route::patch('/{agreementId}/{messageId}', [MessageController::class, 'update'])->name('update');
+        Route::delete('/{agreementId}/{messageId}', [MessageController::class, 'destroy'])->name('destroy');
     });
 });

@@ -4,20 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Propiedades públicas en Costa Rica | App Arrendamientos</title>
-    <meta name="description" content="Encuentra propiedades públicas para hogar, hospedaje o eventos. Filtra por precio mensual equivalente y ubicación exacta en Costa Rica.">
+    <meta name="description" content="Encuentra propiedades públicas para hogar o uso comercial. Filtra por precio mensual y ubicación exacta en Costa Rica.">
     <meta name="robots" content="index,follow,max-image-preview:large">
     <link rel="canonical" href="{{ route('public.properties.index') }}">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="App Arrendamientos">
     <meta property="og:title" content="Propiedades públicas en Costa Rica">
-    <meta property="og:description" content="Listado público de propiedades con filtros por ubicación, servicio y precio mensual equivalente.">
+    <meta property="og:description" content="Listado público de propiedades con filtros por ubicación, servicio y precio mensual.">
     <meta property="og:url" content="{{ route('public.properties.index') }}">
     <meta property="og:locale" content="es_CR">
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Propiedades públicas en Costa Rica">
-    <meta name="twitter:description" content="Explora propiedades públicas con filtros por ubicación, tipo de servicio y precio mensual equivalente.">
+    <meta name="twitter:description" content="Explora propiedades públicas con filtros por ubicación, tipo de servicio y precio mensual.">
 
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -60,18 +60,18 @@
 <main class="container">
     <header class="header">
         <h1>Propiedades públicas disponibles</h1>
-        <p>Filtra por servicio, ubicación y precio mensual equivalente (incluye conversiones desde hora o día).</p>
+        <p>Filtra por servicio, ubicación y precio mensual.</p>
     </header>
 
     <section class="filters" aria-label="Filtros de búsqueda">
         <form method="GET" action="{{ route('public.properties.index') }}">
             <div class="input-group">
-                <label for="min_monthly_price">Precio mensual mínimo (₡)</label>
-                <input type="number" id="min_monthly_price" name="min_monthly_price" min="0" step="0.01" value="{{ request('min_monthly_price') }}">
+                <label for="min_price">Precio mensual mínimo (₡)</label>
+                <input type="number" id="min_price" name="min_price" min="0" step="0.01" value="{{ request('min_price') }}">
             </div>
             <div class="input-group">
-                <label for="max_monthly_price">Precio mensual máximo (₡)</label>
-                <input type="number" id="max_monthly_price" name="max_monthly_price" min="0" step="0.01" value="{{ request('max_monthly_price') }}">
+                <label for="max_price">Precio mensual máximo (₡)</label>
+                <input type="number" id="max_price" name="max_price" min="0" step="0.01" value="{{ request('max_price') }}">
             </div>
             <div class="input-group">
                 <label for="location_province">Provincia</label>
@@ -133,7 +133,7 @@
                     <span class="status {{ $statusClass }}">{{ $statusLabel }}</span>
                 </div>
                 <div class="photo-wrap">
-                    <img src="{{ $cover ? asset('storage/' . $cover->path) : asset('storage/photos_properties/photoDefault_property.png') }}"
+                    <img src="{{ $cover ? $cover->url : asset('storage/photos_properties/photoDefault_property.png') }}"
                          alt="{{ $cover?->caption ?: 'Imagen de ' . $property->name }}"
                          loading="lazy">
                 </div>
@@ -149,7 +149,7 @@
                         <span><i class="fa-solid fa-jug-detergent" title="Objetos incluidos"></i> {{ count($property->included_objects ?? []) }}</span>
                         <span><i class="fa-solid fa-tree" title="Patios y/o zonas verdes"></i> {{ $property->yards }}</span>
                     </div>
-                    <p class="price">Precio mensual equivalente: ₡{{ number_format($property->monthly_price, 2, '.', ',') }}</p>
+                    <p class="price">Precio mensual: {{ $property->currencySymbol() }}{{ number_format($property->price, 2, '.', ',') }}</p>
                 </div>
             </article>
         @empty
@@ -186,8 +186,8 @@
             ],
             'offers' => [
                 '@type' => 'Offer',
-                'priceCurrency' => 'CRC',
-                'price' => number_format($property->monthly_price, 2, '.', ''),
+                'priceCurrency' => $property->currency,
+                'price' => number_format($property->price, 2, '.', ''),
                 'availability' => $property->status === 'available'
                     ? 'https://schema.org/InStock'
                     : 'https://schema.org/LimitedAvailability',

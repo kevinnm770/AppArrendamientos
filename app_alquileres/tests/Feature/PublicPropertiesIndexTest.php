@@ -33,31 +33,29 @@ class PublicPropertiesIndexTest extends TestCase
         $response->assertDontSee('Propiedad privada');
     }
 
-    public function test_it_filters_by_equivalent_monthly_price(): void
+    public function test_it_filters_by_price_range(): void
     {
         $lessor = $this->createLessor();
 
         Property::create($this->basePropertyData($lessor->id, [
-            'name' => 'Diaria',
-            'price' => 10000,
-            'price_mode' => 'perDay',
+            'name' => 'Económica',
+            'price' => 100000,
             'is_public' => true,
-        ])); // 300000 mensual equivalente
+        ]));
 
         Property::create($this->basePropertyData($lessor->id, [
-            'name' => 'Por hora',
-            'price' => 1000,
-            'price_mode' => 'perHour',
+            'name' => 'Costosa',
+            'price' => 900000,
             'is_public' => true,
-        ])); // 720000 mensual equivalente
+        ]));
 
         $response = $this->get(route('public.properties.index', [
-            'max_monthly_price' => 500000,
+            'max_price' => 500000,
         ]));
 
         $response->assertOk();
-        $response->assertSee('Diaria');
-        $response->assertDontSee('Por hora');
+        $response->assertSee('Económica');
+        $response->assertDontSee('Costosa');
     }
 
     public function test_it_filters_by_location_and_service_type(): void
@@ -74,8 +72,8 @@ class PublicPropertiesIndexTest extends TestCase
         ]));
 
         Property::create($this->basePropertyData($lessor->id, [
-            'name' => 'Evento San José',
-            'service_type' => 'event',
+            'name' => 'Local San José',
+            'service_type' => 'commercial',
             'location_province' => 'San José',
             'location_canton' => 'San José',
             'location_district' => 'Carmen',
@@ -91,7 +89,7 @@ class PublicPropertiesIndexTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Casa Cartago');
-        $response->assertDontSee('Evento San José');
+        $response->assertDontSee('Local San José');
     }
 
     private function createLessor(): Lessor
@@ -127,7 +125,6 @@ class PublicPropertiesIndexTest extends TestCase
             'included_objects' => ['lavadora'],
             'materials' => ['concreto'],
             'price' => 100000,
-            'price_mode' => 'perMonth',
             'isSharedPhone' => false,
             'isSharedEmail' => false,
             'status' => 'available',

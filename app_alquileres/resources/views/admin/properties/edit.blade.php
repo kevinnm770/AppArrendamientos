@@ -20,7 +20,7 @@
     </div>
 
     <section class="section">
-        <form class="card" method="POST" action="{{ route('admin.properties.edit.update', $property->id) }}" enctype="multipart/form-data">
+        <form class="card" id="property-form" method="POST" action="{{ route('admin.properties.edit.update', $property->id) }}" enctype="multipart/form-data">
             @csrf
             @method('PATCH')
 
@@ -41,7 +41,7 @@
                             <option value="disabled" @selected(old('status', $property->status ?? 'available') === 'disabled')>Deshabilitada</option>
                         </select>
                         @if ($hasLockedAgreement)
-                            <small class="d-block mt-1" style="font-size:10pt;color:rgb(67, 94, 190);">El estado queda bloqueado en <strong>Ocupada</strong> por un contrato en estado accepted/canceling.</small>
+                            <small class="d-block mt-1" style="font-size:10pt;color:#4CD2D9;">El estado queda bloqueado en <strong>Ocupada</strong> por un contrato en estado accepted.</small>
                         @endif
                         @error('status')
                             <span class="invalid-feedback" role="alert">
@@ -67,9 +67,8 @@
                         <label class="form-label" for="service_type">Tipo de servicio *</label>
                         <select class="form-select @error('service_type') is-invalid @enderror" id="service_type" name="service_type" required>
                             <option value="" selected disabled>Selecciona una opción</option>
-                            <option value="home" @selected(old('service_type', $property->service_type) === 'home')>Hogar</option>
-                            <option value="lodging" @selected(old('service_type', $property->service_type) === 'lodging')>Hospedaje</option>
-                            <option value="event" @selected(old('service_type', $property->service_type) === 'event')>Evento</option>
+                            <option value="home" @selected(old('service_type', $property->service_type) === 'home')>Vivienda</option>
+                            <option value="commercial" @selected(old('service_type', $property->service_type) === 'commercial')>Local comercial</option>
                         </select>
                         @error('service_type')
                             <span class="invalid-feedback" role="alert">
@@ -200,7 +199,7 @@
                         <label class="form-label" for="materials_input">Materiales (tags)</label>
                         <input type="text" class="form-control tag-source @error('materials') is-invalid @enderror" id="materials_input"
                             data-target="materials_tags" placeholder="Escribe y presiona Enter (ej: piso cerámica)">
-                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Presiona Enter o coma para crear cada material.</small>
+                        <small style="font-size:10pt;color:#4CD2D9;">Presiona Enter o coma para crear cada material.</small>
                         <input type="hidden" name="materials" id="materials_tags" value="{{ old('materials', json_encode($property->materials ?? [])) }}">
                         @error('materials')
                             <span class="invalid-feedback d-block" role="alert">
@@ -214,7 +213,7 @@
                         <label class="form-label" for="included_objects_input">Objetos incluidos (tags)</label>
                         <input type="text" class="form-control tag-source @error('included_objects') is-invalid @enderror" id="included_objects_input"
                             data-target="included_objects_tags" placeholder="Escribe y presiona Enter (ej: refrigeradora)">
-                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Presiona Enter o coma para crear cada objeto.</small>
+                        <small style="font-size:10pt;color:#4CD2D9;">Presiona Enter o coma para crear cada objeto.</small>
                         <input type="hidden" name="included_objects" id="included_objects_tags" value="{{ old('included_objects', json_encode($property->included_objects ?? [])) }}">
                         @error('included_objects')
                             <span class="invalid-feedback d-block" role="alert">
@@ -232,7 +231,7 @@
 
                     <div class="row mt-4">
                         <div class="col-0 col-lg-4">
-                            <label class="form-label" for="price">Precio (₡) *: </label>
+                            <label class="form-label" for="price">Precio mensual *: </label>
                             <input class="form-control @error('price') is-invalid @enderror" type="number" name="price" id="price" min="0" step="0.01" value="{{ old('price', $property->price) }}" placeholder="Ej: 230000" required>
                             @error('price')
                                 <span class="invalid-feedback d-block" role="alert">
@@ -240,13 +239,12 @@
                                 </span>
                             @enderror
 
-                            <select class="form-select mt-2 @error('price_mode') is-invalid @enderror" id="price_mode" name="price_mode" style="width: max-content;" required>
-                                <option value="perHour" @selected(old('price_mode', $property->price_mode) === 'perHour')>Por hora</option>
-                                <option value="perDay" @selected(old('price_mode', $property->price_mode) === 'perDay')>Por día</option>
-                                <option value="perMonth" @selected(old('price_mode', $property->price_mode) === 'perMonth')>Por mes</option>
+                            <select class="form-select mt-2 @error('currency') is-invalid @enderror" id="currency" name="currency" style="width: max-content;" required>
+                                <option value="CRC" @selected(old('currency', $property->currency) === 'CRC')>Colones (₡)</option>
+                                <option value="USD" @selected(old('currency', $property->currency) === 'USD')>Dólares estadounidenses ($)</option>
                             </select>
-                            @error('price_mode')
-                                <span class="invalid-feedback" role="alert">
+                            @error('currency')
+                                <span class="invalid-feedback d-block" role="alert">
                                     <strong>{{ $message }}</strong>
                                 </span>
                             @enderror
@@ -284,7 +282,7 @@
                                 <input class="form-check-input @error('is_public') is-invalid @enderror" type="checkbox" role="switch" id="is_public" name="is_public" value="1" @checked(old('is_public', ($property->is_public ?? false) ? '1' : '0') === '1')>
                                 <label class="form-check-label" for="is_public">Visible para arrendatarios</label>
                             </div>
-                            <small style="font-size:10pt;color:rgb(67, 94, 190);">Solo se puede publicar cuando el estado está en <strong>Disponible</strong>.</small>
+                            <small style="font-size:10pt;color:#4CD2D9;">Solo se puede publicar cuando el estado está en <strong>Disponible</strong>.</small>
                             @error('is_public')
                                 <span class="invalid-feedback d-block" role="alert">
                                     <strong>{{ $message }}</strong>
@@ -339,7 +337,7 @@
 
                 <div class="d-flex justify-content-end gap-2 ms-auto">
                 <a href="{{ route('admin.properties.index') }}" class="btn btn-light-secondary">Cancelar</a>
-                <button type="submit" class="btn btn-primary">Guardar propiedad</button>
+                <button type="submit" class="btn btn-primary" id="save-property-button">Guardar propiedad</button>
                 </div>
             </div>
         </form>
@@ -357,19 +355,20 @@
             <div class="row g-3">
                 <div class="col-xl-3 col-12 text-center">
                     <img class="photo_img" src="{{ asset('storage/photos_properties/photoDefault_property.png') }}" alt="" style="width:70%;max-width:250px;max-height:250px;">
+                    <video class="photo_video" style="display:none;width:70%;max-width:250px;max-height:250px;" muted controls></video>
                 </div>
                 <div class="col-xl-9 col-12 photo-row-content">
                     <div class="row" style="height: min-content;">
                         <div class="col-12 col-lg-4">
-                            <label class="form-label">Archivo de imagen *</label>
-                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*" data-photo-number="" onchange="previewPhoto(this,event)" required>
+                            <label class="form-label">Foto o video (máx. 15s) *</label>
+                            <input type="file" class="form-control input_img" name="photos[][file]" accept="image/*,video/mp4,video/quicktime,video/webm,video/ogg" data-photo-number="" onchange="previewPhoto(this,event)" required>
                         </div>
                         <div class="col-12 col-lg-3 mt-xl-0 mt-3">
                             <label class="form-label">Fecha de toma</label>
-                            <input type="datetime-local" class="form-control" name="photos[][taken_at]">
+                            <input type="date" class="form-control" name="photos[][taken_at]">
                         </div>
                         <div class="col-12 mt-3">
-                            <label class="form-label">Descripción / caption</label>
+                            <label class="form-label">Descripción</label>
                             <input type="text" class="form-control" name="photos[][caption]" placeholder="Ej: Vista de sala principal" required>
                         </div>
                         <div class="col-12 mt-3">
@@ -420,9 +419,10 @@
     $existingPhotos = $property->photos->map(function ($photo) {
         return [
             'id' => $photo->id,
-            'path' => asset('storage/' . $photo->path),
+            'path' => $photo->url,
+            'media_type' => $photo->media_type,
             'caption' => $photo->caption,
-            'taken_at' => optional($photo->taken_at)->format('Y-m-d\TH:i'),
+            'taken_at' => optional($photo->taken_at)->format('Y-m-d'),
         ];
     })->values();
     @endphp
@@ -631,12 +631,21 @@
             const addExistingPhotoRow = (photo) => {
                 const row = photoTemplate.content.firstElementChild.cloneNode(true);
                 const image = row.querySelector('.photo_img');
+                const video = row.querySelector('.photo_video');
                 const captionInput = row.querySelector('input[name*="[caption]"]');
                 const takenInput = row.querySelector('input[name*="[taken_at]"]');
                 const fileInput = row.querySelector('.input_img');
                 const idInput = row.querySelector('.photo-id');
 
-                if (image) {
+                if (photo.media_type === 'video') {
+                    if (image) {
+                        image.style.display = 'none';
+                    }
+                    if (video) {
+                        video.src = photo.path;
+                        video.style.display = '';
+                    }
+                } else if (image) {
                     image.src = photo.path;
                 }
                 if (captionInput) {
@@ -665,8 +674,6 @@
             if (existingPhotos.length) {
                 existingPhotos.forEach((photo) => addExistingPhotoRow(photo));
                 updatePhotoPositions();
-            } else {
-                addPhotoRow();
             }
 
             const deleteButton = document.getElementById('delete-property-button');
@@ -700,13 +707,53 @@
                     deleteForm.submit();
                 });
             }
+
+            const propertyForm = document.getElementById('property-form');
+            const saveButton = document.getElementById('save-property-button');
+
+            propertyForm.addEventListener('submit', () => {
+                if (saveButton.disabled) {
+                    return;
+                }
+                saveButton.disabled = true;
+                saveButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Guardando...';
+            });
         });
 
-        function previewPhoto(btn,e) {
+        function previewPhoto(input, e) {
             const file = e.target.files?.[0];
-            const numPhoto = btn.getAttribute('data-photo-number');
-            if (!file) return;
-            document.getElementById('photo'+numPhoto).src = URL.createObjectURL(file);
+            const row = input.closest('.photo-row');
+            if (!file || !row) return;
+
+            const img = row.querySelector('.photo_img');
+            const video = row.querySelector('.photo_video');
+            const isVideo = file.type.startsWith('video/');
+
+            if (!isVideo) {
+                video.pause();
+                video.removeAttribute('src');
+                video.style.display = 'none';
+                img.style.display = '';
+                img.src = URL.createObjectURL(file);
+                return;
+            }
+
+            const objectUrl = URL.createObjectURL(file);
+            const probe = document.createElement('video');
+            probe.preload = 'metadata';
+            probe.onloadedmetadata = () => {
+                if (probe.duration > 15) {
+                    alert('El video debe durar máximo 15 segundos.');
+                    input.value = '';
+                    URL.revokeObjectURL(objectUrl);
+                    return;
+                }
+
+                img.style.display = 'none';
+                video.src = objectUrl;
+                video.style.display = '';
+            };
+            probe.src = objectUrl;
         }
     </script>
 @endsection

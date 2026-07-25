@@ -70,13 +70,13 @@
                                 Cambiar el periodo de vigencia del contrato
                             </label>
                         </div>
-                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
+                        <small style="font-size:10pt;color:#4CD2D9;">Si lo activas, el sistema utilizará las fechas de Inicio/Fin del adendum como nuevo periodo de vigencia del contrato actual.</small>
                     </div>
 
                     <div class="col-md-12">
                         <label for="signed_doc_file" class="form-label">Respaldo físico (opcional)</label>
                         <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
-                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
+                        <small style="font-size:10pt;color:#4CD2D9;">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
                     </div>
 
                     <div class="col-12">

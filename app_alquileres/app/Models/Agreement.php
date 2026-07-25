@@ -80,4 +80,9 @@ class Agreement extends Model
     {
         return $this->hasOne(SignedDoc::class);
     }
+
+    public function conversation()
+    {
+        return $this->hasOne(Conversation::class);
+    }
 }

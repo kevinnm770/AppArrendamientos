@@ -79,7 +79,10 @@ class AccountSecurityController extends Controller
         $user = $request->user();
 
         $request->validate([
-            'new_email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'new_email' => [
+                'required', 'email', 'max:255',
+                Rule::unique('users', 'email')->where(fn ($query) => $query->where('role', $user->role)),
+            ],
         ]);
 
         if (strcasecmp($request->new_email, $user->email) === 0) {

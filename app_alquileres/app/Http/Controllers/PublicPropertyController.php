@@ -10,26 +10,18 @@ class PublicPropertyController extends Controller
     public function index(Request $request)
     {
         $validated = $request->validate([
-            'min_monthly_price' => ['nullable', 'numeric', 'min:0'],
-            'max_monthly_price' => ['nullable', 'numeric', 'min:0'],
-            'service_type' => ['nullable', 'in:home,lodging,event'],
+            'min_price' => ['nullable', 'numeric', 'min:0'],
+            'max_price' => ['nullable', 'numeric', 'min:0'],
+            'service_type' => ['nullable', 'in:home,commercial'],
             'location_province' => ['nullable', 'string', 'max:255'],
             'location_canton' => ['nullable', 'string', 'max:255'],
             'location_district' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $monthlyPriceSql = "CASE
-            WHEN price_mode = 'perHour' THEN price * 24 * 30
-            WHEN price_mode = 'perDay' THEN price * 30
-            ELSE price
-        END";
-
         $baseQuery = Property::query()
             ->with(['photos' => function ($query) {
                 $query->orderBy('position');
             }])
-            ->select('properties.*')
-            ->selectRaw("{$monthlyPriceSql} as monthly_price")
             ->where('is_public', true);
 
         if (!empty($validated['service_type'])) {
@@ -48,12 +40,12 @@ class PublicPropertyController extends Controller
             $baseQuery->where('location_district', $validated['location_district']);
         }
 
-        if (isset($validated['min_monthly_price'])) {
-            $baseQuery->whereRaw("{$monthlyPriceSql} >= ?", [$validated['min_monthly_price']]);
+        if (isset($validated['min_price'])) {
+            $baseQuery->where('price', '>=', $validated['min_price']);
         }
 
-        if (isset($validated['max_monthly_price'])) {
-            $baseQuery->whereRaw("{$monthlyPriceSql} <= ?", [$validated['max_monthly_price']]);
+        if (isset($validated['max_price'])) {
+            $baseQuery->where('price', '<=', $validated['max_price']);
         }
 
         $properties = $baseQuery
@@ -98,8 +90,7 @@ class PublicPropertyController extends Controller
             'districtOptions' => $districtOptions,
             'serviceTypeLabels' => [
                 'home' => 'Hogar',
-                'lodging' => 'Hospedaje',
-                'event' => 'Evento',
+                'commercial' => 'Comercial',
             ],
             'statusLabels' => [
                 'available' => 'Disponible',

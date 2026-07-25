@@ -24,7 +24,7 @@ class Property extends Model
         'included_objects',
         'materials',
         'price',
-        'price_mode',
+        'currency',
         'isSharedPhone',
         'isSharedEmail',
         'status',
@@ -39,6 +39,14 @@ class Property extends Model
         'isSharedEmail' => 'boolean',
         'is_public' => 'boolean',
     ];
+
+    public function currencySymbol(): string
+    {
+        return match ($this->currency) {
+            'USD' => '$',
+            default => '₡',
+        };
+    }
 
     public function lessor()
     {

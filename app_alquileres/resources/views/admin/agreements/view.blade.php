@@ -23,13 +23,13 @@
                     <div class="col-md-4">
                         <strong>Inicio:</strong> {{ optional($agreement->start_at)->format('d/m/Y') }}
                          @if ($agreement->AdemdumUpdatePeriod)
-                            <p style="font-size:10pt;color:rgb(67, 94, 190);">Por adendum, <strong>{{$agreement->AdemdumUpdatePeriod->update_start_date_agreement->format('d/m/Y')}}</strong><p>
+                            <p style="font-size:10pt;color:#4CD2D9;">Por adendum, <strong>{{$agreement->AdemdumUpdatePeriod->update_start_date_agreement->format('d/m/Y')}}</strong><p>
                         @endif
                     </div>
                     <div class="col-md-4">
                         <strong>Fin:</strong> {{ optional($agreement->end_at)->format('d/m/Y') ?? 'Sin fin' }}
                         @if ($agreement->AdemdumUpdatePeriod)
-                            <p style="font-size:10pt;color:rgb(67, 94, 190);">Por adendum, <strong>{{$agreement->AdemdumUpdatePeriod->update_end_date_agreement->format('d/m/Y')}}</strong><p>
+                            <p style="font-size:10pt;color:#4CD2D9;">Por adendum, <strong>{{$agreement->AdemdumUpdatePeriod->update_end_date_agreement->format('d/m/Y')}}</strong><p>
                         @endif
                     </div>
                     <div class="col-md-4"><strong>Emitido:</strong> {{ optional($agreement->created_at)->format('d/m/Y') }}</div>

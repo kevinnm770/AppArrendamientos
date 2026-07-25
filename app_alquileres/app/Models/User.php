@@ -23,6 +23,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'phone',
+        'role',
         'profile_photo_path',
         'password',
     ];
@@ -69,5 +70,12 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isRoomer(): bool
     {
         return $this->roomer()->exists();
+    }
+
+    public function getAvatarUrlAttribute(): string
+    {
+        return $this->profile_photo_path
+            ? asset('storage/'.$this->profile_photo_path)
+            : asset('storage/profiles_images/UserProfile_default.png');
     }
 }

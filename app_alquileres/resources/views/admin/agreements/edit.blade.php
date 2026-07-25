@@ -5,7 +5,7 @@
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
                 <h3>Editar contrato #{{ $agreement->id }}</h3>
-                <p class="text-subtitle text-muted">Solo los contratos en estado <strong>sent</strong> se pueden editar o eliminar.</p>
+                <p class="text-subtitle text-muted">Solo los contratos en estado de <span style="font-weight: bold;color: #4CD2D9 !important;">sent</span> se pueden editar o eliminar.</p>
             </div>
             <div class="col-12 col-md-6 order-md-2 order-first">
                 <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
@@ -72,7 +72,7 @@
                             </div>
                         @endif
                         <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
-                        <small style="font-size:10pt;color:rgb(67, 94, 190);">Solo se permite un archivo adjunto por contrato. Si cargas uno nuevo, reemplazará el actual.</small>
+                        <small style="font-size:10pt;color:#4CD2D9;">Solo se permite un archivo adjunto por contrato. Si cargas uno nuevo, reemplazará el actual.</small>
                         @if ($agreement->signedDoc)
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" value="1" id="remove_signed_doc" name="remove_signed_doc" {{ old('remove_signed_doc') ? 'checked' : '' }}>

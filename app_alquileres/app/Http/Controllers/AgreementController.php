@@ -93,11 +93,7 @@ class AgreementController extends Controller
         return view('admin.agreements.register', [
             'properties' => $properties,
             'selectedRoomer' => $selectedRoomer,
-            'serviceTypeLabels' => [
-                'home' => 'Hogar',
-                'lodging' => 'Hospedaje',
-                'event' => 'Evento',
-            ],
+            'serviceTypeLabels' => $this->serviceTypeLabels(),
         ]);
     }
 
@@ -358,7 +354,7 @@ class AgreementController extends Controller
         return back()->with('success', 'Se envió un token de confirmación a tu correo electrónico.');
     }
 
-    public function delete(int $agreementId, Request $request)
+    public function delete(int $agreementId, Request $request, SignedDocService $signedDocService)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
 
@@ -383,7 +379,13 @@ class AgreementController extends Controller
             return back()->withErrors(['token' => 'El token de confirmación es inválido.'])->withInput();
         }
 
-        DB::transaction(function () use ($agreement, $request) {
+        DB::transaction(function () use ($agreement, $request, $signedDocService) {
+            $signedDocService->deleteForAgreement($agreement->id);
+
+            foreach ($agreement->ademdums as $ademdum) {
+                $signedDocService->deleteForAdemdum($ademdum->id);
+            }
+
             $agreement->delete();
             $request->session()->forget("agreement_delete_token.{$agreement->id}");
         });
@@ -437,7 +439,7 @@ class AgreementController extends Controller
                 ),
             ],
             'roomer_id' => ['required', Rule::exists('roomers', 'id')],
-            'service_type' => ['required', Rule::in(['event', 'home', 'lodging'])],
+            'service_type' => ['required', Rule::in(['home', 'commercial'])],
             'start_at' => ['required', 'date'],
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'terms' => ['required', 'string'],
@@ -645,9 +647,8 @@ class AgreementController extends Controller
     private function serviceTypeLabels(): array
     {
         return [
-            'home' => 'Hogar',
-            'lodging' => 'Hospedaje',
-            'event' => 'Evento',
+            'home' => 'Vivienda',
+            'commercial' => 'Local comercial',
         ];
     }
 }

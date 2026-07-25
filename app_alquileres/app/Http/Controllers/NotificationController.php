@@ -31,6 +31,38 @@ class NotificationController extends Controller
         return response()->json($notifications);
     }
 
+    public function all(Request $request)
+    {
+        $user = $request->user();
+
+        $notifications = Notification::query()
+            ->where('notify_id', $user->id)
+            ->orderByDesc('created_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        if ($user->isLessor()) {
+            return view('admin.notifications.all', compact('notifications'));
+        }
+        if ($user->isRoomer()) {
+            return view('tenant.notifications.all', compact('notifications'));
+        }
+
+        return response()->json($notifications);
+    }
+
+    public function markAllSeen(Request $request)
+    {
+        $user = $request->user();
+
+        Notification::query()
+            ->where('notify_id', $user->id)
+            ->where('status', 'sent')
+            ->update(['status' => 'read']);
+
+        return back()->with('success', 'Notificaciones marcadas como vistas.');
+    }
+
     public function view(int $notificationId, Request $request)
     {
         $user = $request->user();

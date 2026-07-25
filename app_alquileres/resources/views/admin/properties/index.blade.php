@@ -8,12 +8,18 @@
                 <p class="text-subtitle text-muted">En esta sección puedes ver y administrar tus propiedades a arrendar.</p>
             </div>
             <div class="col-12 col-md-6 order-md-2 order-first">
-                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{route('admin.index')}}">Admin</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Properties</li>
-                    </ol>
-                </nav>
+                <div class="d-flex flex-column align-items-start align-items-md-end gap-2">
+                    <a href="{{ route('admin.properties.register') }}" class="btn-brand-action">
+                        <i class="bi bi-plus-lg"></i>
+                        <span>Registrar</span>
+                    </a>
+                    <nav aria-label="breadcrumb" class="breadcrumb-header">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{{route('admin.index')}}">Admin</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Properties</li>
+                        </ol>
+                    </nav>
+                </div>
             </div>
         </div>
     </div>
@@ -26,6 +32,7 @@
                     $statusLabel = $statusLabels[$statusKey] ?? $statusKey;
                     $statusClass = $statusClasses[$statusKey] ?? 'bg-secondary';
                     $serviceLabel = $serviceTypeLabels[$property->service_type] ?? $property->service_type;
+                    $propertyPhotos = $property->photos->reject->isVideo();
                 @endphp
                 <div class="col-xl-4 col-md-6 col-sm-12">
                     <a href="{{url('admin/properties/edit/'.$property->id)}}">
@@ -38,9 +45,9 @@
                                 <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
                                     <div class="carousel-inner">
 
-                                        @forelse ($property->photos as $photo)
+                                        @forelse ($propertyPhotos as $photo)
                                             <div class="carousel-item {{ $loop->first ? 'active' : '' }}">
-                                                <img src="{{ asset('storage/' . $photo->path) }}"
+                                                <img src="{{ $photo->url }}"
                                                     class="d-block w-100"
                                                     alt="{{ $photo->caption }}" title="{{ $photo->caption }}" height="300px">
                                             </div>

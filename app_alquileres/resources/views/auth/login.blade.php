@@ -39,6 +39,17 @@
             @enderror
         </div>
 
+        <div class="role-toggle" role="group" aria-label="Tipo de usuario">
+            <input type="radio" name="role" id="role_lessor" value="lessor" {{ old('role') === 'lessor' ? 'checked' : '' }}>
+            <label for="role_lessor">Arrendador</label>
+
+            <input type="radio" name="role" id="role_roomer" value="roomer" {{ old('role') !== 'lessor' ? 'checked' : '' }}>
+            <label for="role_roomer">Inquilino</label>
+        </div>
+        @error('role')
+            <p class="error-text">{{ $message }}</p>
+        @enderror
+
         <div class="forgot-link">
             <a href="{{ route('auth.password.request') }}">¿Olvidaste tu contraseña?</a>
         </div>

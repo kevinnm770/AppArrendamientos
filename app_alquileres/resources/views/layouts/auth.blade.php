@@ -217,6 +217,7 @@
             border: 1px solid transparent;
             cursor: pointer;
             font-family: inherit;
+            position: relative;
             transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
         }
         .btn:active { transform: translateY(1px); }
@@ -226,6 +227,20 @@
         .btn-outline:hover { border-color: var(--secondary); color: var(--secondary-strong); }
         .btn-lg { padding: .8rem 1.6rem; font-size: 1.02rem; }
         .btn-full { width: 100%; }
+        .btn:disabled { cursor: default; filter: grayscale(.15); }
+        .btn.is-loading { color: transparent !important; pointer-events: none; }
+        .btn.is-loading::after {
+            content: "";
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 18px; height: 18px;
+            margin: -9px 0 0 -9px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, .45);
+            border-top-color: #fff;
+            animation: btn-spin .65s linear infinite;
+        }
+        @keyframes btn-spin { to { transform: rotate(360deg); } }
 
         .notice-icon {
             width: 64px; height: 64px;
@@ -331,6 +346,23 @@
                 var next = current === 'dark' ? 'light' : 'dark';
                 root.setAttribute('data-theme', next);
                 localStorage.setItem('arrendamientos-theme', next);
+            });
+        })();
+
+        (function () {
+            document.querySelectorAll('.auth-form form').forEach(function (form) {
+                form.addEventListener('submit', function () {
+                    if (form.dataset.submitted === '1') {
+                        return;
+                    }
+                    form.dataset.submitted = '1';
+
+                    var btn = form.querySelector('button[type="submit"]');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.classList.add('is-loading');
+                    }
+                });
             });
         })();
     </script>

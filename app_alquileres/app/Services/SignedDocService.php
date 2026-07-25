@@ -14,9 +14,9 @@ class SignedDocService
         return $this->store(['agreement_id' => $agreementId], $file, "agreements/{$agreementId}");
     }
 
-    public function storeForAdemdum(int $ademdumId, UploadedFile $file): SignedDoc
+    public function storeForAdemdum(int $agreementId, int $ademdumId, UploadedFile $file): SignedDoc
     {
-        return $this->store(['ademdum_id' => $ademdumId], $file, "ademdums/{$ademdumId}");
+        return $this->store(['ademdum_id' => $ademdumId], $file, "agreements/{$agreementId}/{$ademdumId}");
     }
 
     public function removeFile(?SignedDoc $signedDoc): void
@@ -55,8 +55,8 @@ class SignedDocService
         $binary = file_get_contents($file->getRealPath());
         $compressed = gzencode($binary, 9);
         $filename = Str::uuid()->toString() . '.gz';
-        $relativePath = 'signed_docs/' . trim($baseDirectory, '/') . '/' . $filename;
-        $disk = 'local';
+        $relativePath = trim($baseDirectory, '/') . '/' . $filename;
+        $disk = 'r2';
 
         Storage::disk($disk)->put($relativePath, $compressed);
 

@@ -8,15 +8,35 @@
                 <p class="text-subtitle text-muted">Revisa todas tus notificaciones pendientes.</p>
             </div>
             <div class="col-12 col-md-6 order-md-2 order-first">
-                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{route('tenant.index')}}">Tenant</a></li>
-                        <li class="breadcrumb-item active">Notifications</li>
-                    </ol>
-                </nav>
+                <div class="d-flex flex-column align-items-start align-items-md-end gap-2">
+                    <div class="d-flex flex-wrap justify-content-md-end gap-2">
+                        <a href="{{ route('tenant.notifications.all') }}" class="btn-brand-action">
+                            <i class="bi bi-list-ul"></i>
+                            <span>Ver todos</span>
+                        </a>
+                        <form method="POST" action="{{ route('tenant.notifications.mark-all-seen') }}" class="d-inline-flex m-0">
+                            @csrf
+                            @method('PATCH')
+                            <button type="submit" class="btn-brand-action">
+                                <i class="bi bi-check2-all"></i>
+                                <span>Dar por vistas</span>
+                            </button>
+                        </form>
+                    </div>
+                    <nav aria-label="breadcrumb" class="breadcrumb-header">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{{route('tenant.index')}}">Tenant</a></li>
+                            <li class="breadcrumb-item active">Notifications</li>
+                        </ol>
+                    </nav>
+                </div>
             </div>
         </div>
     </div>
+
+    @if (session('success'))
+        <div class="alert alert-light-success">{{ session('success') }}</div>
+    @endif
 
     @php
         $priorityClasses = [
