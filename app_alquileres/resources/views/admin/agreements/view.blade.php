@@ -4,7 +4,7 @@
     <div class="page-title">
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
-                <h3>Contrato #{{ $agreement->id }}</h3>
+                <h3>Contrato {{ $agreement->contract_number }}</h3>
                 <p class="text-subtitle text-muted">Este contrato es de solo lectura.</p>
             </div>
         </div>
@@ -20,27 +20,50 @@
                     <div class="col-md-4"><strong>Arrendatario:</strong> {{ $agreement->roomer->legal_name }}</div>
                     <div class="col-md-4"><strong>Propiedad:</strong> {{ $agreement->property->name }}</div>
                     <div class="col-md-4"><strong>Servicio:</strong> {{ $serviceTypeLabels[$agreement->service_type] ?? $agreement->service_type }}</div>
-                    <div class="col-md-4">
-                        <strong>Inicio:</strong> {{ optional($agreement->start_at)->format('d/m/Y') }}
-                         @if ($agreement->AdemdumUpdatePeriod)
-                            <p style="font-size:10pt;color:#4CD2D9;">Por adendum, <strong>{{$agreement->AdemdumUpdatePeriod->update_start_date_agreement->format('d/m/Y')}}</strong><p>
-                        @endif
-                    </div>
-                    <div class="col-md-4">
-                        <strong>Fin:</strong> {{ optional($agreement->end_at)->format('d/m/Y') ?? 'Sin fin' }}
-                        @if ($agreement->AdemdumUpdatePeriod)
-                            <p style="font-size:10pt;color:#4CD2D9;">Por adendum, <strong>{{$agreement->AdemdumUpdatePeriod->update_end_date_agreement->format('d/m/Y')}}</strong><p>
-                        @endif
-                    </div>
+                    <div class="col-md-4"><strong>Inicio:</strong> {{ optional($agreement->start_at)->format('d/m/Y') }}</div>
+                    <div class="col-md-4"><strong>Fin:</strong> {{ optional($agreement->end_at)->format('d/m/Y') ?? 'Sin fin' }}</div>
                     <div class="col-md-4"><strong>Emitido:</strong> {{ optional($agreement->created_at)->format('d/m/Y') }}</div>
                     <div class="col-md-4">
-                        <strong>Respaldo físico:</strong>
+                        <strong>Documento oficial firmado:</strong>
                         @if ($agreement->signedDoc)
                             <a href="{{ route('admin.agreements.signed-doc.download', $agreement->id) }}" class="btn btn-sm btn-light-primary ms-2">Descargar</a>
                         @else
                             No disponible
                         @endif
                     </div>
+                </div>
+
+                <hr>
+
+                <h5>Detalles de pago</h5>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4"><strong>Frecuencia de pago:</strong> {{ \App\Models\Agreement::FREQUENCY_PAY_OPTIONS[$agreement->frequency_pay] ?? $agreement->frequency_pay }}</div>
+                    <div class="col-md-4">
+                        <strong>Día de pago:</strong> {{ $agreement->payment_date }}
+                        @if ($agreement->payment_month)
+                            de {{ \App\Models\Agreement::MONTHS[$agreement->payment_month] ?? $agreement->payment_month }}
+                        @endif
+                    </div>
+                    <div class="col-md-4"><strong>Monto:</strong> {{ $agreement->currencySymbol() }}{{ number_format((float) $agreement->amount, 2) }}</div>
+                    <div class="col-md-4"><strong>Depósito:</strong> {{ $agreement->deposit !== null ? $agreement->currencySymbol() . number_format((float) $agreement->deposit, 2) : 'No aplica' }}</div>
+                    <div class="col-md-4"><strong>Días de gracia:</strong> {{ $agreement->deadline_pay }}</div>
+                </div>
+
+                <hr>
+
+                <h5>Política de morosidad</h5>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4"><strong>Tipo de sanción:</strong> {{ \App\Models\Agreement::TYPE_SANCTION_OPTIONS[$agreement->type_sanction] ?? $agreement->type_sanction }}</div>
+                    @if ($agreement->type_sanction === 'percent')
+                        <div class="col-md-4"><strong>Porcentaje de recargo:</strong> {{ $agreement->surcharge_delay }}%</div>
+                        <div class="col-md-4"><strong>Base de cálculo:</strong> {{ \App\Models\Agreement::BASE_OPTIONS[$agreement->base] ?? $agreement->base }}</div>
+                    @elseif ($agreement->type_sanction === 'amount_fix')
+                        <div class="col-md-4"><strong>Monto fijo de recargo:</strong> {{ $agreement->currencySymbol() }}{{ number_format((float) $agreement->amount_delay, 2) }}</div>
+                    @endif
+                    @if ($agreement->type_sanction !== 'none')
+                        <div class="col-md-4"><strong>Frecuencia de aplicación:</strong> {{ \App\Models\Agreement::FREQUENCY_SANCTION_OPTIONS[$agreement->frequency_sanction] ?? $agreement->frequency_sanction }}</div>
+                        <div class="col-md-4"><strong>Días máximos de acumulación:</strong> {{ $agreement->max_days_unlimited ? 'Sin límite' : $agreement->max_days }}</div>
+                    @endif
                 </div>
 
                 <hr>
@@ -60,14 +83,6 @@
                         </div>
                     </form>
                 @endif
-
-                <div class="ql-snow">
-                    <div class="ql-editor" style="padding: 30px 0 0 0;height: 500px;max-height: 600px;overflow:auto;">
-                        {!! $agreement->terms !!}
-                    </div>
-                </div>
-
-                <hr>
 
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="mb-0">Lista de adendums</h5>

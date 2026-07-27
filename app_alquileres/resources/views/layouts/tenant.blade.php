@@ -76,6 +76,7 @@
                 <a href="{{route('tenant.agreements.index')}}" class='sidebar-link'>
                     <i class="bi bi-file-earmark-text-fill"></i>
                     <span>Contratos</span>
+                    <span id="sidebar-agreements-badge" class="badge rounded-pill ms-auto d-none" style="background-color:#4CD2D9;color:#212C4C;">0</span>
                 </a>
             </li>
 
@@ -243,8 +244,9 @@
     (function () {
         const messagesBadge = document.getElementById('sidebar-messages-badge');
         const notificationsBadge = document.getElementById('sidebar-notifications-badge');
+        const agreementsBadge = document.getElementById('sidebar-agreements-badge');
 
-        if (!messagesBadge && !notificationsBadge) {
+        if (!messagesBadge && !notificationsBadge && !agreementsBadge) {
             return;
         }
 
@@ -274,6 +276,7 @@
                 const payload = await response.json();
                 setBadge(messagesBadge, payload.unread_messages || 0);
                 setBadge(notificationsBadge, payload.unread_notifications || 0);
+                setBadge(agreementsBadge, payload.pending_agreements || 0);
             } catch (error) {
                 // noop
             }

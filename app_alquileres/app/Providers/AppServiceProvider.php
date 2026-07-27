@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Hacienda\Contracts\XmlSignerInterface;
+use App\Services\Hacienda\XadesBesSigner;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\ServiceProvider;
@@ -13,7 +15,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(XmlSignerInterface::class, XadesBesSigner::class);
     }
 
     /**

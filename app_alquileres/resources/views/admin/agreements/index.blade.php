@@ -47,19 +47,18 @@
                     $detailsRoute = $agreement->status === 'sent'
                         ? route('admin.agreements.edit', $agreement->id)
                         : route('admin.agreements.view', $agreement->id);
-                    $effectiveStartAt = $agreement->AdemdumUpdatePeriod?->update_start_date_agreement ?? $agreement->start_at;
-                    $effectiveEndAt = $agreement->AdemdumUpdatePeriod?->update_end_date_agreement ?? $agreement->end_at;
                 @endphp
                 <div class="col-xl-4 col-md-6 col-sm-12">
                     <a href="{{ $detailsRoute }}" class="text-decoration-none text-body">
                         <div class="card" style="cursor: pointer;">
                             <div class="card-content">
                                 <div class="card-body pb-2">
+                                    <h6 class="text-muted mb-1">{{ $agreement->contract_number }}</h6>
                                     <h4 class="card-title mb-2">{{ $agreement->roomer->legal_name}}</h4>
                                     <p class="mb-2">
                                         <i class="bi bi-calendar-check-fill"></i>
-                                        {{ optional($effectiveStartAt)->format('d/m/Y') ?? 'Sin inicio' }} -
-                                        {{ optional($effectiveEndAt)->format('d/m/Y') ?? 'Sin fin' }}
+                                        {{ optional($agreement->start_at)->format('d/m/Y') ?? 'Sin inicio' }} -
+                                        {{ optional($agreement->end_at)->format('d/m/Y') ?? 'Sin fin' }}
                                     </p>
                                     <span class="badge bg-light-{{$agreement->status==='accepted'?'success':($agreement->status==='cancelled'?'danger':'secondary')}}">{{ $agreement->status==='accepted'?'VIGENT':strtoupper($agreement->status) }}</span>
                                 </div>

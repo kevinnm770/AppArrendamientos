@@ -154,12 +154,13 @@
 
                             @if ($user->isLessor())
                                 <div class="alert alert-secondary">
-                                    <strong>Estado CRLibre:</strong><br>
-                                    Cuenta técnica: {{ $datarole->crlibre_username ? 'Conectada' : 'Pendiente' }}<br>
-                                    Certificado: {{ $datarole->certificate_code ? 'Cargado' : 'Pendiente' }}
+                                    <strong>Estado de facturación electrónica:</strong><br>
+                                    Certificado .p12: {{ $datarole->certificate_code ? 'Cargado' : 'Pendiente' }}
                                     @if ($datarole->certificate_uploaded_at)
                                         ({{ $datarole->certificate_uploaded_at->format('Y-m-d H:i') }})
                                     @endif
+                                    <br>
+                                    Credenciales de Hacienda (ATV): {{ $datarole->hacienda_username ? 'Configuradas' : 'Pendientes' }}
                                 </div>
 
                                 <label for="email">Correo para facturación</label>
@@ -240,7 +241,7 @@
                                     id="certificate_file"
                                     name="certificate_file"
                                     accept=".p12,.pfx">
-                                <small class="text-muted d-block mb-2">Si cargas un .p12, el sistema registrará o iniciará sesión en CRLibre y lo subirá por ti.</small>
+                                <small class="text-muted d-block mb-2">El certificado se guarda cifrado y se usa localmente para firmar cada comprobante antes de enviarlo a Hacienda.</small>
 
                                 @error('certificate_file')
                                     <div class="invalid-feedback">{{ $message }}</div>

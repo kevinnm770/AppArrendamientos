@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\AdemdumController;
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\BadgeController;
+use App\Http\Controllers\CabysCodeController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\InvoiceController;
@@ -116,6 +117,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
         Route::get('/register', [AgreementController::class, 'register'])->name('register');
         Route::get('/roomer-by-id-number/{idNumber}', [AgreementController::class, 'roomerByIdNumber'])
             ->name('roomer-by-id-number');
+        Route::get('/{agreementId}/billing-terms', [AgreementController::class, 'effectiveBillingTerms'])
+            ->name('billing-terms')
+            ->whereNumber('agreementId');
 
         Route::post('/register', [AgreementController::class, 'store'])->name('register.store');
         Route::get('/{agreementId}/signed-doc/download', [AgreementController::class, 'downloadSignedDoc'])->name('signed-doc.download');
@@ -125,7 +129,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
         Route::patch('/{agreementId}/canceling', [AgreementController::class, 'canceling'])->name('canceling');
         Route::patch('/{agreementId}/canceling-response', [AgreementController::class, 'cancelingResponse'])->name('canceling-response');
 
-        Route::post('/{agreementId}/delete-token', [AgreementController::class, 'sendDeleteToken'])->name('delete-token');
         Route::delete('/{agreementId}', [AgreementController::class, 'delete'])->name('delete');
     });
 
@@ -137,6 +140,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
         Route::post('/{invoiceId}/electronic/retry', [InvoiceController::class, 'retryElectronic'])->name('electronic.retry');
         Route::post('/{invoiceId}/electronic/check-status', [InvoiceController::class, 'checkElectronicStatus'])->name('electronic.check-status');
     });
+
+    // Catálogo CABYS (autocompletado en el formulario de facturas)
+    Route::get('/cabys/search', [CabysCodeController::class, 'search'])->name('cabys.search')->middleware('auth');
 
     Route::prefix('agreements/{agreementId}/ademdums')->name('ademdums.')->middleware('auth')->group(function () {
         Route::get('/', [AdemdumController::class, 'index'])->name('index');

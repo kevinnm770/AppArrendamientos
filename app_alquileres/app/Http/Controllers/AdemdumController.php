@@ -8,6 +8,7 @@ use App\Services\NotificationService;
 use App\Services\SignedDocService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -34,7 +35,7 @@ class AdemdumController extends Controller
             'agreement' => $agreement,
             'ademdums' => $agreement->ademdums()->latest('created_at')->get(),
             'latestAdemdum' => $agreement->latestAdemdum,
-            'defaultData' => $agreement->AdemdumUpdatePeriod ?? $agreement,
+            'effectiveTerms' => $agreement->effectiveTerms(),
             'serviceTypeLabels' => $this->serviceTypeLabels(),
         ]);
     }
@@ -48,37 +49,37 @@ class AdemdumController extends Controller
             return back()->withErrors(['agreement' => 'Solo puedes crear adendums cuando el contrato está en estado "accepted".']);
         }
 
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'start_at' => ['required', 'date'],
-            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
-            'terms' => ['required', 'string'],
-            'change_agreement_period' => ['nullable', 'boolean'],
-            'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
-        ]);
+            'end_at' => ['required', 'date', 'after_or_equal:start_at'],
+            'signed_doc_file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
+        ], $this->businessFieldRules()));
 
-        $changeAgreementPeriod = (bool) ($validated['change_agreement_period'] ?? false);
+        if ($moraError = $this->validateMoraPolicy($validated)) {
+            return back()->withErrors(['type_sanction' => $moraError])->withInput();
+        }
 
-        if ($changeAgreementPeriod && empty($validated['end_at'])) {
+        $startAt = Carbon::parse($validated['start_at'])->setTimeFrom(now());
+        $endAt = Carbon::parse($validated['end_at'])->setTimeFrom(now());
+
+        if ($periodError = $this->ensurePeriodWithinAgreement($agreement, $startAt, $endAt)) {
+            return back()->withErrors(['end_at' => $periodError])->withInput();
+        }
+
+        $overriddenFields = array_intersect(array_keys($validated), Agreement::BUSINESS_FIELDS);
+
+        if ($conflictField = $this->findFieldOverrideConflict($agreement, $overriddenFields, $startAt, $endAt)) {
             return back()
-                ->withErrors(['end_at' => 'Debes indicar una fecha de fin para cambiar la vigencia del contrato.'])
+                ->withErrors(['start_at' => "Ya existe otro adendum vigente en ese periodo que también modifica el campo \"{$conflictField}\"."])
                 ->withInput();
         }
 
-        if ($changeAgreementPeriod && $this->hasAcceptedAdemdumWithAgreementPeriodUpdate($agreement->id)) {
-            return back()
-                ->withErrors(['change_agreement_period' => 'No puedes cambiar el periodo de vigencia porque ya existe otro ademdum aceptado con actualización de vigencia.'])
-                ->withInput();
-        }
-
-        $ademdum = Ademdum::create([
+        $ademdum = Ademdum::create(array_merge($this->sparseBusinessFieldValues($validated), [
             'agreement_id' => $agreement->id,
-            'start_at' => Carbon::parse($validated['start_at']),
-            'end_at' => !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
-            'update_start_date_agreement' => $changeAgreementPeriod ? Carbon::parse($validated['start_at']) : null,
-            'update_end_date_agreement' => $changeAgreementPeriod && !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
-            'terms' => $validated['terms'],
+            'start_at' => $startAt,
+            'end_at' => $endAt,
             'status' => 'sent',
-        ]);
+        ]));
 
         if ($request->hasFile('signed_doc_file')) {
             $signedDocService->storeForAdemdum($agreement->id, $ademdum->id, $request->file('signed_doc_file'));
@@ -94,6 +95,12 @@ class AdemdumController extends Controller
                 link: route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
             );
         }
+
+        $this->notificationService->emailUsers(
+            [$agreement->lessor?->user, $agreement->roomer?->user],
+            "Nuevo adendum #{$ademdum->id} registrado en el contrato {$agreement->contract_number}",
+            "Se registró un nuevo adendum para el contrato {$agreement->contract_number}. Queda pendiente de revisión y aceptación por parte del arrendatario."
+        );
 
         return redirect()
             ->route('admin.ademdums.edit', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
@@ -113,6 +120,7 @@ class AdemdumController extends Controller
         return view('admin.ademdums.edit', [
             'agreement' => $agreement,
             'ademdum' => $ademdum,
+            'effectiveTerms' => $agreement->effectiveTerms(),
             'serviceTypeLabels' => $this->serviceTypeLabels(),
         ]);
     }
@@ -134,6 +142,7 @@ class AdemdumController extends Controller
         return view($view, [
             'agreement' => $agreement,
             'ademdum' => $ademdum,
+            'effectiveTerms' => $agreement->effectiveTerms($ademdum->start_at),
             'serviceTypeLabels' => $this->serviceTypeLabels(),
         ]);
     }
@@ -154,20 +163,6 @@ class AdemdumController extends Controller
                 ->withErrors(['ademdum' => 'Solo puedes aceptar ademdums en estado "sent".']);
         }
 
-
-        if (
-            ($ademdum->update_start_date_agreement || $ademdum->update_end_date_agreement)
-            && (
-                !$ademdum->update_start_date_agreement
-                || !$ademdum->update_end_date_agreement
-                || !$ademdum->update_start_date_agreement->equalTo($ademdum->start_at)
-                || !$ademdum->update_end_date_agreement->equalTo($ademdum->end_at)
-            )
-        ) {
-            return redirect()
-                ->route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
-                ->withErrors(['ademdum' => 'Las fechas de actualización de vigencia deben coincidir exactamente con las fechas de inicio y fin del ademdum.']);
-        }
 
         $ademdum->update([
             'status' => 'accepted',
@@ -203,44 +198,42 @@ class AdemdumController extends Controller
                 ->withErrors(['ademdum' => 'Este ademdum ya no se puede editar porque su estado no es "sent".']);
         }
 
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'start_at' => ['required', 'date'],
-            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
-            'terms' => ['required', 'string'],
-            'change_agreement_period' => ['nullable', 'boolean'],
-            'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
-            'remove_signed_doc' => ['nullable', 'boolean'],
-        ]);
+            'end_at' => ['required', 'date', 'after_or_equal:start_at'],
+            'signed_doc_file' => [$ademdum->signedDoc ? 'nullable' : 'required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
+        ], $this->businessFieldRules()));
 
-        $changeAgreementPeriod = (bool) ($validated['change_agreement_period'] ?? false);
+        if ($moraError = $this->validateMoraPolicy($validated)) {
+            return back()->withErrors(['type_sanction' => $moraError])->withInput();
+        }
 
-        if ($changeAgreementPeriod && empty($validated['end_at'])) {
+        $startAt = Carbon::parse($validated['start_at'])->setTimeFrom(now());
+        $endAt = Carbon::parse($validated['end_at'])->setTimeFrom(now());
+
+        if ($periodError = $this->ensurePeriodWithinAgreement($agreement, $startAt, $endAt)) {
+            return back()->withErrors(['end_at' => $periodError])->withInput();
+        }
+
+        $overriddenFields = array_intersect(array_keys($validated), Agreement::BUSINESS_FIELDS);
+
+        if ($conflictField = $this->findFieldOverrideConflict($agreement, $overriddenFields, $startAt, $endAt, $ademdum->id)) {
             return back()
-                ->withErrors(['end_at' => 'Debes indicar una fecha de fin para cambiar la vigencia del contrato.'])
+                ->withErrors(['start_at' => "Ya existe otro adendum vigente en ese periodo que también modifica el campo \"{$conflictField}\"."])
                 ->withInput();
         }
 
-        if (
-            $changeAgreementPeriod
-            && $this->hasAcceptedAdemdumWithAgreementPeriodUpdate($agreement->id, $ademdum->id)
-        ) {
-            return back()
-                ->withErrors(['change_agreement_period' => 'No puedes cambiar el periodo de vigencia porque ya existe otro ademdum aceptado con actualización de vigencia.'])
-                ->withInput();
-        }
-
-        $ademdum->update([
-            'start_at' => Carbon::parse($validated['start_at']),
-            'end_at' => !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
-            'update_start_date_agreement' => $changeAgreementPeriod ? Carbon::parse($validated['start_at']) : null,
-            'update_end_date_agreement' => $changeAgreementPeriod && !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null,
-            'terms' => $validated['terms'],
-        ]);
+        $ademdum->update(array_merge(
+            array_fill_keys(Agreement::BUSINESS_FIELDS, null),
+            $this->sparseBusinessFieldValues($validated),
+            [
+                'start_at' => $startAt,
+                'end_at' => $endAt,
+            ]
+        ));
 
         if ($request->hasFile('signed_doc_file')) {
             $signedDocService->storeForAdemdum($agreement->id, $ademdum->id, $request->file('signed_doc_file'));
-        } elseif ((bool) ($validated['remove_signed_doc'] ?? false)) {
-            $signedDocService->deleteForAdemdum($ademdum->id);
         }
 
         return redirect()
@@ -298,6 +291,12 @@ class AdemdumController extends Controller
                 link: route('tenant.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
             );
         }
+
+        $this->notificationService->emailUsers(
+            [$agreement->lessor?->user, $agreement->roomer?->user],
+            "Solicitud de desestimación del adendum #{$ademdum->id} ({$agreement->contract_number})",
+            "El arrendador solicitó dejar sin efecto el adendum #{$ademdum->id} del contrato {$agreement->contract_number}. Motivo: " . trim($validated['cancelled_by'])
+        );
 
         return redirect()
             ->route('admin.ademdums.view', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id])
@@ -454,19 +453,123 @@ class AdemdumController extends Controller
         ];
     }
 
-    private function hasAcceptedAdemdumWithAgreementPeriodUpdate(int $agreementId, ?int $ignoreAdemdumId = null): bool
+    private function businessFieldRules(): array
     {
+        return [
+            'frequency_pay' => ['sometimes', Rule::in(array_keys(Agreement::FREQUENCY_PAY_OPTIONS))],
+            'payment_date' => ['sometimes', 'integer', 'min:1', 'max:31'],
+            'payment_month' => ['required_if:frequency_pay,annual', 'nullable', 'integer', 'min:1', 'max:12'],
+            'deadline_pay' => ['sometimes', 'integer', 'min:0'],
+            'amount' => ['sometimes', 'numeric', 'min:0'],
+            'currency' => ['sometimes', Rule::in(array_keys(Agreement::CURRENCY_OPTIONS))],
+            'deposit' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'type_sanction' => ['sometimes', Rule::in(array_keys(Agreement::TYPE_SANCTION_OPTIONS))],
+            'surcharge_delay' => ['nullable', 'numeric', 'min:0'],
+            'amount_delay' => ['nullable', 'numeric', 'min:0'],
+            'frequency_sanction' => ['nullable', Rule::in(array_keys(Agreement::FREQUENCY_SANCTION_OPTIONS))],
+            'base' => ['nullable', Rule::in(array_keys(Agreement::BASE_OPTIONS))],
+            'max_days_unlimited' => ['nullable', 'boolean'],
+            'max_days' => ['nullable', 'integer', 'min:0'],
+        ];
+    }
+
+    /**
+     * Solo valida la política de morosidad si el adendum realmente la desbloqueó
+     * (type_sanction presente en el submit); si está bloqueada, no hay nada que validar.
+     */
+    private function validateMoraPolicy(array $validated): ?string
+    {
+        if (!array_key_exists('type_sanction', $validated)) {
+            return null;
+        }
+
+        return Agreement::validateMoraPolicyInput($validated);
+    }
+
+    /**
+     * A diferencia de Agreement (donde todos los campos de negocio son obligatorios),
+     * un adendum solo guarda los campos que el usuario desbloqueó explícitamente;
+     * el resto queda NULL (heredado del contrato/adendum vigente).
+     */
+    private function sparseBusinessFieldValues(array $validated): array
+    {
+        $values = Arr::only($validated, Agreement::INDEPENDENT_FIELDS);
+
+        if (array_key_exists('frequency_pay', $values) && $values['frequency_pay'] !== 'annual') {
+            $values['payment_month'] = null;
+        }
+
+        if (array_key_exists('deposit', $values)) {
+            $values['deposit'] = $values['deposit'] ?? 0;
+        }
+
+        if (array_key_exists('type_sanction', $validated)) {
+            $values = array_merge($values, Agreement::moraPolicyValuesFromInput($validated));
+        }
+
+        return $values;
+    }
+
+    /**
+     * Compara solo por día calendario: start_at/end_at llevan la hora en que se creó
+     * cada registro (ver setTimeFrom(now()) en store/update), así que comparar con hora
+     * incluida rechazaría incorrectamente un mismo día si el adendum se crea más tarde
+     * en el día que el contrato original.
+     */
+    private function ensurePeriodWithinAgreement(Agreement $agreement, Carbon $startAt, ?Carbon $endAt): ?string
+    {
+        if ($startAt->copy()->startOfDay()->lt($agreement->start_at->copy()->startOfDay())) {
+            return 'La fecha de inicio del adendum no puede ser anterior al inicio del contrato original.';
+        }
+
+        if ($agreement->end_at) {
+            if (!$endAt) {
+                return 'Debes indicar una fecha de fin para el adendum, ya que el contrato original tiene una fecha de finalización y un adendum no puede extenderla.';
+            }
+
+            if ($endAt->copy()->startOfDay()->gt($agreement->end_at->copy()->startOfDay())) {
+                return 'La fecha de fin del adendum no puede superar la fecha de fin del contrato original.';
+            }
+        }
+
+        return null;
+    }
+
+    private function findFieldOverrideConflict(Agreement $agreement, array $fields, Carbon $startAt, ?Carbon $endAt, ?int $ignoreAdemdumId = null): ?string
+    {
+        if (empty($fields)) {
+            return null;
+        }
+
         $query = Ademdum::query()
-            ->where('agreement_id', $agreementId)
-            ->whereIn('status', ['accepted','canceling'])
-            ->whereNotNull('update_start_date_agreement')
-            ->whereNotNull('update_end_date_agreement');
+            ->where('agreement_id', $agreement->id)
+            ->whereIn('status', ['accepted', 'canceling']);
 
         if ($ignoreAdemdumId) {
             $query->whereKeyNot($ignoreAdemdumId);
         }
 
-        return $query->exists();
+        if ($endAt) {
+            $query
+                ->where('start_at', '<=', $endAt)
+                ->where(function ($subQuery) use ($startAt) {
+                    $subQuery->whereNull('end_at')->orWhere('end_at', '>=', $startAt);
+                });
+        } else {
+            $query->where(function ($subQuery) use ($startAt) {
+                $subQuery->whereNull('end_at')->orWhere('end_at', '>=', $startAt);
+            });
+        }
+
+        foreach ($query->get() as $existing) {
+            foreach ($fields as $field) {
+                if ($existing->{$field} !== null) {
+                    return $field;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function syncExpiredAcceptedAdemdums(Agreement $agreement): void

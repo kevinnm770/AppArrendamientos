@@ -39,10 +39,10 @@ class SendElectronicInvoiceJob implements ShouldQueue
             : 'Factura electrónica encolada para envío.');
 
         try {
-            $service->sendVoucher($invoice);
+            $service->sendVoucher($invoice, $this->isRetry);
 
             $detail->refresh();
-            $detail->transitionTo(InvoiceElectronicDetail::STATE_SENT, 'Comprobante enviado a proveedor electrónico.');
+            $detail->transitionTo(InvoiceElectronicDetail::STATE_SENT, 'Comprobante enviado a Hacienda.');
 
             SyncElectronicInvoiceStatusJob::dispatch($invoice->id)->delay(now()->addSeconds(20));
         } catch (RuntimeException $exception) {

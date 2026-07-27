@@ -53,6 +53,14 @@ class lessorController extends Controller
                 ->withErrors(['lessor' => 'No se encontró la información del arrendador para actualizar.']);
         }
 
+        // ATV muestra el código de actividad económica con un punto (ej. "6209.03"); Hacienda
+        // lo espera como 6 dígitos sin puntuación, así que se limpia antes de validar/guardar.
+        if ($request->filled('economic_activity_code')) {
+            $request->merge([
+                'economic_activity_code' => preg_replace('/\D+/', '', (string) $request->economic_activity_code),
+            ]);
+        }
+
         $request->validate([
             'legal_name' => ['required', 'string', 'max:255'],
             'commercial_name' => ['nullable', 'string', 'max:255'],
@@ -72,10 +80,13 @@ class lessorController extends Controller
             'barrio' => ['nullable', 'digits:2'],
             'other_signs' => ['nullable', 'string', 'max:255'],
             'economic_activity_code' => ['nullable', 'digits:6'],
-            'certificate_file' => ['nullable', 'file', 'max:4096', 'mimes:p12,pfx'],
+            'certificate_file' => ['nullable', 'file', 'max:4096', 'extensions:p12,pfx'],
             'certificate_pin' => ['nullable', 'string', 'max:255'],
             'hacienda_username' => ['nullable', 'string', 'max:120'],
             'hacienda_password' => ['nullable', 'string', 'max:255'],
+        ], [
+            'economic_activity_code.digits' => 'El código de actividad económica debe tener 6 dígitos en total (sin contar el punto). Verifícalo en ATV, sección "Actividades económicas".',
+            'certificate_file.extensions' => 'El certificado debe ser un archivo .p12 o .pfx.',
         ]);
 
         $certificatePin = $request->filled('certificate_pin')
@@ -107,7 +118,7 @@ class lessorController extends Controller
         $lessor->save();
 
         try {
-            $setup = $electronicInvoiceService->syncLessorCrLibreSetup(
+            $setup = $electronicInvoiceService->storeLessorCertificate(
                 $lessor,
                 $request->file('certificate_file'),
                 $request->filled('certificate_pin') ? $request->certificate_pin : null,
@@ -116,17 +127,13 @@ class lessorController extends Controller
             return redirect()
                 ->route('admin.configuration.index')
                 ->withInput($request->except(['certificate_pin', 'hacienda_password']))
-                ->withErrors(['crlibre' => $exception->getMessage()]);
+                ->withErrors(['certificate' => $exception->getMessage()]);
         }
 
         $messages = ['Datos de arrendador guardados correctamente.'];
 
-        if ($setup['account_created']) {
-            $messages[] = 'La cuenta técnica del arrendador fue registrada automáticamente en CRLibre.';
-        }
-
         if ($setup['certificate_uploaded']) {
-            $messages[] = 'El certificado .p12 fue subido a CRLibre y quedó enlazado al arrendador.';
+            $messages[] = 'El certificado .p12 fue guardado y quedó enlazado al arrendador para firmar comprobantes.';
         }
 
         return redirect()

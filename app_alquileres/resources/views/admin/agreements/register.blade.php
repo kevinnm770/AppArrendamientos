@@ -32,27 +32,34 @@
         </section>
     @endif
 
-    <section class="section">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="card-title">Datos del contrato</h4>
-            </div>
-            <div class="card-body">
-                @if ($properties->isEmpty())
+    @if ($properties->isEmpty())
+        <section class="section">
+            <div class="card">
+                <div class="card-body">
                     <div class="alert alert-light-warning mb-0">
                         No tienes propiedades que no estén ocupadas para crear un nuevo contrato.
                     </div>
-                @else
-                    <form id="agreement-form" method="POST" action="{{ route('admin.agreements.register.store') }}" class="row g-3" enctype="multipart/form-data"
-                        data-roomer-lookup-url="{{ route('admin.agreements.roomer-by-id-number', ['idNumber' => '__ID__']) }}">
-                        @csrf
+                </div>
+            </div>
+        </section>
+    @else
+        <form id="agreement-form" method="POST" action="{{ route('admin.agreements.register.store') }}" enctype="multipart/form-data"
+            data-roomer-lookup-url="{{ route('admin.agreements.roomer-by-id-number', ['idNumber' => '__ID__']) }}">
+            @csrf
 
+            <section class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Datos principales</h4>
+                        <p class="text-muted mb-0" style="font-size:10pt;">Identificación del contrato: propiedad, arrendatario, vigencia y respaldo firmado.</p>
+                    </div>
+                    <div class="card-body row g-3">
                         <div class="col-md-6">
                             <label for="property_id" class="form-label">Propiedad</label>
                             <select id="property_id" name="property_id" class="form-select" required>
                                 <option value="">Selecciona una propiedad</option>
                                 @foreach ($properties as $property)
-                                    <option value="{{ $property->id }}" @selected(old('property_id') == $property->id)>
+                                    <option value="{{ $property->id }}" data-price="{{ $property->price }}" data-currency="{{ $property->currency }}" @selected(old('property_id') == $property->id)>
                                         {{ $property->name }} ({{ $serviceTypeLabels[$property->service_type] ?? $property->service_type }})
                                     </option>
                                 @endforeach
@@ -85,132 +92,164 @@
 
                         <div class="col-md-4">
                             <label for="start_at" class="form-label">Inicio</label>
-                            <input id="start_at" type="datetime-local" name="start_at" class="form-control"
-                                value="{{ old('start_at') }}" required>
+                            <input id="start_at" type="date" name="start_at" class="form-control"
+                                value="{{ old('start_at', now()->format('Y-m-d')) }}" required>
                         </div>
 
-                        <div class="col-md-4 mb-4">
+                        <div class="col-md-4">
                             <label for="end_at" class="form-label">Fin</label>
-                            <input id="end_at" type="datetime-local" name="end_at" class="form-control"
-                                value="{{ old('end_at') }}">
+                            <input id="end_at" type="date" name="end_at" class="form-control"
+                                value="{{ old('end_at') }}" required>
                         </div>
 
                         <div class="col-md-12">
-                            <label for="signed_doc_file" class="form-label">Respaldo físico (opcional)</label>
-                            <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff">
-                            <small style="font-size:10pt;color:#4CD2D9;">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB).</small>
+                            <label for="signed_doc_file" class="form-label">Documento oficial firmado</label>
+                            <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff" required>
+                            <small style="font-size:10pt;color:#4CD2D9;">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB). Este será el documento oficial del contrato: asegúrate de adjuntarlo ya firmado por ambas partes.</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Detalles de pago</h4>
+                        <p class="text-muted mb-0" style="font-size:10pt;">Condiciones económicas del contrato: monto, moneda, frecuencia y fecha de pago. El monto y la moneda se precargan con el precio de la propiedad seleccionada, pero puedes ajustarlos.</p>
+                    </div>
+                    <div class="card-body row g-3">
+                        <div class="col-md-4">
+                            <label for="frequency_pay" class="form-label">Frecuencia de pago</label>
+                            <select id="frequency_pay" name="frequency_pay" class="form-select" required>
+                                <option value="">Selecciona una frecuencia</option>
+                                @foreach (\App\Models\Agreement::FREQUENCY_PAY_OPTIONS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('frequency_pay') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
                         </div>
 
-                        <hr>
+                        <div class="col-md-4">
+                            <label for="payment_date" class="form-label">Día de pago</label>
+                            <input id="payment_date" name="payment_date" type="number" min="1" max="31" class="form-control" value="{{ old('payment_date', 1) }}" required>
+                            <small class="text-muted" style="font-size:9pt;">Día del mes en que vence la cuota. Si un mes no tiene ese día, se aplica el último día disponible.</small>
+                        </div>
 
-                        <section class="section m-0">
-                        <div class="card col-12">
-                            <div class="card-header px-0">
-                                <h4 class="card-title">Detalles del contrato</h4>
-                            </div>
-                            <div class="card-body p-0">
-                                <p>Redacta el contrato completo.</p>
-                                <div id="snow" style="height: 500px;max-height: 600px;overflow:auto;">
-                                    {!! old('terms', '
-                                    <h1 class="contract-title">CONTRATO DE ARRENDAMIENTO / HOSPEDAJE / USO DE SALÓN</h1>
+                        <div class="col-md-4" id="payment_month_wrapper">
+                            <label for="payment_month" class="form-label">Mes de pago</label>
+                            <select id="payment_month" name="payment_month" class="form-select">
+                                <option value="">Selecciona un mes</option>
+                                @foreach (\App\Models\Agreement::MONTHS as $value => $label)
+                                    <option value="{{ $value }}" @selected((string) old('payment_month') === (string) $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted" style="font-size:9pt;">Solo aplica cuando la frecuencia de pago es anual.</small>
+                        </div>
 
-                                    <br>
+                        <div class="col-md-3">
+                            <label for="amount" class="form-label">Monto</label>
+                            <input id="amount" name="amount" type="number" step="0.01" min="0" class="form-control" value="{{ old('amount', 0) }}" required>
+                        </div>
 
-                                    <p><strong>Entre:</strong> <span class="var">[Nombre del arrendador / proveedor]</span>, identificado con cédula No. <span class="var">[Número]</span>, en adelante <strong>"EL ARRENDADOR"</strong> o <strong>"EL PROVEEDOR"</strong>.</p>
+                        <div class="col-md-3">
+                            <label for="currency" class="form-label">Moneda</label>
+                            <select id="currency" name="currency" class="form-select" required>
+                                @foreach (\App\Models\Agreement::CURRENCY_OPTIONS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('currency', 'CRC') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                                    <p><strong>Y:</strong> <span class="var">[Nombre del arrendatario / huésped / cliente]</span>, identificado con cédula No. <span class="var">[Número]</span>, en adelante <strong>"EL ARRENDATARIO"</strong> o <strong>"EL USUARIO"</strong>.</p>
+                        <div class="col-md-3">
+                            <label for="deposit" class="form-label">Depósito</label>
+                            <input id="deposit" name="deposit" type="number" step="0.01" min="0" class="form-control" value="{{ old('deposit', 0) }}" required>
+                        </div>
 
-                                    <p><strong>Tipo de servicio:</strong> <span class="var">[Casa / Hospedaje / Salón de eventos]</span></p>
+                        <div class="col-md-3">
+                            <label for="deadline_pay" class="form-label">Días de gracia</label>
+                            <input id="deadline_pay" name="deadline_pay" type="number" min="0" class="form-control" value="{{ old('deadline_pay', 0) }}" required>
+                            <small class="text-muted" style="font-size:9pt;">Días después de la fecha de pago sin recargo por mora.</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-                                    <br>
+            <section class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Política de morosidad</h4>
+                        <p class="text-muted mb-0" style="font-size:10pt;">Define cómo se calculará el recargo si el pago se atrasa más allá de los días de gracia. Esta política queda registrada como referencia del contrato; no se aplica de forma automática a las facturas.</p>
+                    </div>
+                    <div class="card-body row g-3">
+                        <div class="col-md-4">
+                            <label for="type_sanction" class="form-label">Tipo de sanción</label>
+                            <select id="type_sanction" name="type_sanction" class="form-select" required>
+                                @foreach (\App\Models\Agreement::TYPE_SANCTION_OPTIONS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('type_sanction', 'none') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                                    <p><strong>PRIMERA - OBJETO:</strong> EL ARRENDADOR/PROVEEDOR otorga a EL ARRENDATARIO/USUARIO el uso del bien/espacio descrito como: <span class="var">[Dirección y descripción completa]</span>, incluyendo (si aplica) mobiliario/equipamiento: <span class="var">[Listado]</span>. El destino autorizado será: <span class="var">[Residencial / Hospedaje temporal / Evento]</span>. Queda prohibido variar el destino sin autorización escrita.</p>
-
-                                    <p><strong>SEGUNDA - PLAZO, FECHAS Y HORARIOS:</strong>
-                                    El servicio regirá desde <span class="var">[Fecha y hora de inicio]</span> hasta <span class="var">[Fecha y hora de finalización]</span>.
-                                    <span class="var">[Para vivienda: Plazo fijo en meses / Para hospedaje: Check-in y check-out / Para salón: horario de montaje, evento y desmontaje]</span>.
-                                    Cualquier prórroga o extensión deberá constar por escrito (adenda o confirmación formal).</p>
-
-                                    <p><strong>TERCERA - PRECIO/CANON, FORMA DE PAGO Y RECARGOS:</strong>
-                                    EL ARRENDATARIO/USUARIO pagará la suma de <span class="var">[Monto y moneda]</span> por concepto de <span class="var">[canon mensual / tarifa por noche / tarifa por evento]</span>.
-                                    El pago deberá realizarse a más tardar el día <span class="var">[día]</span> de cada <span class="var">[mes / periodo]</span> mediante <span class="var">[transferencia / SINPE / efectivo / otro]</span>.
-                                    En caso de atraso, se aplicará <span class="var">[recargo fijo / porcentaje / interés moratorio]</span> a partir de <span class="var">[día]</span>, sin perjuicio de otras acciones contractuales.</p>
-
-                                    <p><strong>CUARTA - DEPÓSITO/GARANTÍA (SI APLICA):</strong>
-                                    EL ARRENDATARIO/USUARIO entrega un depósito por la suma de <span class="var">[Monto]</span>, destinado a cubrir daños, faltantes, limpieza extraordinaria, multas o servicios pendientes. El depósito será devuelto dentro de <span class="var">[plazo]</span> tras la entrega y verificación del estado, descontando lo que corresponda con respaldo de evidencias y detalle.</p>
-
-                                    <p><strong>QUINTA - SERVICIOS, GASTOS Y REGLAS DE USO:</strong>
-                                    <span class="var">[Indicar qué incluye: agua, luz, internet, limpieza, seguridad, parqueo, etc.]</span>.
-                                    EL ARRENDATARIO/USUARIO se obliga a:
-                                    (a) usar el bien con diligencia y buen comportamiento; (b) respetar normas internas, aforo y horarios; (c) no realizar actos ilícitos;
-                                    (d) no subarrendar ni ceder sin autorización escrita; (e) mantener orden y limpieza.
-                                    <span class="var">[Para evento: niveles de sonido, uso de cocina, decoración permitida, pólvora prohibida, etc.]</span></p>
-
-                                    <p><strong>SEXTA - INVENTARIO Y ESTADO DE ENTREGA:</strong>
-                                    Las partes reconocen el estado del inmueble/espacio y bienes conforme al inventario/acta de entrega: <span class="var">[Adjunto/Link/Detalle]</span>.
-                                    Cualquier daño no reportado dentro de <span class="var">[24/48]</span> horas (o antes del evento) se considerará ocurrido durante el uso, salvo prueba en contrario.</p>
-
-                                    <p><strong>SÉTIMA - MANTENIMIENTO, DAÑOS Y RESPONSABILIDAD:</strong>
-                                    EL ARRENDATARIO/USUARIO responderá por daños ocasionados por su culpa o la de sus acompañantes, visitantes, proveedores o invitados.
-                                    EL ARRENDADOR/PROVEEDOR atenderá el mantenimiento correctivo que le corresponda, salvo daños imputables al uso indebido.
-                                    Queda prohibido realizar modificaciones, perforaciones o instalaciones sin autorización escrita.</p>
-
-                                    <p><strong>OCTAVA - VISITAS, OCUPACIÓN Y AFORO:</strong>
-                                    La ocupación máxima será de <span class="var">[número]</span> personas.
-                                    <span class="var">[Para vivienda/hospedaje: reglas de visitas, horarios, registro de huéspedes. Para salón: aforo, ingreso de proveedores, seguridad.]</span></p>
-
-                                    <p><strong>NOVENA - POLÍTICA DE CANCELACIÓN Y REPROGRAMACIÓN (HOSPEDAJE / SALÓN):</strong>
-                                    Si EL ARRENDATARIO/USUARIO cancela:
-                                    - con <span class="var">[X]</span> días de anticipación: <span class="var">[reembolso total/parcial]</span>;
-                                    - con menos de <span class="var">[X]</span> días: <span class="var">[no reembolsable / retención de reserva]</span>.
-                                    La reprogramación estará sujeta a disponibilidad y podrá generar cargos administrativos de <span class="var">[monto]</span>.
-                                    <span class="var">[Para vivienda, puedes omitir esta cláusula o adaptarla a preaviso.]</span></p>
-
-                                    <p><strong>DÉCIMA - TERMINACIÓN / RESOLUCIÓN:</strong>
-                                    El contrato podrá darse por terminado por:
-                                    (a) incumplimiento de pago; (b) uso distinto al autorizado; (c) daños graves; (d) exceder aforo o perturbar la convivencia; (e) cualquier otra causal pactada o legal aplicable.
-                                    En caso de terminación por incumplimiento, EL ARRENDADOR/PROVEEDOR podrá retener montos adeudados y/o el depósito en lo que corresponda, sin perjuicio de cobro de daños adicionales.</p>
-
-                                    <p><strong>DÉCIMA PRIMERA - NOTIFICACIONES:</strong>
-                                    Las comunicaciones se tendrán por válidas si se envían a:
-                                    Correo EL ARRENDADOR/PROVEEDOR: <span class="var">[correo]</span> — Tel.: <span class="var">[tel]</span><br>
-                                    Correo EL ARRENDATARIO/USUARIO: <span class="var">[correo]</span> — Tel.: <span class="var">[tel]</span></p>
-
-                                    <p><strong>DÉCIMA SEGUNDA - ACUERDO INTEGRAL Y ADENDAS:</strong>
-                                    Este documento contiene el acuerdo completo entre las partes. Cualquier modificación deberá constar por escrito mediante <strong>adenda</strong> firmada por ambas partes.</p>
-
-                                    <p><strong>DÉCIMA TERCERA - FIRMA:</strong> En constancia, se firma en <span class="var">[Ciudad]</span>, a los <span class="var">[día]</span> días del mes de <span class="var">[mes]</span> del <span class="var">[año]</span>.</p>
-
-                                    <table class="signatures" style="width:100%; margin-top:18px; border-collapse:collapse;">
-                                    <tr>
-                                        <td style="width:50%; padding-top:22px;">
-                                        _______________________________<br>
-                                        <strong>EL ARRENDADOR / PROVEEDOR</strong><br>
-                                        <span class="var">[Nombre]</span> — Cédula: <span class="var">[Número]</span>
-                                        </td>
-                                        <td style="width:50%; padding-top:22px;">
-                                        <br>_______________________________<br>
-                                        <strong>EL ARRENDATARIO / USUARIO</strong><br>
-                                        <span class="var">[Nombre]</span> — Cédula: <span class="var">[Número]</span>
-                                        </td>
-                                    </tr>
-                                    </table>
-                                    ') !!}
+                        <div class="col-12" id="mora_details_wrapper">
+                            <div class="row g-3">
+                                <div class="col-md-4" id="surcharge_delay_wrapper">
+                                    <label for="surcharge_delay" class="form-label">Porcentaje de recargo</label>
+                                    <input id="surcharge_delay" name="surcharge_delay" type="number" step="0.01" min="0" class="form-control" value="{{ old('surcharge_delay', 0) }}">
+                                    <small class="text-muted" style="font-size:9pt;">Porcentaje que se aplica por cada periodo de atraso.</small>
                                 </div>
-                                <input id="terms" name="terms" type="hidden" required>
+
+                                <div class="col-md-4" id="amount_delay_wrapper">
+                                    <label for="amount_delay" class="form-label">Monto fijo de recargo</label>
+                                    <input id="amount_delay" name="amount_delay" type="number" step="0.01" min="0" class="form-control" value="{{ old('amount_delay', 0) }}">
+                                    <small class="text-muted" style="font-size:9pt;">Monto fijo que se aplica por cada periodo de atraso.</small>
+                                </div>
+
+                                <div class="col-md-4" id="base_wrapper">
+                                    <label for="base" class="form-label">Base de cálculo</label>
+                                    <select id="base" name="base" class="form-select">
+                                        <option value="">Selecciona una base</option>
+                                        @foreach (\App\Models\Agreement::BASE_OPTIONS as $value => $label)
+                                            <option value="{{ $value }}" @selected(old('base') === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted" style="font-size:9pt;">Sobre qué monto se calcula el porcentaje: la cuota original o el saldo pendiente.</small>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label for="frequency_sanction" class="form-label">Frecuencia de aplicación</label>
+                                    <select id="frequency_sanction" name="frequency_sanction" class="form-select">
+                                        <option value="">Selecciona una frecuencia</option>
+                                        @foreach (\App\Models\Agreement::FREQUENCY_SANCTION_OPTIONS as $value => $label)
+                                            <option value="{{ $value }}" @selected(old('frequency_sanction') === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted" style="font-size:9pt;">Cada cuánto se vuelve a aplicar el recargo mientras el pago siga atrasado.</small>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label for="max_days_unlimited" class="form-label">Límite de acumulación</label>
+                                    <select id="max_days_unlimited" name="max_days_unlimited" class="form-select">
+                                        <option value="0" @selected(old('max_days_unlimited', '0') == '0')>Definido (indicar días)</option>
+                                        <option value="1" @selected(old('max_days_unlimited') == '1')>Indefinido (sin límite)</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-4" id="max_days_wrapper">
+                                    <label for="max_days" class="form-label">Días máximos de acumulación</label>
+                                    <input id="max_days" name="max_days" type="number" min="0" class="form-control" value="{{ old('max_days', 0) }}">
+                                    <small class="text-muted" style="font-size:9pt;">Pasados estos días de atraso, el recargo deja de seguir acumulándose.</small>
+                                </div>
                             </div>
                         </div>
-                        </section>
+                    </div>
 
-                        <div class="col-12 d-flex justify-content-end gap-2">
-                            <a href="{{ route('admin.agreements.index') }}" class="btn btn-light-secondary">Cancelar</a>
-                            <button type="submit" class="btn btn-primary">Registrar contrato</button>
-                        </div>
-                    </form>
-                @endif
-            </div>
-        </div>
-    </section>
+                    <div class="card-footer d-flex justify-content-end gap-2">
+                        <a href="{{ route('admin.agreements.index') }}" class="btn btn-light-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary" id="agreement-submit-button">Registrar contrato</button>
+                    </div>
+                </div>
+            </section>
+        </form>
+    @endif
 
     <script>
         window.addEventListener('load', () => {
@@ -222,29 +261,6 @@
             const roomerIdNumberInput = document.getElementById('roomer_id_number');
             const roomerIdInput = document.getElementById('roomer_id');
             const roomerNamePreview = document.getElementById('roomer_name_preview');
-            const termsInput = document.getElementById('terms');
-            const snowEditorElement = document.getElementById('snow');
-
-            const quillInstance = snowEditorElement.__quill ?? new Quill('#snow', {
-                theme: 'snow',
-                modules: {
-                    toolbar: [
-                        [{ header: [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ list: 'ordered' }, { list: 'bullet' }],
-                        [{ align: [] }],
-                        ['link', 'blockquote'],
-                        ['clean']
-                    ]
-                }
-            });
-
-            const syncTerms = () => {
-                termsInput.value = quillInstance.root.innerHTML;
-            };
-
-            syncTerms();
-            quillInstance.on('text-change', syncTerms);
 
             const setRoomerFeedback = (message, type = 'muted') => {
                 roomerNamePreview.classList.remove('text-muted', 'text-success', 'text-danger');
@@ -288,9 +304,66 @@
 
             roomerIdNumberInput.addEventListener('change', lookupRoomer);
 
+            const propertySelect = document.getElementById('property_id');
+            const amountInput = document.getElementById('amount');
+            const currencySelect = document.getElementById('currency');
+
+            propertySelect?.addEventListener('change', () => {
+                const option = propertySelect.selectedOptions[0];
+                if (!option || !option.value) {
+                    return;
+                }
+
+                if (option.dataset.price) {
+                    amountInput.value = option.dataset.price;
+                }
+
+                if (option.dataset.currency) {
+                    currencySelect.value = option.dataset.currency;
+                }
+            });
+
+            const frequencyPaySelect = document.getElementById('frequency_pay');
+            const paymentMonthWrapper = document.getElementById('payment_month_wrapper');
+            const typeSanctionSelect = document.getElementById('type_sanction');
+            const moraDetailsWrapper = document.getElementById('mora_details_wrapper');
+            const surchargeDelayWrapper = document.getElementById('surcharge_delay_wrapper');
+            const amountDelayWrapper = document.getElementById('amount_delay_wrapper');
+            const baseWrapper = document.getElementById('base_wrapper');
+            const maxDaysUnlimitedSelect = document.getElementById('max_days_unlimited');
+            const maxDaysWrapper = document.getElementById('max_days_wrapper');
+
+            const toggleMonthField = () => {
+                paymentMonthWrapper.style.display = frequencyPaySelect.value === 'annual' ? '' : 'none';
+            };
+
+            const toggleMaxDaysField = () => {
+                maxDaysWrapper.style.display = maxDaysUnlimitedSelect.value === '1' ? 'none' : '';
+            };
+
+            const toggleSanctionFields = () => {
+                const isNone = typeSanctionSelect.value === 'none';
+                const isPercent = typeSanctionSelect.value === 'percent';
+                const isAmountFix = typeSanctionSelect.value === 'amount_fix';
+
+                moraDetailsWrapper.style.display = isNone ? 'none' : '';
+                surchargeDelayWrapper.style.display = isPercent ? '' : 'none';
+                baseWrapper.style.display = isPercent ? '' : 'none';
+                amountDelayWrapper.style.display = isAmountFix ? '' : 'none';
+
+                if (!isNone) {
+                    toggleMaxDaysField();
+                }
+            };
+
+            frequencyPaySelect?.addEventListener('change', toggleMonthField);
+            typeSanctionSelect?.addEventListener('change', toggleSanctionFields);
+            maxDaysUnlimitedSelect?.addEventListener('change', toggleMaxDaysField);
+            toggleMonthField();
+            toggleSanctionFields();
+
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
-                syncTerms();
 
                 if (!roomerIdInput.value) {
                     setRoomerFeedback('Debes ingresar una cédula válida de un arrendatario existente.', 'danger');
@@ -298,8 +371,17 @@
                     return;
                 }
 
-                if (typeof Swal === 'undefined') {
+                const submitForm = () => {
+                    const submitButton = document.getElementById('agreement-submit-button');
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+                    }
                     form.submit();
+                };
+
+                if (typeof Swal === 'undefined') {
+                    submitForm();
                     return;
                 }
 
@@ -314,7 +396,7 @@
                 });
 
                 if (result.isConfirmed) {
-                    form.submit();
+                    submitForm();
                 }
             });
         });

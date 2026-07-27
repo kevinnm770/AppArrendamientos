@@ -32,6 +32,12 @@
                 <h4 class="card-title">Detalle del adendum</h4>
             </div>
             <div class="card-body">
+                @if ($ademdum->status === 'sent')
+                    <div class="alert alert-warning">
+                        Por favor lee con cuidado los términos y el contrato adjunto, ante cualquier duda consulta a el arrendador(a), no aceptes sin estar completamente seguro(a).
+                    </div>
+                @endif
+
                 <div class="row g-3 mb-3">
                     <div class="col-md-4"><strong>Arrendatario:</strong> {{ $agreement->roomer->legal_name }}</div>
                     <div class="col-md-4"><strong>Propiedad:</strong> {{ $agreement->property->name }}</div>
@@ -41,13 +47,115 @@
                     <div class="col-md-4"><strong>Fin:</strong> {{ optional($ademdum->end_at)->format('d/m/Y') ?? 'Sin fin' }}</div>
                     <div class="col-md-4"><strong>Emitido:</strong> {{ optional($ademdum->created_at)->format('d/m/Y') }}</div>
                     <div class="col-md-4">
-                        <strong>Respaldo físico:</strong>
+                        <strong>Documento oficial firmado:</strong>
                         @if ($ademdum->signedDoc)
                             <a href="{{ route('tenant.ademdums.signed-doc.download', ['agreementId' => $agreement->id, 'ademdumId' => $ademdum->id]) }}" class="btn btn-sm btn-light-primary ms-2">Descargar</a>
                         @else
                             No disponible
                         @endif
                     </div>
+                </div>
+
+                <hr>
+
+                @php
+                    $overridden = $ademdum->overriddenFields();
+                    $badge = fn (string $field) => in_array($field, $overridden, true)
+                        ? '<span class="badge bg-light-primary">Modificado por este adendum</span>'
+                        : '<span class="badge bg-light-secondary">Hereda del contrato</span>';
+                    $val = fn (string $field) => $ademdum->{$field} ?? $effectiveTerms[$field];
+                @endphp
+
+                <h5>Detalles de pago</h5>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:35%;">Campo</th>
+                                <th>Valor</th>
+                                <th style="width:180px;">Origen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Frecuencia de pago</td>
+                                <td>{{ \App\Models\Agreement::FREQUENCY_PAY_OPTIONS[$val('frequency_pay')] ?? $val('frequency_pay') }}</td>
+                                <td>{!! $badge('frequency_pay') !!}</td>
+                            </tr>
+                            <tr>
+                                <td>Día de pago</td>
+                                <td>
+                                    {{ $val('payment_date') }}
+                                    @if ($val('payment_month'))
+                                        de {{ \App\Models\Agreement::MONTHS[$val('payment_month')] ?? $val('payment_month') }}
+                                    @endif
+                                </td>
+                                <td>{!! $badge('payment_date') !!}</td>
+                            </tr>
+                            <tr>
+                                <td>Monto</td>
+                                <td>{{ $val('currency') }} {{ number_format((float) $val('amount'), 2) }}</td>
+                                <td>{!! $badge('amount') !!}</td>
+                            </tr>
+                            <tr>
+                                <td>Depósito</td>
+                                <td>{{ number_format((float) $val('deposit'), 2) }}</td>
+                                <td>{!! $badge('deposit') !!}</td>
+                            </tr>
+                            <tr>
+                                <td>Días de gracia</td>
+                                <td>{{ $val('deadline_pay') }}</td>
+                                <td>{!! $badge('deadline_pay') !!}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr>
+
+                <h5>Política de morosidad</h5>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:35%;">Campo</th>
+                                <th>Valor</th>
+                                <th style="width:180px;">Origen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Tipo de sanción</td>
+                                <td>{{ \App\Models\Agreement::TYPE_SANCTION_OPTIONS[$val('type_sanction')] ?? $val('type_sanction') }}</td>
+                                <td>{!! $badge('type_sanction') !!}</td>
+                            </tr>
+                            @if ($val('type_sanction') === 'percent')
+                                <tr>
+                                    <td>Porcentaje de recargo</td>
+                                    <td colspan="2">{{ $val('surcharge_delay') }}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Base de cálculo</td>
+                                    <td colspan="2">{{ \App\Models\Agreement::BASE_OPTIONS[$val('base')] ?? $val('base') }}</td>
+                                </tr>
+                            @elseif ($val('type_sanction') === 'amount_fix')
+                                <tr>
+                                    <td>Monto fijo de recargo</td>
+                                    <td colspan="2">{{ number_format((float) $val('amount_delay'), 2) }}</td>
+                                </tr>
+                            @endif
+                            @if ($val('type_sanction') !== 'none')
+                                <tr>
+                                    <td>Frecuencia de aplicación</td>
+                                    <td colspan="2">{{ \App\Models\Agreement::FREQUENCY_SANCTION_OPTIONS[$val('frequency_sanction')] ?? $val('frequency_sanction') }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Días máximos de acumulación</td>
+                                    <td colspan="2">{{ $val('max_days_unlimited') ? 'Sin límite' : $val('max_days') }}</td>
+                                </tr>
+                            @endif
+                        </tbody>
+                    </table>
                 </div>
 
                 <hr>
@@ -68,12 +176,6 @@
                         </div>
                     </form>
                 @endif
-
-                <div class="ql-snow">
-                    <div class="ql-editor" style="padding: 30px 0 0 0;height: 500px;max-height: 600px;overflow:auto;">
-                        {!! $ademdum->terms !!}
-                    </div>
-                </div>
 
                 <div class="mt-4 d-flex justify-content-end gap-2">
                     @if ($ademdum->status === 'sent')

@@ -12,8 +12,8 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\SignedDocService;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AgreementController extends Controller
@@ -49,6 +49,7 @@ class AgreementController extends Controller
             $roomer = $user->roomer;
 
             $agreements = Agreement::with(['property', 'lessor', 'latestAdemdum', 'signedDoc'])
+                ->withCount(['ademdums as pending_ademdums_count' => fn (Builder $query) => $query->where('status', 'sent')])
                 ->where('roomer_id', $roomer->id)
                 ->orderByDesc('start_at')
                 ->get();
@@ -78,7 +79,7 @@ class AgreementController extends Controller
         $properties = Property::where('lessor_id', $lessor->id)
             ->where('status', '!=', 'occupied')
             ->orderBy('name')
-            ->get(['id', 'name', 'service_type', 'status']);
+            ->get(['id', 'name', 'service_type', 'status', 'price', 'currency']);
 
 
         $selectedRoomer = null;
@@ -142,16 +143,18 @@ class AgreementController extends Controller
                 ->withErrors(['agreement' => 'Este contrato ya no se puede editar porque su estado no es "sent".']);
         }
 
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'start_at' => ['required', 'date'],
-            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
-            'terms' => ['required', 'string'],
-            'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
-            'remove_signed_doc' => ['nullable', 'boolean'],
-        ]);
+            'end_at' => ['required', 'date', 'after_or_equal:start_at'],
+            'signed_doc_file' => [$agreement->signedDoc ? 'nullable' : 'required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
+        ], $this->businessFieldRules()));
 
-        $startAt = Carbon::parse($validated['start_at']);
-        $endAt = !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null;
+        if ($moraError = $this->validateMoraPolicy($validated)) {
+            return back()->withErrors(['type_sanction' => $moraError])->withInput();
+        }
+
+        $startAt = Carbon::parse($validated['start_at'])->setTimeFrom(now());
+        $endAt = Carbon::parse($validated['end_at'])->setTimeFrom(now());
 
         if ($this->hasDateCollision('property_id', (int) $agreement->property_id, $startAt, $endAt, $agreement->id)) {
             return back()
@@ -165,17 +168,14 @@ class AgreementController extends Controller
                 ->withInput();
         }
 
-        $agreement->update([
+        $agreement->update(array_merge($this->businessFieldValues($validated), [
             'start_at' => $startAt,
             'end_at' => $endAt,
-            'terms' => $validated['terms'],
             'updated_by_user_id' => $request->user()->id,
-        ]);
+        ]));
 
         if ($request->hasFile('signed_doc_file')) {
             $signedDocService->storeForAgreement($agreement->id, $request->file('signed_doc_file'));
-        } elseif ((bool) ($validated['remove_signed_doc'] ?? false)) {
-            $signedDocService->deleteForAgreement($agreement->id);
         }
 
         return redirect()
@@ -210,7 +210,7 @@ class AgreementController extends Controller
             if ($lessorUserId) {
                 $this->notificationService->create(
                     notifyUserId: (int) $lessorUserId,
-                    title: "El arrendatario aceptó el contrato #{$agreement->id}",
+                    title: "El arrendatario aceptó el contrato {$agreement->contract_number}",
                     priority: 'high',
                     body: '',
                     link: route('admin.agreements.index')
@@ -248,12 +248,18 @@ class AgreementController extends Controller
         if ($roomerUserId) {
             $this->notificationService->create(
                 notifyUserId: (int) $roomerUserId,
-                title: "El arrendador solicitó desestimar el contrato #{$agreement->id}",
+                title: "El arrendador solicitó desestimar el contrato {$agreement->contract_number}",
                 priority: 'high',
                 body: '',
                 link: route('tenant.agreements.view', $agreement->id)
             );
         }
+
+        $this->notificationService->emailUsers(
+            [$agreement->lessor?->user, $agreement->roomer?->user],
+            "Solicitud de ruptura del contrato {$agreement->contract_number}",
+            "El arrendador solicitó romper el contrato {$agreement->contract_number}. Motivo: " . trim($validated['canceled_by'])
+        );
 
         return redirect()
             ->route('admin.agreements.index')
@@ -284,10 +290,10 @@ class AgreementController extends Controller
             $lessorUserId = $agreement->lessor?->user_id;
             $roomerUserId = $agreement->roomer?->user_id;
 
-            $title = "El contrato #{$agreement->id} fue desestimado";
+            $title = "El contrato {$agreement->contract_number} fue desestimado";
             $body = sprintf(
-                '<p>Se ejecutó la desestimación del contrato <strong>#%d</strong>.</p><p>La relación contractual quedó finalizada y su estado pasó a <strong>cancelled</strong>.</p>',
-                $agreement->id
+                '<p>Se ejecutó la desestimación del contrato <strong>%s</strong>.</p><p>La relación contractual quedó finalizada y su estado pasó a <strong>cancelled</strong>.</p>',
+                $agreement->contract_number
             );
 
             $this->notificationService->createForUsers(
@@ -314,11 +320,11 @@ class AgreementController extends Controller
         if ($lessorUserId) {
             $this->notificationService->create(
                 notifyUserId: (int) $lessorUserId,
-                title: "El arrendatario rechazó la desestimación del contrato #{$agreement->id}",
+                title: "El arrendatario rechazó la desestimación del contrato {$agreement->contract_number}",
                 priority: 'high',
                 body: sprintf(
-                    '<p>El arrendatario respondió la solicitud de desestimación del contrato <strong>#%d</strong>.</p><p>Resultado: <strong>rechazada</strong>. El contrato continúa vigente en estado <strong>accepted</strong>.</p>',
-                    $agreement->id
+                    '<p>El arrendatario respondió la solicitud de desestimación del contrato <strong>%s</strong>.</p><p>Resultado: <strong>rechazada</strong>. El contrato continúa vigente en estado <strong>accepted</strong>.</p>',
+                    $agreement->contract_number
                 ),
                 link: null
             );
@@ -329,57 +335,15 @@ class AgreementController extends Controller
             ->with('success', 'Solicitud de cancelación rechazada. El contrato sigue activo.');
     }
 
-    public function sendDeleteToken(int $agreementId, Request $request)
-    {
-        $agreement = $this->getOwnedAgreement($agreementId, $request);
-
-        if ($agreement->status !== 'sent') {
-            return back()->withErrors(['agreement' => 'Este contrato ya no se puede eliminar porque su estado no es "sent".']);
-        }
-
-        $token = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-
-        $request->session()->put("agreement_delete_token.{$agreement->id}", [
-            'value' => $token,
-            'expires_at' => now()->addMinutes(10)->timestamp,
-        ]);
-
-        $user = $request->user();
-
-        Mail::raw("Tu token para eliminar el contrato #{$agreement->id} es: {$token}. Expira en 10 minutos.", function ($message) use ($user) {
-            $message->to($user->email)
-                ->subject('Token de confirmación para eliminar contrato');
-        });
-
-        return back()->with('success', 'Se envió un token de confirmación a tu correo electrónico.');
-    }
-
     public function delete(int $agreementId, Request $request, SignedDocService $signedDocService)
     {
         $agreement = $this->getOwnedAgreement($agreementId, $request);
 
         if ($agreement->status !== 'sent') {
-            return back()->withErrors(['agreement' => 'Este contrato ya no se puede eliminar.']);
+            return back()->withErrors(['agreement' => 'Este contrato ya no se puede eliminar porque el arrendatario ya lo aceptó.']);
         }
 
-        $validated = $request->validate([
-            'token' => ['required', 'string', 'size:4'],
-        ], [
-            'token.required' => 'Debe ingresar el token de confirmación para eliminar el contrato.',
-            'token.size' => 'El token de confirmación debe tener 4 caracteres.',
-        ]);
-
-        $sessionToken = $request->session()->get("agreement_delete_token.{$agreement->id}");
-
-        /*if (!$sessionToken || now()->timestamp > ($sessionToken['expires_at'] ?? 0)) {
-            return back()->withErrors(['token' => 'El token expiró o no existe. Solicita uno nuevo.']);
-        }*/
-
-        if ('1234' !== $validated['token']) { //($sessionToken['value'] ?? null)
-            return back()->withErrors(['token' => 'El token de confirmación es inválido.'])->withInput();
-        }
-
-        DB::transaction(function () use ($agreement, $request, $signedDocService) {
+        DB::transaction(function () use ($agreement, $signedDocService) {
             $signedDocService->deleteForAgreement($agreement->id);
 
             foreach ($agreement->ademdums as $ademdum) {
@@ -387,7 +351,6 @@ class AgreementController extends Controller
             }
 
             $agreement->delete();
-            $request->session()->forget("agreement_delete_token.{$agreement->id}");
         });
 
         return redirect()
@@ -418,6 +381,41 @@ class AgreementController extends Controller
         ]);
     }
 
+    /**
+     * Términos de pago vigentes del contrato (resolviendo adéndums activos) para
+     * precargar la línea de canon al crear una factura, más una tasa de IVA sugerida
+     * según el uso del inmueble (vivienda = exento, comercial = 13%).
+     */
+    public function effectiveBillingTerms(Request $request, int $agreementId)
+    {
+        $lessor = $request->user()?->lessor;
+
+        if (!$lessor) {
+            return response()->json(['message' => 'No autorizado.'], 403);
+        }
+
+        $agreement = Agreement::with('property')
+            ->where('lessor_id', $lessor->id)
+            ->find($agreementId);
+
+        if (!$agreement) {
+            return response()->json(['message' => 'Contrato no encontrado.'], 404);
+        }
+
+        $terms = $agreement->effectiveTerms();
+        $isHousing = $agreement->service_type === 'home';
+
+        return response()->json([
+            'amount' => $terms['amount'],
+            'currency' => $terms['currency'],
+            'frequency_pay' => $terms['frequency_pay'],
+            'suggested_tax_rate' => $isHousing ? 0 : 13,
+            'suggested_description' => $isHousing
+                ? 'Canon de arrendamiento de vivienda'
+                : 'Canon de arrendamiento de local comercial',
+        ]);
+    }
+
     public function store(Request $request, SignedDocService $signedDocService)
     {
         $user = $request->user();
@@ -429,7 +427,7 @@ class AgreementController extends Controller
                 ->withErrors(['lessor' => 'Debes completar tu perfil de arrendador antes de registrar contratos.']);
         }
 
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'property_id' => [
                 'required',
                 Rule::exists('properties', 'id')->where(
@@ -441,10 +439,13 @@ class AgreementController extends Controller
             'roomer_id' => ['required', Rule::exists('roomers', 'id')],
             'service_type' => ['required', Rule::in(['home', 'commercial'])],
             'start_at' => ['required', 'date'],
-            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
-            'terms' => ['required', 'string'],
-            'signed_doc_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
-        ]);
+            'end_at' => ['required', 'date', 'after_or_equal:start_at'],
+            'signed_doc_file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
+        ], $this->businessFieldRules()));
+
+        if ($moraError = $this->validateMoraPolicy($validated)) {
+            return back()->withErrors(['type_sanction' => $moraError])->withInput();
+        }
 
         $property = Property::where('lessor_id', $lessor->id)
             ->findOrFail((int) $validated['property_id']);
@@ -461,8 +462,8 @@ class AgreementController extends Controller
                 ->withInput();
         }
 
-        $startAt = Carbon::parse($validated['start_at']);
-        $endAt = !empty($validated['end_at']) ? Carbon::parse($validated['end_at']) : null;
+        $startAt = Carbon::parse($validated['start_at'])->setTimeFrom(now());
+        $endAt = Carbon::parse($validated['end_at'])->setTimeFrom(now());
 
         if ($this->hasDateCollision('property_id', (int) $validated['property_id'], $startAt, $endAt)) {
             return back()
@@ -476,18 +477,26 @@ class AgreementController extends Controller
                 ->withInput();
         }
 
-        $agreement = Agreement::create([
-            'property_id' => (int) $validated['property_id'],
-            'lessor_id' => $lessor->id,
-            'roomer_id' => (int) $validated['roomer_id'],
-            'service_type' => $validated['service_type'],
-            'start_at' => $startAt,
-            'end_at' => $endAt,
-            'terms' => $validated['terms'],
-            'status' => 'sent',
-            'created_by_user_id' => $user->id,
-            'updated_by_user_id' => $user->id,
-        ]);
+        $agreement = DB::transaction(function () use ($validated, $lessor, $user, $startAt, $endAt) {
+            $agreement = Agreement::create(array_merge($this->businessFieldValues($validated), [
+                'contract_number' => 'TMP-' . Str::random(20),
+                'property_id' => (int) $validated['property_id'],
+                'lessor_id' => $lessor->id,
+                'roomer_id' => (int) $validated['roomer_id'],
+                'service_type' => $validated['service_type'],
+                'start_at' => $startAt,
+                'end_at' => $endAt,
+                'status' => 'sent',
+                'created_by_user_id' => $user->id,
+                'updated_by_user_id' => $user->id,
+            ]));
+
+            $agreement->update([
+                'contract_number' => sprintf('CTR-%d-%06d', $agreement->created_at->year, $agreement->id),
+            ]);
+
+            return $agreement;
+        });
 
         if ($request->hasFile('signed_doc_file')) {
             $signedDocService->storeForAgreement($agreement->id, $request->file('signed_doc_file'));
@@ -497,12 +506,18 @@ class AgreementController extends Controller
         if ($roomerUserId) {
             $this->notificationService->create(
                 notifyUserId: (int) $roomerUserId,
-                title: "Tienes un nuevo contrato #{$agreement->id} pendiente de revisión",
+                title: "Tienes un nuevo contrato {$agreement->contract_number} pendiente de revisión",
                 priority: 'high',
                 body: '',
                 link: route('tenant.agreements.view', $agreement->id)
             );
         }
+
+        $this->notificationService->emailUsers(
+            [$agreement->lessor?->user, $agreement->roomer?->user],
+            "Nuevo contrato {$agreement->contract_number} registrado",
+            "Se registró el contrato {$agreement->contract_number}. Queda pendiente de revisión y aceptación por parte del arrendatario."
+        );
 
         return redirect()
             ->route('admin.agreements.index')
@@ -578,11 +593,11 @@ class AgreementController extends Controller
 
         $this->notificationService->createForUsers(
             array_filter([(int) $lessorUserId, (int) $roomerUserId]),
-            "El contrato #{$agreement->id} fue desestimado automáticamente",
+            "El contrato {$agreement->contract_number} fue desestimado automáticamente",
             'high',
             sprintf(
-                '<p>La desestimación del contrato <strong>#%d</strong> se ejecutó automáticamente al vencer el plazo de respuesta.</p><p>El estado final es <strong>cancelled</strong>.</p>',
-                $agreement->id
+                '<p>La desestimación del contrato <strong>%s</strong> se ejecutó automáticamente al vencer el plazo de respuesta.</p><p>El estado final es <strong>cancelled</strong>.</p>',
+                $agreement->contract_number
             ),
             null
         );
@@ -605,11 +620,11 @@ class AgreementController extends Controller
 
         $this->notificationService->createForUsers(
             array_filter([(int) $lessorUserId, (int) $roomerUserId]),
-            "El contrato #{$agreement->id} finalizó por vigencia",
+            "El contrato {$agreement->contract_number} finalizó por vigencia",
             'high',
             sprintf(
-                '<p>El contrato <strong>#%d</strong> finalizó automáticamente al cumplirse su fecha de vigencia.</p><p>El estado final es <strong>finished</strong>.</p>',
-                $agreement->id
+                '<p>El contrato <strong>%s</strong> finalizó automáticamente al cumplirse su fecha de vigencia.</p><p>El estado final es <strong>finished</strong>.</p>',
+                $agreement->contract_number
             ),
             null
         );
@@ -650,5 +665,45 @@ class AgreementController extends Controller
             'home' => 'Vivienda',
             'commercial' => 'Local comercial',
         ];
+    }
+
+    private function businessFieldRules(): array
+    {
+        return [
+            'frequency_pay' => ['required', Rule::in(array_keys(Agreement::FREQUENCY_PAY_OPTIONS))],
+            'payment_date' => ['required', 'integer', 'min:1', 'max:31'],
+            'payment_month' => ['required_if:frequency_pay,annual', 'nullable', 'integer', 'min:1', 'max:12'],
+            'deadline_pay' => ['required', 'integer', 'min:0'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'currency' => ['required', Rule::in(array_keys(Agreement::CURRENCY_OPTIONS))],
+            'deposit' => ['nullable', 'numeric', 'min:0'],
+            'type_sanction' => ['required', Rule::in(array_keys(Agreement::TYPE_SANCTION_OPTIONS))],
+            'surcharge_delay' => ['nullable', 'numeric', 'min:0'],
+            'amount_delay' => ['nullable', 'numeric', 'min:0'],
+            'frequency_sanction' => ['nullable', Rule::in(array_keys(Agreement::FREQUENCY_SANCTION_OPTIONS))],
+            'base' => ['nullable', Rule::in(array_keys(Agreement::BASE_OPTIONS))],
+            'max_days_unlimited' => ['nullable', 'boolean'],
+            'max_days' => ['nullable', 'integer', 'min:0'],
+        ];
+    }
+
+    private function validateMoraPolicy(array $validated): ?string
+    {
+        return Agreement::validateMoraPolicyInput($validated);
+    }
+
+    private function businessFieldValues(array $validated): array
+    {
+        $isAnnual = ($validated['frequency_pay'] ?? null) === 'annual';
+
+        return array_merge([
+            'frequency_pay' => $validated['frequency_pay'],
+            'payment_date' => (int) $validated['payment_date'],
+            'payment_month' => $isAnnual ? (int) $validated['payment_month'] : null,
+            'deadline_pay' => (int) $validated['deadline_pay'],
+            'amount' => $validated['amount'],
+            'currency' => $validated['currency'],
+            'deposit' => $validated['deposit'] ?? 0,
+        ], Agreement::moraPolicyValuesFromInput($validated));
     }
 }

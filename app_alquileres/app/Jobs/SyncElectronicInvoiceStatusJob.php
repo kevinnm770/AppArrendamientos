@@ -12,6 +12,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Arr;
 use RuntimeException;
+use SimpleXMLElement;
+use Throwable;
 
 class SyncElectronicInvoiceStatusJob implements ShouldQueue
 {
@@ -40,8 +42,7 @@ class SyncElectronicInvoiceStatusJob implements ShouldQueue
         }
 
         try {
-            $response = $service->getVoucherStatus($detail);
-            $payload = $response['payload'] ?? [];
+            $payload = $service->getVoucherStatus($detail);
             $status = strtolower((string) (
                 Arr::get($payload, 'ind-estado')
                 ?? Arr::get($payload, 'resp.ind-estado')
@@ -49,12 +50,7 @@ class SyncElectronicInvoiceStatusJob implements ShouldQueue
                 ?? Arr::get($payload, 'estado')
                 ?? 'pending'
             ));
-            $message = (string) (
-                Arr::get($payload, 'respuesta-xml')
-                ?? Arr::get($payload, 'message')
-                ?? Arr::get($payload, 'mensaje')
-                ?? 'Estado consultado en proveedor.'
-            );
+            $message = $this->extractMessage($payload);
 
             $detail->refresh();
             $detail->forceFill(['status_checked_at' => now()])->save();
@@ -85,6 +81,42 @@ class SyncElectronicInvoiceStatusJob implements ShouldQueue
             if (!$this->manual) {
                 throw $exception;
             }
+        }
+    }
+
+    /**
+     * Hacienda devuelve "respuesta-xml" como un MensajeHacienda XML codificado en base64;
+     * aquí se decodifica y se extrae solo el texto de <DetalleMensaje> para que el usuario
+     * vea el motivo real (ej. "La firma del documento no tiene el Policy Id") en vez del
+     * blob base64 completo.
+     */
+    protected function extractMessage(array $payload): string
+    {
+        $raw = (string) (
+            Arr::get($payload, 'respuesta-xml')
+            ?? Arr::get($payload, 'message')
+            ?? Arr::get($payload, 'mensaje')
+            ?? 'Estado consultado en proveedor.'
+        );
+
+        $decoded = base64_decode($raw, true);
+
+        if ($decoded === false || !str_contains($decoded, '<')) {
+            return $raw;
+        }
+
+        try {
+            $xml = new SimpleXMLElement($decoded);
+            $detalle = trim((string) ($xml->DetalleMensaje ?? ''));
+            $estado = trim((string) ($xml->EstadoMensaje ?? ''));
+
+            if ($detalle === '') {
+                return $raw;
+            }
+
+            return $estado !== '' ? "{$estado}: {$detalle}" : $detalle;
+        } catch (Throwable) {
+            return $raw;
         }
     }
 }

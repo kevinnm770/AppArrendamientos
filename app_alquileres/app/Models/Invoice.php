@@ -26,14 +26,19 @@ class Invoice extends Model
     public const PAYMENT_METHOD_OPTIONS = [
         'cash' => 'Efectivo',
         'card' => 'Tarjeta',
-        'transfer' => 'Transferencia',
         'check' => 'Cheque',
-        'collection' => 'Recaudado por tercero',
-        'other' => 'Otro',
+        'transfer' => 'Transferencia - depósito bancario',
+        'collection' => 'Recaudado por terceros',
+        'sinpe_movil' => 'SINPE Móvil',
+        'digital_platform' => 'Plataforma digital',
+        'other' => 'Otros',
     ];
 
     protected $fillable = [
         'agreement_id',
+        'reference_invoice_id',
+        'credit_note_reason_code',
+        'credit_note_reason_text',
         'lessor_id',
         'roomer_id',
         'invoice_number',
@@ -51,7 +56,7 @@ class Invoice extends Model
         'late_fee_total',
         'total',
         'sale_condition',
-        'payment_method',
+        'payment_methods',
         'reference_code',
         'notes',
         'status',
@@ -73,6 +78,7 @@ class Invoice extends Model
         'late_fee_total' => 'decimal:2',
         'total' => 'decimal:2',
         'exchange_rate' => 'decimal:4',
+        'payment_methods' => 'array',
         'tenant_confirmed_at' => 'datetime',
         'locked_at' => 'datetime',
     ];
@@ -105,6 +111,45 @@ class Invoice extends Model
     public function electronicDetail()
     {
         return $this->hasOne(InvoiceElectronicDetail::class);
+    }
+
+    public function items()
+    {
+        return $this->hasMany(InvoiceItem::class)->orderBy('position');
+    }
+
+    /**
+     * Factura original que esta Nota de Crédito corrige/anula (solo aplica cuando el
+     * documento electrónico es de tipo "03").
+     */
+    public function referenceInvoice()
+    {
+        return $this->belongsTo(Invoice::class, 'reference_invoice_id');
+    }
+
+    /**
+     * Recalcula subtotal/descuento/impuesto/total agregados a partir de las líneas
+     * ya persistidas, para que el comprobante XML (Fase 4) y esta tabla nunca diverjan.
+     */
+    public function recalculateTotalsFromItems(): void
+    {
+        $items = $this->items()->get();
+
+        $subtotal = (float) $items->sum(fn (InvoiceItem $item) => (float) $item->subtotal + (float) $item->discount_total);
+        $discountTotal = (float) $items->sum('discount_total');
+        $taxTotal = (float) $items->sum('tax_total');
+        // late_fee_total ya está representado como su propia línea dentro de $items
+        // (ver InvoiceController::store); no se vuelve a sumar aquí para no duplicarlo.
+        $total = (float) $items->sum('line_total');
+
+        $this->forceFill([
+            'subtotal' => round($subtotal, 2),
+            'discount_total' => round($discountTotal, 2),
+            'discount_percent' => $subtotal > 0 ? round($discountTotal / $subtotal * 100, 2) : 0,
+            'tax_total' => round($taxTotal, 2),
+            'tax_percent' => ($subtotal - $discountTotal) > 0 ? round($taxTotal / ($subtotal - $discountTotal) * 100, 2) : 0,
+            'total' => round($total, 2),
+        ])->save();
     }
 
     public function scopeStatus($query, string $status)
@@ -156,16 +201,5 @@ class Invoice extends Model
     public static function paymentMethodOptions(): array
     {
         return self::PAYMENT_METHOD_OPTIONS;
-    }
-
-    public static function generateElectronicKey(): string
-    {
-        return now()->format('dmy') . str_pad((string) random_int(0, 99999999999999999999999999999999999999), 38, '0', STR_PAD_LEFT);
-    }
-
-    public static function generateConsecutiveNumber(int $lessorId, int $invoiceId): string
-    {
-        return str_pad((string) $lessorId, 10, '0', STR_PAD_LEFT)
-            . str_pad((string) $invoiceId, 10, '0', STR_PAD_LEFT);
     }
 }
