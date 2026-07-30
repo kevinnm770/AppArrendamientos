@@ -5,6 +5,7 @@ use App\Http\Controllers\AdemdumController;
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\CabysCodeController;
+use App\Http\Controllers\CrLocationController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\InvoiceController;
@@ -69,6 +70,13 @@ Route::get('/email/verify', [VerificationController::class, 'notice'])->name('ve
 Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])->name('verification.verify');
 Route::post('/email/verification-notification', [VerificationController::class, 'resend'])->name('verification.send');
 
+// Selects encadenados de provincia/cantón/distrito (catálogo de Costa Rica) — sin
+// restricción de rol, los usa tanto el perfil de arrendador como el de inquilino.
+Route::prefix('locations')->name('locations.')->middleware('auth')->group(function () {
+    Route::get('/cantons', [CrLocationController::class, 'cantons'])->name('cantons');
+    Route::get('/districts', [CrLocationController::class, 'districts'])->name('districts');
+});
+
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'])->group(function () {
 
     // Inicio
@@ -87,6 +95,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
 
         //Datos del lessor
         Route::patch('/lessor', [lessorController::class, 'update'])->name('lessor.update');
+
+        // Autocompletar nombre/actividades desde Hacienda a partir de la cédula
+        Route::get('/lessor/lookup-identification', [lessorController::class, 'lookupIdentification'])->name('lessor.lookup-identification');
     });
 
     // Admin de propiedades
@@ -120,6 +131,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
         Route::get('/{agreementId}/billing-terms', [AgreementController::class, 'effectiveBillingTerms'])
             ->name('billing-terms')
             ->whereNumber('agreementId');
+        Route::get('/{agreementId}/tenant-balance', [AgreementController::class, 'tenantBalance'])
+            ->name('tenant-balance')
+            ->whereNumber('agreementId');
 
         Route::post('/register', [AgreementController::class, 'store'])->name('register.store');
         Route::get('/{agreementId}/signed-doc/download', [AgreementController::class, 'downloadSignedDoc'])->name('signed-doc.download');
@@ -135,10 +149,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
     // Facturas
     Route::prefix('invoices')->name('invoices.')->middleware('auth')->group(function () {
         Route::get('/', [InvoiceController::class, 'index'])->name('index');
+        Route::get('/create', [InvoiceController::class, 'create'])->name('create');
+        Route::get('/payment-receipt/create', [InvoiceController::class, 'createPaymentReceipt'])->name('payment-receipt.create');
         Route::post('/', [InvoiceController::class, 'store'])->name('store');
         Route::post('/{invoiceId}/electronic/send', [InvoiceController::class, 'sendElectronic'])->name('electronic.send');
         Route::post('/{invoiceId}/electronic/retry', [InvoiceController::class, 'retryElectronic'])->name('electronic.retry');
         Route::post('/{invoiceId}/electronic/check-status', [InvoiceController::class, 'checkElectronicStatus'])->name('electronic.check-status');
+        Route::get('/{invoiceId}/electronic/xml', [InvoiceController::class, 'downloadElectronicXml'])->name('electronic.xml');
+        Route::get('/{invoiceId}/electronic/response', [InvoiceController::class, 'downloadElectronicResponse'])->name('electronic.response');
     });
 
     // Catálogo CABYS (autocompletado en el formulario de facturas)
@@ -197,6 +215,9 @@ Route::prefix('tenant')->name('tenant.')->middleware(['auth', 'verified', 'roome
 
         //Datos del roomer
         Route::patch('/roomer', [roomerController::class, 'update'])->name('roomer.update');
+
+        // Autocompletar nombre desde el servicio nacional de identificación a partir de la cédula
+        Route::get('/roomer/lookup-identification', [roomerController::class, 'lookupIdentification'])->name('roomer.lookup-identification');
     });
 
     // Contratos

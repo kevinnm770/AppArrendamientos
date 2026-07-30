@@ -23,6 +23,10 @@ class InvoiceController extends Controller
     {
     }
 
+    /**
+     * Solo la tabla de facturas registradas, con filtros y paginación (la creación de
+     * facturas vive en su propia vista, ver create()).
+     */
     public function index(Request $request, CostaRicaElectronicInvoiceService $electronicInvoiceService)
     {
         $user = $request->user();
@@ -32,11 +36,53 @@ class InvoiceController extends Controller
             return redirect()->route('admin.index');
         }
 
-        $invoices = Invoice::with(['agreement.property', 'roomer.user', 'electronicDetail', 'items'])
+        $filters = $request->only(['search', 'hacienda_status', 'date_from', 'date_to', 'agreement_id']);
+
+        $invoices = Invoice::with(['agreement.property', 'roomer.user', 'electronicDetail'])
             ->where('lessor_id', $lessor->id)
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('invoice_number', 'like', "%{$search}%")
+                        ->orWhereHas('roomer', fn ($roomerQuery) => $roomerQuery->where('legal_name', 'like', "%{$search}%"));
+                });
+            })
+            ->when($filters['agreement_id'] ?? null, fn ($query, $agreementId) => $query->where('agreement_id', $agreementId))
+            ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->whereDate('date', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->whereDate('date', '<=', $date))
+            ->when($filters['hacienda_status'] ?? null, function ($query, $status) {
+                $query->whereHas('electronicDetail', fn ($detailQuery) => $detailQuery->where('electronic_status', $status));
+            })
             ->orderByDesc('date')
             ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        $agreementsForFilter = Agreement::with('property')
+            ->where('lessor_id', $lessor->id)
+            ->orderByDesc('start_at')
             ->get();
+
+        return view('admin.invoices.index', [
+            'invoices' => $invoices,
+            'agreementsForFilter' => $agreementsForFilter,
+            'statusOptions' => Invoice::statusOptions(),
+            'haciendaStatusOptions' => $electronicInvoiceService->haciendaStatusOptions(),
+            'filters' => $filters,
+        ]);
+    }
+
+    /**
+     * Formulario dedicado a crear una factura electrónica (líneas, CABYS, condiciones
+     * comerciales, etc.) — separado de la tabla de facturas registradas.
+     */
+    public function create(Request $request)
+    {
+        $user = $request->user();
+        $lessor = $user?->lessor;
+
+        if (!$lessor) {
+            return redirect()->route('admin.index');
+        }
 
         $agreements = Agreement::with(['roomer.user', 'property'])
             ->where('lessor_id', $lessor->id)
@@ -51,16 +97,42 @@ class InvoiceController extends Controller
             ->orderByDesc('date')
             ->get();
 
-        return view('admin.invoices.index', [
+        return view('admin.invoices.create', [
             'lessor' => $lessor,
-            'invoices' => $invoices,
             'agreements' => $agreements,
             'referenceableInvoices' => $referenceableInvoices,
-            'statusOptions' => Invoice::statusOptions(),
             'saleConditionOptions' => Invoice::saleConditionOptions(),
             'paymentMethodOptions' => Invoice::paymentMethodOptions(),
             'creditNoteReasonOptions' => Catalogs::creditNoteReasonOptions(),
-            'haciendaStatusOptions' => $electronicInvoiceService->haciendaStatusOptions(),
+            'nextInvoiceNumberPreview' => $this->nextInvoiceNumber($lessor, '01'),
+        ]);
+    }
+
+    /**
+     * Formulario simplificado para dejar constancia de un pago del inquilino solo en el
+     * sistema (invoice_type = 'simple'): no genera XML ni se envía a Hacienda, así que no
+     * pide CABYS ni tipo de documento.
+     */
+    public function createPaymentReceipt(Request $request)
+    {
+        $user = $request->user();
+        $lessor = $user?->lessor;
+
+        if (!$lessor) {
+            return redirect()->route('admin.index');
+        }
+
+        $agreements = Agreement::with(['roomer.user', 'property'])
+            ->where('lessor_id', $lessor->id)
+            ->whereIn('status', ['accepted', 'canceling'])
+            ->orderByDesc('start_at')
+            ->get();
+
+        return view('admin.invoices.payment-receipt', [
+            'lessor' => $lessor,
+            'agreements' => $agreements,
+            'paymentMethodOptions' => Invoice::paymentMethodOptions(),
+            'conceptOptions' => InvoiceItem::conceptOptions(),
             'nextInvoiceNumberPreview' => $this->nextInvoiceNumber($lessor, '01'),
         ]);
     }
@@ -123,6 +195,50 @@ class InvoiceController extends Controller
         return redirect()->route('admin.invoices.index')->with('success', 'Consulta manual de estado encolada.');
     }
 
+    /**
+     * Descarga el XML firmado exactamente como se envió a Hacienda (queda guardado en
+     * InvoiceElectronicDetail::xml_content al momento del envío, no es un archivo en disco).
+     */
+    public function downloadElectronicXml(Request $request, int $invoiceId)
+    {
+        $invoice = $this->resolveLessorInvoice($request, $invoiceId);
+
+        if (!$invoice || !$invoice->electronicDetail || !$invoice->electronicDetail->xml_content) {
+            return redirect()->route('admin.invoices.index')->withErrors('Todavía no hay un XML enviado para esta factura.');
+        }
+
+        $filename = 'factura-' . ($invoice->electronicDetail->hacienda_key ?: $invoice->id) . '.xml';
+
+        return response($invoice->electronicDetail->xml_content, 200, [
+            'Content-Type' => 'application/xml',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * Descarga la respuesta cruda que Hacienda devolvió al recibir/consultar el comprobante
+     * (queda guardada en InvoiceElectronicDetail::ptec_response al momento del envío/consulta).
+     */
+    public function downloadElectronicResponse(Request $request, int $invoiceId)
+    {
+        $invoice = $this->resolveLessorInvoice($request, $invoiceId);
+
+        if (!$invoice || !$invoice->electronicDetail || !$invoice->electronicDetail->ptec_response) {
+            return redirect()->route('admin.invoices.index')->withErrors('Todavía no hay una respuesta de Hacienda para esta factura.');
+        }
+
+        $filename = 'respuesta-hacienda-' . ($invoice->electronicDetail->hacienda_key ?: $invoice->id) . '.json';
+
+        return response(
+            json_encode($invoice->electronicDetail->ptec_response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            200,
+            [
+                'Content-Type' => 'application/json',
+                'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            ]
+        );
+    }
+
     protected function resolveLessorInvoice(Request $request, int $invoiceId): ?Invoice
     {
         $lessor = $request->user()?->lessor;
@@ -171,6 +287,10 @@ class InvoiceController extends Controller
             'sale_condition' => ['required', Rule::in(array_keys(Invoice::saleConditionOptions()))],
             'payment_methods' => ['required', 'array', 'min:1'],
             'payment_methods.*' => [Rule::in(array_keys(Invoice::paymentMethodOptions()))],
+            'payment_method_other_description' => [
+                Rule::requiredIf(fn () => in_array('other', (array) $request->input('payment_methods', []), true)),
+                'nullable', 'string', 'max:255',
+            ],
             'reference_code' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
@@ -181,11 +301,16 @@ class InvoiceController extends Controller
             'items.*.commercial_code' => ['nullable', 'required_with:items.*.commercial_code_type', 'string', 'max:50'],
             'items.*.description' => ['required', 'string', 'max:500'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.001'],
+            // Solo lo usa el comprobante de pago simple; las facturas electrónicas se
+            // clasifican por CABYS, no por este concepto interno.
+            'items.*.concept' => ['required_if:invoice_type,simple', 'nullable', Rule::in(array_keys(InvoiceItem::CONCEPT_OPTIONS))],
             'items.*.unit_of_measure' => ['nullable', 'string', 'max:20'],
+            'items.*.transaction_type' => ['nullable', Rule::in(array_keys(Catalogs::transactionTypeOptions()))],
             'items.*.commercial_unit_of_measure' => ['nullable', 'string', 'max:50'],
             'items.*.item_type' => ['nullable', Rule::in(['service', 'goods'])],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.tax_condition' => ['nullable', Rule::in(['gravado', 'exento', 'no_sujeto'])],
             'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ], [
             'items.*.cabys_code.required_if' => 'Cada línea de una factura electrónica necesita un código CABYS (búscalo en el modal de la línea).',
@@ -239,6 +364,7 @@ class InvoiceController extends Controller
                 'late_fee_total' => $validated['late_fee_total'] ?? 0,
                 'sale_condition' => $validated['sale_condition'],
                 'payment_methods' => $validated['payment_methods'],
+                'payment_method_other_description' => $validated['payment_method_other_description'] ?? null,
                 'reference_code' => $validated['reference_code'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'status' => 'draft',
@@ -299,10 +425,24 @@ class InvoiceController extends Controller
         }
 
         $message = match (true) {
-            $isCreditNote => 'Nota de crédito electrónica creada. La clave oficial se generará al momento del envío.',
-            $documentType !== null => 'Factura electrónica creada. La clave oficial se generará al momento del envío.',
+            $isCreditNote => 'Nota de crédito electrónica creada y enviada a Hacienda.',
+            $documentType !== null => 'Factura electrónica creada y enviada a Hacienda.',
             default => 'Factura simple creada exitosamente.',
         };
+
+        // Toda factura creada desde este formulario es electrónica: se envía a Hacienda de
+        // inmediato en vez de dejarla pendiente de un clic aparte en "Enviar".
+        if ($documentType) {
+            try {
+                SendElectronicInvoiceJob::dispatch($invoice->id);
+            } catch (RuntimeException $exception) {
+                // Con cola "sync" el job corre en la misma petición y puede relanzar la
+                // excepción; el detalle del error ya quedó guardado en la factura por el job.
+                return redirect()
+                    ->route('admin.invoices.index')
+                    ->with('success', 'Factura creada, pero Hacienda rechazó el envío: ' . $exception->getMessage());
+            }
+        }
 
         return redirect()
             ->route('admin.invoices.index')

@@ -1,0 +1,95 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: alquileres_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - alquileres
+
+  webserver:
+    image: nginx:stable-alpine
+    container_name: alquileres_webserver
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - alquileres
+
+  db:
+    image: mysql:8.0
+    container_name: alquileres_db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=bd_appalquileres
+      - MYSQL_USER=laravel
+      - MYSQL_PASSWORD=laravel
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - alquileres_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - alquileres
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: alquileres_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=root
+      - PMA_PASSWORD=root
+    depends_on:
+      - db
+    networks:
+      - alquileres
+
+  node:
+    image: node:20-alpine
+    container_name: alquileres_node
+    working_dir: /var/www/html
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/var/www/html
+      - node_modules_data:/var/www/html/node_modules
+    networks:
+      - alquileres
+
+networks:
+  alquileres:
+    driver: bridge
+
+volumes:
+  alquileres_db_data:
+    driver: local
+  vendor_data:
+    driver: local
+  node_modules_data:
+    driver: local

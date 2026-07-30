@@ -145,12 +145,13 @@
                             <small class="text-muted" style="font-size:9pt;">Solo aplica cuando la frecuencia de pago es anual.</small>
                         </div>
 
-                        <div class="col-md-3">
-                            <label for="amount" class="form-label">Monto</label>
-                            <input id="amount" name="amount" type="number" step="0.01" min="0" class="form-control" value="{{ old('amount', 0) }}" required>
+                        <div class="col-md-4">
+                            <label for="deadline_pay" class="form-label">Días de gracia</label>
+                            <input id="deadline_pay" name="deadline_pay" type="number" min="0" class="form-control" value="{{ old('deadline_pay', 0) }}" required>
+                            <small class="text-muted" style="font-size:9pt;">Días después de la fecha de pago sin recargo por mora.</small>
                         </div>
 
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label for="currency" class="form-label">Moneda</label>
                             <select id="currency" name="currency" class="form-select" required>
                                 @foreach (\App\Models\Agreement::CURRENCY_OPTIONS as $value => $label)
@@ -160,14 +161,22 @@
                         </div>
 
                         <div class="col-md-3">
+                            <label for="amount" class="form-label">Monto</label>
+                            <input id="amount" name="amount" type="number" step="0.01" min="0" class="form-control" value="{{ old('amount', 0) }}" required>
+                        </div>
+
+                        <div class="col-md-3">
                             <label for="deposit" class="form-label">Depósito</label>
                             <input id="deposit" name="deposit" type="number" step="0.01" min="0" class="form-control" value="{{ old('deposit', 0) }}" required>
                         </div>
 
-                        <div class="col-md-3">
-                            <label for="deadline_pay" class="form-label">Días de gracia</label>
-                            <input id="deadline_pay" name="deadline_pay" type="number" min="0" class="form-control" value="{{ old('deadline_pay', 0) }}" required>
-                            <small class="text-muted" style="font-size:9pt;">Días después de la fecha de pago sin recargo por mora.</small>
+                        <div class="col-md-4">
+                            <label for="deadline_deposit" class="form-label">Fecha límite del depósito</label>
+                            <input id="deadline_deposit" name="deadline_deposit" type="date" class="form-control" value="{{ old('deadline_deposit') }}" @if (empty(old('deadline_deposit'))) disabled @endif>
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" id="deadline_deposit_unlimited" @checked(empty(old('deadline_deposit')))>
+                                <label class="form-check-label" for="deadline_deposit_unlimited" style="font-size:9pt;">Sin fecha límite</label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -236,6 +245,93 @@
                                 <div class="col-md-4" id="max_days_wrapper">
                                     <label for="max_days" class="form-label">Días máximos de acumulación</label>
                                     <input id="max_days" name="max_days" type="number" min="0" class="form-control" value="{{ old('max_days', 0) }}">
+                                    <small class="text-muted" style="font-size:9pt;">Pasados estos días de atraso, el recargo deja de seguir acumulándose.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            @php
+                $depositPolicyEligible = ((float) old('deposit', 0)) > 0 && !empty(old('deadline_deposit'));
+            @endphp
+
+            <section class="section">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+                        <div>
+                            <h4 class="card-title">Política de morosidad del depósito</h4>
+                            <p class="text-muted mb-0" style="font-size:10pt;">Define el recargo aplicable si el depósito no se entrega antes de la fecha límite indicada arriba. Es independiente de la política de morosidad del alquiler.</p>
+                        </div>
+                        <div class="form-check" id="same_as_rent_deposit_policy_wrapper" style="display:none;">
+                            <input class="form-check-input" type="checkbox" id="same_as_rent_deposit_policy" name="same_as_rent_deposit_policy" value="1" @checked(old('same_as_rent_deposit_policy'))>
+                            <label class="form-check-label" for="same_as_rent_deposit_policy">Aplicar la misma política del alquiler</label>
+                        </div>
+                    </div>
+                    <div class="card-body" id="deposit_policy_not_eligible_note" style="display:{{ $depositPolicyEligible ? 'none' : '' }};">
+                        <div class="alert alert-light-secondary mb-0">Para configurar esta política, indica un depósito mayor a 0 y una fecha límite del depósito.</div>
+                    </div>
+                    <div class="card-body" id="deposit_policy_same_as_rent_note" style="display:none;">
+                        <div class="alert alert-light-info mb-0">Se aplicará la misma política de morosidad definida para el alquiler.</div>
+                    </div>
+                    <div class="card-body row g-3" id="deposit_policy_fields_wrapper" style="display:{{ $depositPolicyEligible ? '' : 'none' }};">
+                        <div class="col-md-4">
+                            <label for="type_sanction_deposit" class="form-label">Tipo de sanción</label>
+                            <select id="type_sanction_deposit" name="type_sanction_deposit" class="form-select" required>
+                                @foreach (\App\Models\Agreement::TYPE_SANCTION_OPTIONS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('type_sanction_deposit', 'none') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-12" id="mora_deposit_details_wrapper">
+                            <div class="row g-3">
+                                <div class="col-md-4" id="surcharge_delay_deposit_wrapper">
+                                    <label for="surcharge_delay_deposit" class="form-label">Porcentaje de recargo</label>
+                                    <input id="surcharge_delay_deposit" name="surcharge_delay_deposit" type="number" step="0.01" min="0" class="form-control" value="{{ old('surcharge_delay_deposit', 0) }}">
+                                    <small class="text-muted" style="font-size:9pt;">Porcentaje que se aplica por cada periodo de atraso.</small>
+                                </div>
+
+                                <div class="col-md-4" id="amount_delay_deposit_wrapper">
+                                    <label for="amount_delay_deposit" class="form-label">Monto fijo de recargo</label>
+                                    <input id="amount_delay_deposit" name="amount_delay_deposit" type="number" step="0.01" min="0" class="form-control" value="{{ old('amount_delay_deposit', 0) }}">
+                                    <small class="text-muted" style="font-size:9pt;">Monto fijo que se aplica por cada periodo de atraso.</small>
+                                </div>
+
+                                <div class="col-md-4" id="base_deposit_wrapper">
+                                    <label for="base_deposit" class="form-label">Base de cálculo</label>
+                                    <select id="base_deposit" name="base_deposit" class="form-select">
+                                        <option value="">Selecciona una base</option>
+                                        @foreach (\App\Models\Agreement::BASE_OPTIONS as $value => $label)
+                                            <option value="{{ $value }}" @selected(old('base_deposit') === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted" style="font-size:9pt;">Sobre qué monto se calcula el porcentaje: el depósito original o el saldo pendiente.</small>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label for="frequency_sanction_deposit" class="form-label">Frecuencia de aplicación</label>
+                                    <select id="frequency_sanction_deposit" name="frequency_sanction_deposit" class="form-select">
+                                        <option value="">Selecciona una frecuencia</option>
+                                        @foreach (\App\Models\Agreement::FREQUENCY_SANCTION_OPTIONS as $value => $label)
+                                            <option value="{{ $value }}" @selected(old('frequency_sanction_deposit') === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted" style="font-size:9pt;">Cada cuánto se vuelve a aplicar el recargo mientras el depósito siga sin entregarse.</small>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label for="max_days_unlimited_deposit" class="form-label">Límite de acumulación</label>
+                                    <select id="max_days_unlimited_deposit" name="max_days_unlimited_deposit" class="form-select">
+                                        <option value="0" @selected(old('max_days_unlimited_deposit', '0') == '0')>Definido (indicar días)</option>
+                                        <option value="1" @selected(old('max_days_unlimited_deposit') == '1')>Indefinido (sin límite)</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-4" id="max_days_deposit_wrapper">
+                                    <label for="max_days_deposit" class="form-label">Días máximos de acumulación</label>
+                                    <input id="max_days_deposit" name="max_days_deposit" type="number" min="0" class="form-control" value="{{ old('max_days_deposit', 0) }}">
                                     <small class="text-muted" style="font-size:9pt;">Pasados estos días de atraso, el recargo deja de seguir acumulándose.</small>
                                 </div>
                             </div>
@@ -361,6 +457,151 @@
             maxDaysUnlimitedSelect?.addEventListener('change', toggleMaxDaysField);
             toggleMonthField();
             toggleSanctionFields();
+
+            const depositInput = document.getElementById('deposit');
+            const deadlineDepositInput = document.getElementById('deadline_deposit');
+            const deadlineDepositUnlimitedCheckbox = document.getElementById('deadline_deposit_unlimited');
+
+            const toggleDeadlineDepositField = () => {
+                const unlimited = deadlineDepositUnlimitedCheckbox.checked;
+                deadlineDepositInput.disabled = unlimited;
+                deadlineDepositInput.style.display = unlimited ? 'none' : '';
+
+                if (unlimited) {
+                    deadlineDepositInput.value = '';
+                }
+            };
+
+            deadlineDepositUnlimitedCheckbox?.addEventListener('change', () => {
+                toggleDeadlineDepositField();
+                updateDepositPolicySectionVisibility();
+            });
+            toggleDeadlineDepositField();
+
+            const typeSanctionDepositSelect = document.getElementById('type_sanction_deposit');
+            const moraDepositDetailsWrapper = document.getElementById('mora_deposit_details_wrapper');
+            const surchargeDelayDepositWrapper = document.getElementById('surcharge_delay_deposit_wrapper');
+            const amountDelayDepositWrapper = document.getElementById('amount_delay_deposit_wrapper');
+            const baseDepositWrapper = document.getElementById('base_deposit_wrapper');
+            const maxDaysUnlimitedDepositSelect = document.getElementById('max_days_unlimited_deposit');
+            const maxDaysDepositWrapper = document.getElementById('max_days_deposit_wrapper');
+            const sameAsRentDepositPolicyCheckbox = document.getElementById('same_as_rent_deposit_policy');
+            const sameAsRentDepositPolicyWrapper = document.getElementById('same_as_rent_deposit_policy_wrapper');
+            const depositPolicyFieldsWrapper = document.getElementById('deposit_policy_fields_wrapper');
+            const depositPolicySameAsRentNote = document.getElementById('deposit_policy_same_as_rent_note');
+            const depositPolicyNotEligibleNote = document.getElementById('deposit_policy_not_eligible_note');
+
+            const toggleMaxDaysDepositField = () => {
+                maxDaysDepositWrapper.style.display = maxDaysUnlimitedDepositSelect.value === '1' ? 'none' : '';
+            };
+
+            const toggleSanctionDepositFields = () => {
+                const isNone = typeSanctionDepositSelect.value === 'none';
+                const isPercent = typeSanctionDepositSelect.value === 'percent';
+                const isAmountFix = typeSanctionDepositSelect.value === 'amount_fix';
+
+                moraDepositDetailsWrapper.style.display = isNone ? 'none' : '';
+                surchargeDelayDepositWrapper.style.display = isPercent ? '' : 'none';
+                baseDepositWrapper.style.display = isPercent ? '' : 'none';
+                amountDelayDepositWrapper.style.display = isAmountFix ? '' : 'none';
+
+                if (!isNone) {
+                    toggleMaxDaysDepositField();
+                }
+            };
+
+            // Mapa campo del alquiler -> campo equivalente del depósito, usado para el
+            // autorrelleno del checkbox "Aplicar la misma política del alquiler".
+            const rentToDepositFieldMap = {
+                type_sanction: 'type_sanction_deposit',
+                surcharge_delay: 'surcharge_delay_deposit',
+                amount_delay: 'amount_delay_deposit',
+                base: 'base_deposit',
+                frequency_sanction: 'frequency_sanction_deposit',
+                max_days_unlimited: 'max_days_unlimited_deposit',
+                max_days: 'max_days_deposit',
+            };
+
+            const applyRentPolicyToDeposit = () => {
+                Object.entries(rentToDepositFieldMap).forEach(([rentId, depositId]) => {
+                    const rentField = document.getElementById(rentId);
+                    const depositField = document.getElementById(depositId);
+                    if (rentField && depositField) {
+                        depositField.value = rentField.value;
+                    }
+                });
+                toggleSanctionDepositFields();
+            };
+
+            // Los detalles de la política del depósito solo se muestran (y son
+            // obligatorios) cuando NO se está aplicando la misma política del alquiler.
+            const updateDepositPolicyFieldsVisibility = () => {
+                const sameAsRent = sameAsRentDepositPolicyCheckbox.checked;
+                depositPolicyFieldsWrapper.style.display = sameAsRent ? 'none' : '';
+                depositPolicySameAsRentNote.style.display = sameAsRent ? '' : 'none';
+                typeSanctionDepositSelect.required = !sameAsRent;
+            };
+
+            // El checkbox solo tiene sentido si el alquiler sí tiene una sanción
+            // definida; si el alquiler pasa a "Sin sanción", se oculta y se desmarca.
+            const updateSameAsRentDepositVisibility = () => {
+                const rentHasSanction = typeSanctionSelect.value !== 'none';
+                sameAsRentDepositPolicyWrapper.style.display = rentHasSanction ? '' : 'none';
+
+                if (!rentHasSanction && sameAsRentDepositPolicyCheckbox.checked) {
+                    sameAsRentDepositPolicyCheckbox.checked = false;
+                    updateDepositPolicyFieldsVisibility();
+                }
+            };
+
+            // La política de morosidad del depósito solo se puede configurar si hay un
+            // depósito mayor a 0 y una fecha límite definida; si no, toda la sección
+            // (checkbox y campos) queda oculta y se muestra una nota explicativa.
+            const isDepositPolicyEligible = () => {
+                const depositValue = parseFloat(depositInput.value || '0');
+                const hasDeposit = !Number.isNaN(depositValue) && depositValue > 0;
+                const hasDeadline = !deadlineDepositUnlimitedCheckbox.checked && !!deadlineDepositInput.value;
+                return hasDeposit && hasDeadline;
+            };
+
+            const updateDepositPolicySectionVisibility = () => {
+                const eligible = isDepositPolicyEligible();
+                depositPolicyNotEligibleNote.style.display = eligible ? 'none' : '';
+
+                if (!eligible) {
+                    sameAsRentDepositPolicyWrapper.style.display = 'none';
+                    depositPolicyFieldsWrapper.style.display = 'none';
+                    depositPolicySameAsRentNote.style.display = 'none';
+                    typeSanctionDepositSelect.required = false;
+                    return;
+                }
+
+                updateSameAsRentDepositVisibility();
+                updateDepositPolicyFieldsVisibility();
+            };
+
+            sameAsRentDepositPolicyCheckbox?.addEventListener('change', () => {
+                if (sameAsRentDepositPolicyCheckbox.checked) {
+                    applyRentPolicyToDeposit();
+                }
+                updateDepositPolicyFieldsVisibility();
+            });
+
+            Object.keys(rentToDepositFieldMap).forEach((rentId) => {
+                document.getElementById(rentId)?.addEventListener('change', () => {
+                    if (sameAsRentDepositPolicyCheckbox?.checked) {
+                        applyRentPolicyToDeposit();
+                    }
+                });
+            });
+
+            typeSanctionSelect?.addEventListener('change', updateSameAsRentDepositVisibility);
+            typeSanctionDepositSelect?.addEventListener('change', toggleSanctionDepositFields);
+            maxDaysUnlimitedDepositSelect?.addEventListener('change', toggleMaxDaysDepositField);
+            depositInput?.addEventListener('input', updateDepositPolicySectionVisibility);
+            deadlineDepositInput?.addEventListener('change', updateDepositPolicySectionVisibility);
+            toggleSanctionDepositFields();
+            updateDepositPolicySectionVisibility();
 
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();

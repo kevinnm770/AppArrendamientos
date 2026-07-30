@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CrProvince;
 use App\Models\EmailChangeRequest;
 use App\Models\PasswordChangeRequest;
 use Illuminate\Support\Facades\Auth;
@@ -45,7 +46,9 @@ class UserController extends Controller
             ->latest()
             ->first();
 
-        return view('configuration.index', compact('user', 'datarole', 'pendingEmailChange', 'pendingPasswordChange'));
+        $provinces = CrProvince::orderBy('code')->get(['code', 'name']);
+
+        return view('configuration.index', compact('user', 'datarole', 'pendingEmailChange', 'pendingPasswordChange', 'provinces'));
     }
 
     /**

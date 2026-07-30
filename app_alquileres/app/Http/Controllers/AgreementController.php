@@ -6,6 +6,7 @@ use App\Models\Agreement;
 use App\Models\Property;
 use App\Models\Roomer;
 use App\Services\NotificationService;
+use App\Services\TenantBalanceService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -18,8 +19,10 @@ use Illuminate\Validation\Rule;
 
 class AgreementController extends Controller
 {
-    public function __construct(private readonly NotificationService $notificationService)
-    {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+        private readonly TenantBalanceService $tenantBalanceService
+    ) {
     }
 
     public function index(Request $request)
@@ -143,14 +146,22 @@ class AgreementController extends Controller
                 ->withErrors(['agreement' => 'Este contrato ya no se puede editar porque su estado no es "sent".']);
         }
 
+        $sameAsRentDepositPolicy = $request->boolean('same_as_rent_deposit_policy');
+        $depositPolicyEligible = $this->isDepositPolicyEligible($request);
+        $requireDepositMora = $depositPolicyEligible && !$sameAsRentDepositPolicy;
+
         $validated = $request->validate(array_merge([
             'start_at' => ['required', 'date'],
             'end_at' => ['required', 'date', 'after_or_equal:start_at'],
             'signed_doc_file' => [$agreement->signedDoc ? 'nullable' : 'required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
-        ], $this->businessFieldRules()));
+        ], $this->businessFieldRules($requireDepositMora)));
 
         if ($moraError = $this->validateMoraPolicy($validated)) {
             return back()->withErrors(['type_sanction' => $moraError])->withInput();
+        }
+
+        if ($requireDepositMora && $moraDepositError = $this->validateMoraPolicy($validated, '_deposit')) {
+            return back()->withErrors(['type_sanction_deposit' => $moraDepositError])->withInput();
         }
 
         $startAt = Carbon::parse($validated['start_at'])->setTimeFrom(now());
@@ -168,7 +179,7 @@ class AgreementController extends Controller
                 ->withInput();
         }
 
-        $agreement->update(array_merge($this->businessFieldValues($validated), [
+        $agreement->update(array_merge($this->businessFieldValues($validated, $sameAsRentDepositPolicy, $depositPolicyEligible), [
             'start_at' => $startAt,
             'end_at' => $endAt,
             'updated_by_user_id' => $request->user()->id,
@@ -402,7 +413,11 @@ class AgreementController extends Controller
             return response()->json(['message' => 'Contrato no encontrado.'], 404);
         }
 
-        $terms = $agreement->effectiveTerms();
+        $issueDate = $request->query('date')
+            ? Carbon::parse($request->query('date'))
+            : Carbon::now();
+
+        $terms = $agreement->effectiveTerms($issueDate);
         $isHousing = $agreement->service_type === 'home';
 
         return response()->json([
@@ -413,7 +428,39 @@ class AgreementController extends Controller
             'suggested_description' => $isHousing
                 ? 'Canon de arrendamiento de vivienda'
                 : 'Canon de arrendamiento de local comercial',
+            // Sugerencias editables, no un cálculo legal definitivo: fecha límite de pago
+            // (día de pago del contrato + días de gracia) y mora (según la última factura
+            // vencida del contrato y la política de morosidad vigente).
+            'suggested_due_date' => $agreement->suggestedDueDate($issueDate)->toDateString(),
+            'suggested_late_fee' => $agreement->suggestedLateFee($issueDate),
         ]);
+    }
+
+    /**
+     * Desglose de cuánto le debe el inquilino al arrendador a una fecha dada (alquiler,
+     * depósito y morosidad de cada uno por separado), restando lo ya registrado en
+     * comprobantes previos no anulados. Usado por el formulario de comprobante de pago
+     * para mostrar el saldo pendiente antes de llenar las líneas.
+     */
+    public function tenantBalance(Request $request, int $agreementId)
+    {
+        $lessor = $request->user()?->lessor;
+
+        if (!$lessor) {
+            return response()->json(['message' => 'No autorizado.'], 403);
+        }
+
+        $agreement = Agreement::where('lessor_id', $lessor->id)->find($agreementId);
+
+        if (!$agreement) {
+            return response()->json(['message' => 'Contrato no encontrado.'], 404);
+        }
+
+        $asOf = $request->query('date')
+            ? Carbon::parse($request->query('date'))
+            : Carbon::now();
+
+        return response()->json($this->tenantBalanceService->breakdownFor($agreement, $asOf));
     }
 
     public function store(Request $request, SignedDocService $signedDocService)
@@ -426,6 +473,10 @@ class AgreementController extends Controller
                 ->route('admin.agreements.index')
                 ->withErrors(['lessor' => 'Debes completar tu perfil de arrendador antes de registrar contratos.']);
         }
+
+        $sameAsRentDepositPolicy = $request->boolean('same_as_rent_deposit_policy');
+        $depositPolicyEligible = $this->isDepositPolicyEligible($request);
+        $requireDepositMora = $depositPolicyEligible && !$sameAsRentDepositPolicy;
 
         $validated = $request->validate(array_merge([
             'property_id' => [
@@ -441,10 +492,14 @@ class AgreementController extends Controller
             'start_at' => ['required', 'date'],
             'end_at' => ['required', 'date', 'after_or_equal:start_at'],
             'signed_doc_file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,bmp,tiff', 'max:10240'],
-        ], $this->businessFieldRules()));
+        ], $this->businessFieldRules($requireDepositMora)));
 
         if ($moraError = $this->validateMoraPolicy($validated)) {
             return back()->withErrors(['type_sanction' => $moraError])->withInput();
+        }
+
+        if ($requireDepositMora && $moraDepositError = $this->validateMoraPolicy($validated, '_deposit')) {
+            return back()->withErrors(['type_sanction_deposit' => $moraDepositError])->withInput();
         }
 
         $property = Property::where('lessor_id', $lessor->id)
@@ -477,8 +532,8 @@ class AgreementController extends Controller
                 ->withInput();
         }
 
-        $agreement = DB::transaction(function () use ($validated, $lessor, $user, $startAt, $endAt) {
-            $agreement = Agreement::create(array_merge($this->businessFieldValues($validated), [
+        $agreement = DB::transaction(function () use ($validated, $sameAsRentDepositPolicy, $depositPolicyEligible, $lessor, $user, $startAt, $endAt) {
+            $agreement = Agreement::create(array_merge($this->businessFieldValues($validated, $sameAsRentDepositPolicy, $depositPolicyEligible), [
                 'contract_number' => 'TMP-' . Str::random(20),
                 'property_id' => (int) $validated['property_id'],
                 'lessor_id' => $lessor->id,
@@ -667,7 +722,13 @@ class AgreementController extends Controller
         ];
     }
 
-    private function businessFieldRules(): array
+    /**
+     * $requireDepositMora es false cuando el submit no necesita traer su propia política
+     * de morosidad del depósito: porque se copiará la del alquiler (checkbox "misma
+     * política"), o porque la sección ni siquiera es elegible (sin depósito o sin fecha
+     * límite) y businessFieldValues() la va a dejar en blanco de todas formas.
+     */
+    private function businessFieldRules(bool $requireDepositMora = true): array
     {
         return [
             'frequency_pay' => ['required', Rule::in(array_keys(Agreement::FREQUENCY_PAY_OPTIONS))],
@@ -677,6 +738,7 @@ class AgreementController extends Controller
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', Rule::in(array_keys(Agreement::CURRENCY_OPTIONS))],
             'deposit' => ['nullable', 'numeric', 'min:0'],
+            'deadline_deposit' => ['nullable', 'date'],
             'type_sanction' => ['required', Rule::in(array_keys(Agreement::TYPE_SANCTION_OPTIONS))],
             'surcharge_delay' => ['nullable', 'numeric', 'min:0'],
             'amount_delay' => ['nullable', 'numeric', 'min:0'],
@@ -684,17 +746,52 @@ class AgreementController extends Controller
             'base' => ['nullable', Rule::in(array_keys(Agreement::BASE_OPTIONS))],
             'max_days_unlimited' => ['nullable', 'boolean'],
             'max_days' => ['nullable', 'integer', 'min:0'],
+            'type_sanction_deposit' => [$requireDepositMora ? 'required' : 'nullable', Rule::in(array_keys(Agreement::TYPE_SANCTION_OPTIONS))],
+            'surcharge_delay_deposit' => ['nullable', 'numeric', 'min:0'],
+            'amount_delay_deposit' => ['nullable', 'numeric', 'min:0'],
+            'frequency_sanction_deposit' => ['nullable', Rule::in(array_keys(Agreement::FREQUENCY_SANCTION_OPTIONS))],
+            'base_deposit' => ['nullable', Rule::in(array_keys(Agreement::BASE_OPTIONS))],
+            'max_days_unlimited_deposit' => ['nullable', 'boolean'],
+            'max_days_deposit' => ['nullable', 'integer', 'min:0'],
         ];
     }
 
-    private function validateMoraPolicy(array $validated): ?string
+    private function validateMoraPolicy(array $validated, string $suffix = ''): ?string
     {
-        return Agreement::validateMoraPolicyInput($validated);
+        return Agreement::validateMoraPolicyInput($validated, $suffix);
     }
 
-    private function businessFieldValues(array $validated): array
+    /**
+     * La política de morosidad del depósito solo tiene sentido si hay un depósito
+     * mayor a 0 y una fecha límite definida para entregarlo; se evalúa sobre el
+     * request crudo porque debe estar resuelta antes de construir las reglas de
+     * validación (ver businessFieldRules()).
+     */
+    private function isDepositPolicyEligible(Request $request): bool
+    {
+        $deposit = (float) $request->input('deposit', 0);
+        $deadlineDeposit = $request->input('deadline_deposit');
+
+        return $deposit > 0 && !empty($deadlineDeposit);
+    }
+
+    /**
+     * Cuando $sameAsRentDepositPolicy es true, la política de morosidad del depósito
+     * no se lee del submit: se copia tal cual la del alquiler, campo por campo, para
+     * garantizar que ambas queden exactamente iguales. Cuando la sección no es elegible
+     * ($depositPolicyEligible false), se ignora cualquier valor enviado y queda en blanco.
+     */
+    private function businessFieldValues(array $validated, bool $sameAsRentDepositPolicy, bool $depositPolicyEligible): array
     {
         $isAnnual = ($validated['frequency_pay'] ?? null) === 'annual';
+
+        $rentMoraValues = Agreement::moraPolicyValuesFromInput($validated);
+
+        $depositMoraValues = match (true) {
+            !$depositPolicyEligible => Agreement::moraPolicyValuesFromInput(['type_sanction_deposit' => 'none'], '_deposit'),
+            $sameAsRentDepositPolicy => collect($rentMoraValues)->mapWithKeys(fn ($value, $field) => ["{$field}_deposit" => $value])->all(),
+            default => Agreement::moraPolicyValuesFromInput($validated, '_deposit'),
+        };
 
         return array_merge([
             'frequency_pay' => $validated['frequency_pay'],
@@ -704,6 +801,7 @@ class AgreementController extends Controller
             'amount' => $validated['amount'],
             'currency' => $validated['currency'],
             'deposit' => $validated['deposit'] ?? 0,
-        ], Agreement::moraPolicyValuesFromInput($validated));
+            'deadline_deposit' => $validated['deadline_deposit'] ?? null,
+        ], $rentMoraValues, $depositMoraValues);
     }
 }

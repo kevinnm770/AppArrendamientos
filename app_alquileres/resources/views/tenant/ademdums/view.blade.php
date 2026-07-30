@@ -103,6 +103,11 @@
                                 <td>{!! $badge('deposit') !!}</td>
                             </tr>
                             <tr>
+                                <td>Fecha límite del depósito</td>
+                                <td>{{ optional($val('deadline_deposit'))->format('d/m/Y') ?? 'No aplica' }}</td>
+                                <td>{!! $badge('deadline_deposit') !!}</td>
+                            </tr>
+                            <tr>
                                 <td>Días de gracia</td>
                                 <td>{{ $val('deadline_pay') }}</td>
                                 <td>{!! $badge('deadline_pay') !!}</td>
@@ -152,6 +157,53 @@
                                 <tr>
                                     <td>Días máximos de acumulación</td>
                                     <td colspan="2">{{ $val('max_days_unlimited') ? 'Sin límite' : $val('max_days') }}</td>
+                                </tr>
+                            @endif
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr>
+
+                <h5>Política de morosidad del depósito</h5>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:35%;">Campo</th>
+                                <th>Valor</th>
+                                <th style="width:180px;">Origen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Tipo de sanción</td>
+                                <td>{{ \App\Models\Agreement::TYPE_SANCTION_OPTIONS[$val('type_sanction_deposit')] ?? $val('type_sanction_deposit') }}</td>
+                                <td>{!! $badge('type_sanction_deposit') !!}</td>
+                            </tr>
+                            @if ($val('type_sanction_deposit') === 'percent')
+                                <tr>
+                                    <td>Porcentaje de recargo</td>
+                                    <td colspan="2">{{ $val('surcharge_delay_deposit') }}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Base de cálculo</td>
+                                    <td colspan="2">{{ \App\Models\Agreement::BASE_OPTIONS[$val('base_deposit')] ?? $val('base_deposit') }}</td>
+                                </tr>
+                            @elseif ($val('type_sanction_deposit') === 'amount_fix')
+                                <tr>
+                                    <td>Monto fijo de recargo</td>
+                                    <td colspan="2">{{ number_format((float) $val('amount_delay_deposit'), 2) }}</td>
+                                </tr>
+                            @endif
+                            @if ($val('type_sanction_deposit') !== 'none')
+                                <tr>
+                                    <td>Frecuencia de aplicación</td>
+                                    <td colspan="2">{{ \App\Models\Agreement::FREQUENCY_SANCTION_OPTIONS[$val('frequency_sanction_deposit')] ?? $val('frequency_sanction_deposit') }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Días máximos de acumulación</td>
+                                    <td colspan="2">{{ $val('max_days_unlimited_deposit') ? 'Sin límite' : $val('max_days_deposit') }}</td>
                                 </tr>
                             @endif
                         </tbody>

@@ -17,6 +17,7 @@ class Ademdum extends Model
         'amount',
         'currency',
         'deposit',
+        'deadline_deposit',
         'type_sanction',
         'surcharge_delay',
         'amount_delay',
@@ -24,6 +25,13 @@ class Ademdum extends Model
         'base',
         'max_days_unlimited',
         'max_days',
+        'type_sanction_deposit',
+        'surcharge_delay_deposit',
+        'amount_delay_deposit',
+        'frequency_sanction_deposit',
+        'base_deposit',
+        'max_days_unlimited_deposit',
+        'max_days_deposit',
         'status',
         'tenant_confirmed_at',
         'locked_at',
@@ -39,9 +47,13 @@ class Ademdum extends Model
         'cancelled_at' => 'datetime',
         'amount' => 'decimal:2',
         'deposit' => 'decimal:2',
+        'deadline_deposit' => 'date',
         'surcharge_delay' => 'decimal:2',
         'amount_delay' => 'decimal:2',
         'max_days_unlimited' => 'boolean',
+        'surcharge_delay_deposit' => 'decimal:2',
+        'amount_delay_deposit' => 'decimal:2',
+        'max_days_unlimited_deposit' => 'boolean',
     ];
 
     public function agreement()
@@ -67,7 +79,8 @@ class Ademdum extends Model
         ));
 
         $mora = $this->type_sanction !== null ? Agreement::MORA_FIELDS : [];
+        $moraDeposit = $this->type_sanction_deposit !== null ? Agreement::DEPOSIT_MORA_FIELDS : [];
 
-        return [...$independent, ...$mora];
+        return [...$independent, ...$mora, ...$moraDeposit];
     }
 }

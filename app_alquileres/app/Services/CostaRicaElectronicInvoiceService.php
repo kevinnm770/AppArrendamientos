@@ -196,7 +196,13 @@ class CostaRicaElectronicInvoiceService
             ? $detail->hacienda_consecutive
             : $this->claveGenerator->nextConsecutivo($lessor->id, $sucursal, $terminal, $documentType);
 
-        $clave = $this->claveGenerator->clave((string) $lessor->id_number, $consecutivo);
+        // En un reintento, la fecha de emisión también se refresca a "ahora": Hacienda exige
+        // que la fecha codificada dentro de la Clave coincida EXACTAMENTE con FechaEmision
+        // (rechazo real: "la fecha de la clave numérica no concuerda con Fecha Emisión"), y
+        // además rechaza envíos "extemporáneos" si FechaEmision queda muy atrás en el tiempo
+        // respecto al momento real del envío (Resolución 48-2016, art. 9 y 15).
+        $issuedAt = $forceNewKey ? now('America/Costa_Rica') : ($invoice->issued_at ?? now('America/Costa_Rica'));
+        $clave = $this->claveGenerator->clave((string) $lessor->id_number, $consecutivo, $issuedAt);
 
         $detail->forceFill([
             'hacienda_key' => $clave,
@@ -206,8 +212,18 @@ class CostaRicaElectronicInvoiceService
             'internal_number' => str_pad((string) $invoice->id, 10, '0', STR_PAD_LEFT),
         ])->save();
 
+        $invoiceUpdates = [];
+
         if ($invoice->invoice_number !== $consecutivo) {
-            $invoice->forceFill(['invoice_number' => $consecutivo])->save();
+            $invoiceUpdates['invoice_number'] = $consecutivo;
+        }
+
+        if ($forceNewKey) {
+            $invoiceUpdates['issued_at'] = $issuedAt;
+        }
+
+        if ($invoiceUpdates !== []) {
+            $invoice->forceFill($invoiceUpdates)->save();
         }
     }
 
@@ -219,6 +235,9 @@ class CostaRicaElectronicInvoiceService
             'id_number' => $lessor->id_number,
             'legal_name' => $lessor->legal_name,
             'phone' => $lessor->phone,
+            // CorreoElectronico del Emisor es obligatorio en el XSD real (sin minOccurs="0"),
+            // a diferencia del receptor donde sí es opcional.
+            'email' => $lessor->email ?: $lessor->user?->email,
             'economic_activity_code' => $lessor->economic_activity_code,
             'certificate_code' => $lessor->certificate_code,
             'certificate_pin' => $lessor->certificate_pin,

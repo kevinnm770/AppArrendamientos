@@ -6,6 +6,7 @@ use App\Services\Hacienda\Contracts\XmlSignerInterface;
 use App\Services\Hacienda\XadesBesSigner;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // El admin usa Bootstrap (no Tailwind, el default de Laravel), para que la
+        // paginación se vea consistente con el resto de la interfaz.
+        Paginator::useBootstrapFive();
+
         VerifyEmail::toMailUsing(function ($notifiable, string $url) {
             $name = $notifiable->name ?? '';
 

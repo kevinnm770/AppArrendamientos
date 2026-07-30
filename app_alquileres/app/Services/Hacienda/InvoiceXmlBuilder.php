@@ -71,7 +71,7 @@ class InvoiceXmlBuilder
 
         $root->appendChild($this->buildParty($doc, 'Emisor', $lessor->legal_name, $lessor->commercial_name, $lessor->identification_type, (string) $lessor->id_number, $lessor->province, $lessor->canton, $lessor->district, $lessor->barrio, $lessor->other_signs ?: $lessor->address, $lessor->phone, $lessor->email ?: $lessor->user?->email));
 
-        $root->appendChild($this->buildParty($doc, 'Receptor', $roomer->legal_name, null, $roomer->identification_type, (string) $roomer->id_number, null, null, null, null, null, $roomer->phone, $roomer->user?->email));
+        $root->appendChild($this->buildParty($doc, 'Receptor', $roomer->legal_name, null, $roomer->identification_type, (string) $roomer->id_number, $roomer->province, $roomer->canton, $roomer->district, $roomer->barrio, null, $roomer->phone, $roomer->user?->email));
 
         $root->appendChild($doc->createElement('CondicionVenta', Catalogs::saleConditionCode((string) $invoice->sale_condition)));
 
@@ -92,21 +92,19 @@ class InvoiceXmlBuilder
 
     /**
      * Bloque obligatorio en Notas de Crédito/Débito: identifica el comprobante que se
-     * corrige/anula. NOTA: la posición exacta de este elemento dentro de la secuencia del
-     * XSD v4.4 (antes/después de ResumenFactura) debe confirmarse contra el esquema oficial;
-     * aquí va al final, que es donde aparece en la mayoría de versiones anteriores (v4.3).
+     * corrige/anula. Nombres y orden confirmados contra el XSD oficial v4.4: TipoDocIR,
+     * TipoDocRefOTRO(opt), Numero(opt), FechaEmisionIR, Codigo(opt), CodigoReferenciaOTRO(opt),
+     * Razon(opt) — los nombres "TipoDoc"/"FechaEmision" que se usaban antes no existen.
      */
     protected function buildInformacionReferencia(DOMDocument $doc, Invoice $invoice): DOMElement
     {
         $referenceInvoice = $invoice->referenceInvoice;
         $referenceDetail = $referenceInvoice->electronicDetail;
 
-        // "Numero" se llena aquí con la Clave (50 dígitos) del comprobante referenciado —
-        // confirmar contra el XSD si en v4.4 espera la Clave completa o el Consecutivo (20).
         $informacionReferencia = $doc->createElement('InformacionReferencia');
-        $informacionReferencia->appendChild($doc->createElement('TipoDoc', $referenceDetail->document_type ?: '01'));
+        $informacionReferencia->appendChild($doc->createElement('TipoDocIR', $referenceDetail->document_type ?: '01'));
         $informacionReferencia->appendChild($doc->createElement('Numero', (string) $referenceDetail->hacienda_key));
-        $informacionReferencia->appendChild($doc->createElement('FechaEmision', $this->formatIssueDate($referenceInvoice)));
+        $informacionReferencia->appendChild($doc->createElement('FechaEmisionIR', $this->formatIssueDate($referenceInvoice)));
         $informacionReferencia->appendChild($doc->createElement('Codigo', (string) $invoice->credit_note_reason_code));
         $informacionReferencia->appendChild($doc->createElement('Razon', (string) $invoice->credit_note_reason_text));
 
@@ -201,6 +199,12 @@ class InvoiceXmlBuilder
             $linea->appendChild($doc->createElement('Cantidad', $this->money($item->quantity, 3)));
             $linea->appendChild($doc->createElement('UnidadMedida', $item->unit_of_measure ?: 'Unid'));
 
+            // Opcional (Nota 22); va justo después de UnidadMedida y antes de
+            // UnidadMedidaComercial según el orden de campos del XSD v4.4.
+            if ($item->transaction_type) {
+                $linea->appendChild($doc->createElement('TipoTransaccion', $item->transaction_type));
+            }
+
             if ($item->commercial_unit_of_measure) {
                 $linea->appendChild($doc->createElement('UnidadMedidaComercial', $item->commercial_unit_of_measure));
             }
@@ -220,14 +224,24 @@ class InvoiceXmlBuilder
 
             $linea->appendChild($doc->createElement('SubTotal', $this->money($item->subtotal)));
 
-            if ((float) $item->tax_total > 0) {
-                $impuesto = $doc->createElement('Impuesto');
-                $impuesto->appendChild($doc->createElement('Codigo', $item->tax_code ?: '01'));
-                $impuesto->appendChild($doc->createElement('CodigoTarifaIVA', $this->ivaRateCode((float) $item->tax_rate)));
-                $impuesto->appendChild($doc->createElement('Tarifa', $this->money($item->tax_rate)));
-                $impuesto->appendChild($doc->createElement('Monto', $this->money($item->tax_total)));
-                $linea->appendChild($impuesto);
-            }
+            // BaseImponible va ANTES de Impuesto (rechazo real: el validador esperaba
+            // IVACobradoFabrica/BaseImponible justo en la posición donde antes ponía Impuesto
+            // directamente). Es el monto sobre el que se calcula el impuesto de la línea.
+            $linea->appendChild($doc->createElement('BaseImponible', $this->money($item->subtotal)));
+
+            // Se declara el impuesto de la línea SIEMPRE, incluso exento/0 — rechazo real al
+            // omitirlo por completo en una línea exenta (validador esperaba BaseImponible/
+            // IVACobradoFabrica, es decir contenido de Impuesto, antes de aceptar ImpuestoNeto).
+            $impuesto = $doc->createElement('Impuesto');
+            $impuesto->appendChild($doc->createElement('Codigo', $item->tax_code ?: '01'));
+            $impuesto->appendChild($doc->createElement('CodigoTarifaIVA', $this->ivaRateCode((float) $item->tax_rate)));
+            $impuesto->appendChild($doc->createElement('Tarifa', $this->money($item->tax_rate)));
+            $impuesto->appendChild($doc->createElement('Monto', $this->money($item->tax_total)));
+            $linea->appendChild($impuesto);
+
+            // Obligatorio en el XSD (sin minOccurs="0"), aunque la mayoría de líneas no
+            // apliquen IVA cobrado a nivel de fábrica — se declara en 0.
+            $linea->appendChild($doc->createElement('ImpuestoAsumidoEmisorFabrica', $this->money(0)));
 
             $linea->appendChild($doc->createElement('ImpuestoNeto', $this->money($item->tax_total)));
             $linea->appendChild($doc->createElement('MontoTotalLinea', $this->money($item->line_total)));
@@ -246,47 +260,121 @@ class InvoiceXmlBuilder
         $codigoTipoMoneda = $doc->createElement('CodigoTipoMoneda');
         $codigoTipoMoneda->appendChild($doc->createElement('CodigoMoneda', $invoice->currency));
 
-        if ($invoice->currency !== 'CRC') {
-            $codigoTipoMoneda->appendChild($doc->createElement('TipoCambio', $this->money($invoice->exchange_rate ?: 1, 5)));
-        }
+        // TipoCambio es obligatorio siempre (rechazo real: "content of CodigoTipoMoneda is
+        // not complete, TipoCambio is expected"), incluso en CRC — se usa 1 en ese caso.
+        $codigoTipoMoneda->appendChild($doc->createElement('TipoCambio', $this->money($invoice->currency === 'CRC' ? 1 : ($invoice->exchange_rate ?: 1), 5)));
 
         $resumen->appendChild($codigoTipoMoneda);
 
-        // En v4.4 MedioPago vive dentro de ResumenFactura, no a nivel raíz junto a
-        // CondicionVenta (rechazo real: el validador solo aceptaba CondicionVentaOtros/
-        // PlazoCredito/DetalleServicio/OtrosCargos/ResumenFactura en esa posición). Hacienda
-        // permite hasta 4 (pago dividido, ej. parte transferencia + parte efectivo).
-        foreach ((array) ($invoice->payment_methods ?: []) as $method) {
-            $resumen->appendChild($doc->createElement('MedioPago', Catalogs::paymentMethodCode((string) $method)));
-        }
-
+        // Costa Rica distingue Gravado / Exento / No Sujeto como categorías legales
+        // separadas (rechazo real: reportar una línea "No Sujeta" dentro de "Exentos" hace
+        // que Hacienda diga que el resumen "carece del monto Total No Sujeto" y que el total
+        // de exentos "no coincide"). tax_condition en cada línea decide el balde correcto.
         $servGravado = 0.0;
         $servExento = 0.0;
+        $servNoSujeto = 0.0;
         $mercGravado = 0.0;
         $mercExento = 0.0;
+        $mercNoSujeta = 0.0;
 
         foreach ($items as $item) {
             /** @var InvoiceItem $item */
-            $isGravado = (float) $item->tax_total > 0;
             $isGoods = $item->item_type === 'goods';
+            $amount = (float) $item->subtotal;
+
+            $bucket = match ($item->tax_condition) {
+                'no_sujeto' => 'no_sujeto',
+                'exento' => 'exento',
+                default => (float) $item->tax_total > 0 ? 'gravado' : 'exento',
+            };
 
             if ($isGoods) {
-                $isGravado ? $mercGravado += (float) $item->subtotal : $mercExento += (float) $item->subtotal;
+                match ($bucket) {
+                    'gravado' => $mercGravado += $amount,
+                    'no_sujeto' => $mercNoSujeta += $amount,
+                    default => $mercExento += $amount,
+                };
             } else {
-                $isGravado ? $servGravado += (float) $item->subtotal : $servExento += (float) $item->subtotal;
+                match ($bucket) {
+                    'gravado' => $servGravado += $amount,
+                    'no_sujeto' => $servNoSujeto += $amount,
+                    default => $servExento += $amount,
+                };
             }
         }
 
         $resumen->appendChild($doc->createElement('TotalServGravados', $this->money($servGravado)));
         $resumen->appendChild($doc->createElement('TotalServExentos', $this->money($servExento)));
+        $resumen->appendChild($doc->createElement('TotalServNoSujeto', $this->money($servNoSujeto)));
         $resumen->appendChild($doc->createElement('TotalMercanciasGravadas', $this->money($mercGravado)));
         $resumen->appendChild($doc->createElement('TotalMercanciasExentas', $this->money($mercExento)));
+        $resumen->appendChild($doc->createElement('TotalMercNoSujeta', $this->money($mercNoSujeta)));
         $resumen->appendChild($doc->createElement('TotalGravado', $this->money($servGravado + $mercGravado)));
         $resumen->appendChild($doc->createElement('TotalExento', $this->money($servExento + $mercExento)));
+        $resumen->appendChild($doc->createElement('TotalNoSujeto', $this->money($servNoSujeto + $mercNoSujeta)));
         $resumen->appendChild($doc->createElement('TotalVenta', $this->money($invoice->subtotal)));
         $resumen->appendChild($doc->createElement('TotalDescuentos', $this->money($invoice->discount_total)));
         $resumen->appendChild($doc->createElement('TotalVentaNeta', $this->money((float) $invoice->subtotal - (float) $invoice->discount_total)));
+
+        // Obligatorio cuando las líneas tienen detalle de Impuesto (rechazo real: "El
+        // documento posee detalle de Impuesto pero carece del campo Total Desglose
+        // Impuestos") — un TotalDesgloseImpuesto por cada combinación Código/CodigoTarifaIVA
+        // realmente usada en las líneas, va justo antes de TotalImpuesto.
+        $desgloses = [];
+
+        foreach ($items as $item) {
+            /** @var InvoiceItem $item */
+            $codigo = $item->tax_code ?: '01';
+            $codigoTarifa = $this->ivaRateCode((float) $item->tax_rate);
+            $key = $codigo . '|' . $codigoTarifa;
+
+            if (!isset($desgloses[$key])) {
+                $desgloses[$key] = ['codigo' => $codigo, 'codigo_tarifa' => $codigoTarifa, 'monto' => 0.0];
+            }
+
+            $desgloses[$key]['monto'] += (float) $item->tax_total;
+        }
+
+        foreach ($desgloses as $desglose) {
+            $totalDesglose = $doc->createElement('TotalDesgloseImpuesto');
+            $totalDesglose->appendChild($doc->createElement('Codigo', $desglose['codigo']));
+            $totalDesglose->appendChild($doc->createElement('CodigoTarifaIVA', $desglose['codigo_tarifa']));
+            $totalDesglose->appendChild($doc->createElement('TotalMontoImpuesto', $this->money($desglose['monto'])));
+            $resumen->appendChild($totalDesglose);
+        }
+
         $resumen->appendChild($doc->createElement('TotalImpuesto', $this->money($invoice->tax_total)));
+
+        // MedioPago va aquí, justo antes de TotalComprobante y después de todos los totales
+        // (rechazo real: al ponerlo justo después de CodigoTipoMoneda, el validador esperaba
+        // TotalServGravados/.../TotalVenta en esa posición) — es una estructura compleja con
+        // TipoMedioPago anidado. Hacienda permite hasta 4 (pago dividido); TotalMedioPago es
+        // obligatorio si hay más de uno.
+        $paymentMethods = (array) ($invoice->payment_methods ?: []);
+
+        // PENDIENTE: el formulario no captura cuánto se pagó por cada método individualmente,
+        // solo cuáles se usaron. Con un solo método no hace falta (TotalMedioPago es opcional
+        // ahí). Con varios, Hacienda exige el desglose — se reparte el total en partes iguales
+        // como aproximación honesta hasta que el formulario capture montos reales por método.
+        $evenShare = count($paymentMethods) > 1 ? round((float) $invoice->total / count($paymentMethods), 2) : null;
+
+        foreach ($paymentMethods as $method) {
+            $medioPago = $doc->createElement('MedioPago');
+            $medioPago->appendChild($doc->createElement('TipoMedioPago', Catalogs::paymentMethodCode((string) $method)));
+
+            // Campo real del XSD (hermano de TipoMedioPago, verificado contra el PDF oficial)
+            // para describir el medio de pago cuando se marca "Otros" (código 99).
+            if ($method === 'other' && $invoice->payment_method_other_description) {
+                $medioPago->appendChild($doc->createElement('MedioPagoOtros', $invoice->payment_method_other_description));
+            }
+
+            if ($evenShare !== null) {
+                $medioPago->appendChild($doc->createElement('TotalMedioPago', $this->money($evenShare)));
+            }
+
+            $resumen->appendChild($medioPago);
+        }
+
         $resumen->appendChild($doc->createElement('TotalComprobante', $this->money($invoice->total)));
 
         return $resumen;

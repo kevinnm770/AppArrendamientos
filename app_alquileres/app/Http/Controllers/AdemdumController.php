@@ -59,6 +59,12 @@ class AdemdumController extends Controller
             return back()->withErrors(['type_sanction' => $moraError])->withInput();
         }
 
+        $depositPolicyEligible = $this->isDepositPolicyEligible($agreement, $validated);
+
+        if ($depositPolicyEligible && $moraDepositError = $this->validateMoraPolicyDeposit($validated)) {
+            return back()->withErrors(['type_sanction_deposit' => $moraDepositError])->withInput();
+        }
+
         $startAt = Carbon::parse($validated['start_at'])->setTimeFrom(now());
         $endAt = Carbon::parse($validated['end_at'])->setTimeFrom(now());
 
@@ -74,7 +80,7 @@ class AdemdumController extends Controller
                 ->withInput();
         }
 
-        $ademdum = Ademdum::create(array_merge($this->sparseBusinessFieldValues($validated), [
+        $ademdum = Ademdum::create(array_merge($this->sparseBusinessFieldValues($validated, $depositPolicyEligible), [
             'agreement_id' => $agreement->id,
             'start_at' => $startAt,
             'end_at' => $endAt,
@@ -208,6 +214,12 @@ class AdemdumController extends Controller
             return back()->withErrors(['type_sanction' => $moraError])->withInput();
         }
 
+        $depositPolicyEligible = $this->isDepositPolicyEligible($agreement, $validated);
+
+        if ($depositPolicyEligible && $moraDepositError = $this->validateMoraPolicyDeposit($validated)) {
+            return back()->withErrors(['type_sanction_deposit' => $moraDepositError])->withInput();
+        }
+
         $startAt = Carbon::parse($validated['start_at'])->setTimeFrom(now());
         $endAt = Carbon::parse($validated['end_at'])->setTimeFrom(now());
 
@@ -225,7 +237,7 @@ class AdemdumController extends Controller
 
         $ademdum->update(array_merge(
             array_fill_keys(Agreement::BUSINESS_FIELDS, null),
-            $this->sparseBusinessFieldValues($validated),
+            $this->sparseBusinessFieldValues($validated, $depositPolicyEligible),
             [
                 'start_at' => $startAt,
                 'end_at' => $endAt,
@@ -463,6 +475,7 @@ class AdemdumController extends Controller
             'amount' => ['sometimes', 'numeric', 'min:0'],
             'currency' => ['sometimes', Rule::in(array_keys(Agreement::CURRENCY_OPTIONS))],
             'deposit' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'deadline_deposit' => ['sometimes', 'nullable', 'date'],
             'type_sanction' => ['sometimes', Rule::in(array_keys(Agreement::TYPE_SANCTION_OPTIONS))],
             'surcharge_delay' => ['nullable', 'numeric', 'min:0'],
             'amount_delay' => ['nullable', 'numeric', 'min:0'],
@@ -470,6 +483,13 @@ class AdemdumController extends Controller
             'base' => ['nullable', Rule::in(array_keys(Agreement::BASE_OPTIONS))],
             'max_days_unlimited' => ['nullable', 'boolean'],
             'max_days' => ['nullable', 'integer', 'min:0'],
+            'type_sanction_deposit' => ['sometimes', Rule::in(array_keys(Agreement::TYPE_SANCTION_OPTIONS))],
+            'surcharge_delay_deposit' => ['nullable', 'numeric', 'min:0'],
+            'amount_delay_deposit' => ['nullable', 'numeric', 'min:0'],
+            'frequency_sanction_deposit' => ['nullable', Rule::in(array_keys(Agreement::FREQUENCY_SANCTION_OPTIONS))],
+            'base_deposit' => ['nullable', Rule::in(array_keys(Agreement::BASE_OPTIONS))],
+            'max_days_unlimited_deposit' => ['nullable', 'boolean'],
+            'max_days_deposit' => ['nullable', 'integer', 'min:0'],
         ];
     }
 
@@ -487,11 +507,40 @@ class AdemdumController extends Controller
     }
 
     /**
+     * Misma idea que validateMoraPolicy(), pero para la política de morosidad del depósito.
+     */
+    private function validateMoraPolicyDeposit(array $validated): ?string
+    {
+        if (!array_key_exists('type_sanction_deposit', $validated)) {
+            return null;
+        }
+
+        return Agreement::validateMoraPolicyInput($validated, '_deposit');
+    }
+
+    /**
+     * La política de morosidad del depósito solo tiene sentido si el depósito vigente
+     * en este punto del contrato (el que este adendum defina, o si no lo toca, el
+     * efectivo heredado) es mayor a 0 y tiene una fecha límite definida.
+     */
+    private function isDepositPolicyEligible(Agreement $agreement, array $validated): bool
+    {
+        $effectiveTerms = $agreement->effectiveTerms();
+
+        $deposit = array_key_exists('deposit', $validated) ? $validated['deposit'] : $effectiveTerms['deposit'];
+        $deadlineDeposit = array_key_exists('deadline_deposit', $validated) ? $validated['deadline_deposit'] : $effectiveTerms['deadline_deposit'];
+
+        return ((float) $deposit) > 0 && !empty($deadlineDeposit);
+    }
+
+    /**
      * A diferencia de Agreement (donde todos los campos de negocio son obligatorios),
      * un adendum solo guarda los campos que el usuario desbloqueó explícitamente;
-     * el resto queda NULL (heredado del contrato/adendum vigente).
+     * el resto queda NULL (heredado del contrato/adendum vigente). Si la política de
+     * morosidad del depósito no es elegible, se ignora cualquier valor enviado para
+     * ella y queda en blanco (heredada), sin importar lo que el usuario haya tocado.
      */
-    private function sparseBusinessFieldValues(array $validated): array
+    private function sparseBusinessFieldValues(array $validated, bool $depositPolicyEligible = true): array
     {
         $values = Arr::only($validated, Agreement::INDEPENDENT_FIELDS);
 
@@ -505,6 +554,10 @@ class AdemdumController extends Controller
 
         if (array_key_exists('type_sanction', $validated)) {
             $values = array_merge($values, Agreement::moraPolicyValuesFromInput($validated));
+        }
+
+        if ($depositPolicyEligible && array_key_exists('type_sanction_deposit', $validated)) {
+            $values = array_merge($values, Agreement::moraPolicyValuesFromInput($validated, '_deposit'));
         }
 
         return $values;

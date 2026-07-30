@@ -68,6 +68,7 @@
                     </div>
                     <div class="col-md-4"><strong>Monto:</strong> {{ $agreement->currencySymbol() }}{{ number_format((float) $agreement->amount, 2) }}</div>
                     <div class="col-md-4"><strong>Depósito:</strong> {{ $agreement->deposit !== null ? $agreement->currencySymbol() . number_format((float) $agreement->deposit, 2) : 'No aplica' }}</div>
+                    <div class="col-md-4"><strong>Fecha límite del depósito:</strong> {{ optional($agreement->deadline_deposit)->format('d/m/Y') ?? 'No aplica' }}</div>
                     <div class="col-md-4"><strong>Días de gracia:</strong> {{ $agreement->deadline_pay }}</div>
                 </div>
 
@@ -85,6 +86,23 @@
                     @if ($agreement->type_sanction !== 'none')
                         <div class="col-md-4"><strong>Frecuencia de aplicación:</strong> {{ \App\Models\Agreement::FREQUENCY_SANCTION_OPTIONS[$agreement->frequency_sanction] ?? $agreement->frequency_sanction }}</div>
                         <div class="col-md-4"><strong>Días máximos de acumulación:</strong> {{ $agreement->max_days_unlimited ? 'Sin límite' : $agreement->max_days }}</div>
+                    @endif
+                </div>
+
+                <hr>
+
+                <h5>Política de morosidad del depósito</h5>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4"><strong>Tipo de sanción:</strong> {{ \App\Models\Agreement::TYPE_SANCTION_OPTIONS[$agreement->type_sanction_deposit] ?? $agreement->type_sanction_deposit }}</div>
+                    @if ($agreement->type_sanction_deposit === 'percent')
+                        <div class="col-md-4"><strong>Porcentaje de recargo:</strong> {{ $agreement->surcharge_delay_deposit }}%</div>
+                        <div class="col-md-4"><strong>Base de cálculo:</strong> {{ \App\Models\Agreement::BASE_OPTIONS[$agreement->base_deposit] ?? $agreement->base_deposit }}</div>
+                    @elseif ($agreement->type_sanction_deposit === 'amount_fix')
+                        <div class="col-md-4"><strong>Monto fijo de recargo:</strong> {{ $agreement->currencySymbol() }}{{ number_format((float) $agreement->amount_delay_deposit, 2) }}</div>
+                    @endif
+                    @if ($agreement->type_sanction_deposit !== 'none')
+                        <div class="col-md-4"><strong>Frecuencia de aplicación:</strong> {{ \App\Models\Agreement::FREQUENCY_SANCTION_OPTIONS[$agreement->frequency_sanction_deposit] ?? $agreement->frequency_sanction_deposit }}</div>
+                        <div class="col-md-4"><strong>Días máximos de acumulación:</strong> {{ $agreement->max_days_unlimited_deposit ? 'Sin límite' : $agreement->max_days_deposit }}</div>
                     @endif
                 </div>
 

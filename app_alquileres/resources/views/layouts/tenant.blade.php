@@ -287,6 +287,8 @@
     })();
 </script>
 
+@include('partials.form-loading-state')
+
 </body>
 
 </html>

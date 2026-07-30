@@ -15,12 +15,27 @@ class Invoice extends Model
         'void' => 'Anulada',
     ];
 
+    // Catálogo real "Condición de venta" (Nota 5, Anexos y Estructuras v4.4 de Hacienda).
+    // Se excluyen a propósito los códigos 09 y 11 ("Pago de servicios prestado al Estado" /
+    // "Pago de venta a crédito en IVA hasta 90 días"): el propio anexo aclara que esos dos
+    // solo aplican al cancelar con un Recibo Electrónico de Pago, documento que esta app no
+    // emite (solo Factura Electrónica y Nota de Crédito).
     public const SALE_CONDITION_OPTIONS = [
         'cash' => 'Contado',
         'credit' => 'Crédito',
         'consignment' => 'Consignación',
         'layaway' => 'Apartado',
+        'lease_purchase_option' => 'Arrendamiento con opción de compra',
+        'lease_finance_function' => 'Arrendamiento en función financiera',
+        'third_party_collection' => 'Cobro a favor de un tercero',
+        'state_services' => 'Servicios prestados al Estado',
+        'credit_90_days' => 'Venta a crédito en IVA hasta 90 días (artículo 27, LIVA)',
+        'non_nationalized_goods' => 'Venta de mercancía no nacionalizada',
+        'used_goods_non_taxpayer' => 'Venta de bienes usados a no contribuyente',
+        'operating_lease' => 'Arrendamiento operativo',
+        'finance_lease' => 'Arrendamiento financiero',
         'service' => 'Cobro de servicio',
+        'other' => 'Otros',
     ];
 
     public const PAYMENT_METHOD_OPTIONS = [
@@ -57,6 +72,7 @@ class Invoice extends Model
         'total',
         'sale_condition',
         'payment_methods',
+        'payment_method_other_description',
         'reference_code',
         'notes',
         'status',

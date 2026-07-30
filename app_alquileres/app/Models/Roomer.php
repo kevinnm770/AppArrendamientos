@@ -6,7 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class Roomer extends Model
 {
-    protected $fillable = ['user_id', 'legal_name', 'id_number', 'identification_type', 'phone'];
+    protected $fillable = [
+        'user_id',
+        'legal_name',
+        'id_number',
+        'identification_type',
+        'phone',
+        'province',
+        'canton',
+        'district',
+        'barrio',
+    ];
 
     public function user()
     {
