@@ -204,6 +204,24 @@ class Invoice extends Model
         return $this->locked_at !== null;
     }
 
+    // Ventana durante la cual un comprobante de pago (factura simple, sin detalle
+    // electrónico) se puede editar o eliminar desde el propio sistema.
+    public const RECEIPT_EDIT_WINDOW_HOURS = 24;
+
+    public function isSimpleReceipt(): bool
+    {
+        return $this->electronicDetail === null;
+    }
+
+    public function canEditOrDeleteReceipt(): bool
+    {
+        if (!$this->isSimpleReceipt() || !$this->created_at) {
+            return false;
+        }
+
+        return now()->lt($this->created_at->copy()->addHours(self::RECEIPT_EDIT_WINDOW_HOURS));
+    }
+
     public static function statusOptions(): array
     {
         return self::STATUS_OPTIONS;

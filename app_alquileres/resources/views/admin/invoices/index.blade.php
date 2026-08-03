@@ -1,12 +1,6 @@
 @extends('layouts.admin')
 
 @section('content')
-    <style>
-        .note-cyan {
-            color: #00e5ff;
-        }
-    </style>
-
     <div class="page-title">
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
@@ -144,30 +138,26 @@
         fila, su contenido se copia dentro del modal compartido. --}}
         @foreach ($invoices as $invoice)
             <template id="invoice-detail-{{ $invoice->id }}">
-                <div class="mb-3">
-                    <strong class="d-block">Contrato</strong>
-                    <span>#{{ $invoice->agreement_id }}</span>
-                </div>
-                <div class="mb-3">
-                    <strong class="d-block">Cliente</strong>
-                    <span>{{ $invoice->roomer->legal_name ?? '-' }}</span>
-                </div>
                 <div class="row mb-3">
-                    <div class="col-6">
+                    <div class="col-4">
+                        <strong class="d-block">Contrato</strong>
+                        <span>#{{ $invoice->agreement_id }} - {{ $invoice->agreement->property->name ?? 'Sin propiedad' }}</span>
+                    </div>
+                    <div class="col-4">
+                        <strong class="d-block">Cliente</strong>
+                        <span>{{ $invoice->roomer->legal_name ?? '-' }}</span>
+                    </div>
+                    <div class="col-4">
                         <strong class="d-block">Fecha</strong>
                         <span>{{ optional($invoice->date)->format('Y-m-d') }}</span>
                     </div>
-                    <div class="col-6">
-                        <strong class="d-block">Total</strong>
-                        <span>{{ $invoice->currency }} {{ number_format((float) $invoice->total, 2) }}</span>
-                    </div>
                 </div>
                 <div class="row mb-3">
-                    <div class="col-6">
+                    <div class="col-4">
                         <strong class="d-block">Estado factura</strong>
                         <span>{{ $statusOptions[$invoice->status] ?? $invoice->status }}</span>
                     </div>
-                    <div class="col-6">
+                    <div class="col-4">
                         <strong class="d-block">Estado Hacienda</strong>
                         <span>
                             @if ($invoice->electronicDetail)
@@ -177,7 +167,113 @@
                             @endif
                         </span>
                     </div>
+                    <div class="col-4">
+                        <strong class="d-block">Condición venta</strong>
+                        <span>{{ $saleConditionOptions[$invoice->sale_condition] ?? $invoice->sale_condition ?? '-' }}</span>
+                    </div>
                 </div>
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <strong class="d-block">Métodos de pago</strong>
+                        <span>
+                            {{ collect($invoice->payment_methods ?? [])->map(fn ($method) => $paymentMethodOptions[$method] ?? $method)->implode(', ') ?: '-' }}
+                            @if (in_array('other', $invoice->payment_methods ?? [], true) && $invoice->payment_method_other_description)
+                                ({{ $invoice->payment_method_other_description }})
+                            @endif
+                        </span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="mb-3">
+                    <strong class="d-block mb-0">Líneas del comprobante</strong>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th>Concepto</th>
+                                    <th class="text-end">Cant.</th>
+                                    <th class="text-end">Precio unit.</th>
+                                    <th class="text-end">Total línea</th>
+                                    <th class="text-end">Saldo pendiente</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($invoice->items as $item)
+                                    <tr>
+                                        <td>{{ $item->description }}</td>
+                                        <td>
+                                            {{ $conceptOptions[$item->concept] ?? '-' }}
+                                            @if ($item->is_return)
+                                                <span class="badge bg-warning text-dark">Retorno</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-end">{{ number_format((float) $item->quantity, 2) }}</td>
+                                        <td class="text-end">{{ number_format((float) $item->unit_price, 2) }}</td>
+                                        <td class="text-end">{{ number_format((float) $item->line_total, 2) }}</td>
+                                        <td class="text-end">{{ $item->balance_pending !== null ? number_format((float) $item->balance_pending, 2) : '-' }}</td>
+                                        <td>
+                                            @if ($item->filePayment)
+                                                <a href="{{ $item->filePayment->url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Ver archivo</a>
+                                            @else
+                                                <span class="text-muted small">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted">Sin líneas registradas.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <strong class="d-block col-8" style="text-align: right;">Subtotal</strong>
+                    <span class="col-4" style="text-align: right;">{{ $invoice->currency }} {{ number_format((float) $invoice->subtotal, 2) }}</span>
+
+                    @if ((float) $invoice->discount_total > 0)
+                        <strong class="d-block col-8" style="text-align: right;">Descuento</strong>
+                        <span class="col-4" style="text-align: right;">{{ $invoice->currency }} {{ number_format((float) $invoice->discount_total, 2) }}</span>
+                    @endif
+
+                    @if ((float) $invoice->tax_total > 0)
+                        <strong class="d-block col-8" style="text-align: right;">Impuesto</strong>
+                        <span class="col-4" style="text-align: right;">{{ $invoice->currency }} {{ number_format((float) $invoice->tax_total, 2) }}</span>
+                    @endif
+
+                    @if ((float) $invoice->late_fee_total > 0)
+                        <strong class="d-block col-8" style="text-align: right;">Mora</strong>
+                        <span class="col-4" style="text-align: right;">{{ $invoice->currency }} {{ number_format((float) $invoice->late_fee_total, 2) }}</span>
+                    @endif
+
+                    <strong class="d-block col-8" style="text-align: right;">Total</strong>
+                    <span class="col-4" style="text-align: right;" class="fw-bold">{{ $invoice->currency }} {{ number_format((float) $invoice->total, 2) }}</span>
+                </div>
+
+                @if ($invoice->reference_code || $invoice->notes)
+                    <div class="row mb-3">
+                        @if ($invoice->reference_code)
+                            <div class="col-6">
+                                <strong class="d-block">Referencia</strong>
+                                <span>{{ $invoice->reference_code }}</span>
+                            </div>
+                        @endif
+                        @if ($invoice->notes)
+                            <div class="col-6">
+                                <strong class="d-block">Notas</strong>
+                                <span>{{ $invoice->notes }}</span>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
+                <hr>
 
                 @if ($invoice->electronicDetail)
                     @php $feStatus = $invoice->electronicDetail->electronic_status; @endphp
@@ -230,12 +326,27 @@
 
                         <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Aún no disponible">Descargar documento PDF</button>
                     </div>
+                @else
+                    <div class="mb-12">
+                        @if ($invoice->canEditOrDeleteReceipt())
+                            <div class="d-flex flex-wrap gap-2">
+                                <a href="{{ route('admin.invoices.edit', $invoice->id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                                <form method="POST" class="mb-0" action="{{ route('admin.invoices.delete', $invoice->id) }}" onsubmit="return confirm('¿Eliminar este comprobante de pago? Se notificará al inquilino y esta acción no se puede deshacer.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                </form>
+                            </div>
+                        @else
+                            <span class="text-muted small">Ya pasaron más de 24 horas desde su creación: no se puede editar ni eliminar.</span>
+                        @endif
+                    </div>
                 @endif
             </template>
         @endforeach
 
         <div id="invoice-detail-modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1050; align-items:center; justify-content:center;">
-            <div class="card" style="width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;">
+            <div class="card" style="width: 100%; max-width: 820px; max-height: 90vh; overflow-y: auto;">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <h4 class="mb-0">Detalle de la factura</h4>

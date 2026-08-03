@@ -5,7 +5,7 @@
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
                 <h3>Editar contrato {{ $agreement->contract_number }}</h3>
-                <p class="text-subtitle text-muted">Solo los contratos en estado de <span style="font-weight: bold;color: #4CD2D9 !important;">sent</span> se pueden editar o eliminar.</p>
+                <p class="text-subtitle text-muted">Solo los contratos en estado de <span class="note-cyan" style="font-weight: bold;">sent</span> se pueden editar o eliminar.</p>
             </div>
             <div class="col-12 col-md-6 order-md-2 order-first">
                 <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
@@ -71,7 +71,7 @@
                             </div>
                         @endif
                         <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff" @if (!$agreement->signedDoc) required @endif>
-                        <small style="font-size:10pt;color:#4CD2D9;">
+                        <small class="note-cyan" style="font-size:10pt;">
                             Este es el documento oficial del contrato: asegúrate de adjuntarlo ya firmado por ambas partes.
                             @if ($agreement->signedDoc)
                                 Si cargas uno nuevo, reemplazará el actual.

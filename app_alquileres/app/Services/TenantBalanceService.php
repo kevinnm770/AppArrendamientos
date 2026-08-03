@@ -30,15 +30,20 @@ class TenantBalanceService
     // Tope de seguridad para no iterar indefinidamente ante datos inconsistentes.
     private const MAX_PERIODS = 1200;
 
-    public function breakdownFor(Agreement $agreement, Carbon $asOf): array
+    /**
+     * $excludeInvoiceId permite calcular el saldo "antes de" un comprobante dado (al
+     * editarlo), para que no se reste a sí mismo de lo que ya tiene aplicado.
+     */
+    public function breakdownFor(Agreement $agreement, Carbon $asOf, ?int $excludeInvoiceId = null): array
     {
         $asOf = $asOf->copy()->endOfDay();
 
         $periods = $this->buildRentPeriods($agreement, $asOf);
 
-        $rentPaidTotal = $this->sumByConcept($agreement, 'rent', $asOf);
-        $depositPaidTotal = $this->sumByConcept($agreement, 'deposit', $asOf);
-        $lateFeePaidTotal = $this->sumByConcept($agreement, 'late_fee', $asOf);
+        $rentPaidTotal = $this->sumByConcept($agreement, 'rent', $asOf, $excludeInvoiceId);
+        $depositPaidTotal = $this->sumByConcept($agreement, 'deposit', $asOf, $excludeInvoiceId);
+        $lateFeeRentPaidTotal = $this->sumByConcept($agreement, 'late_fee_rent', $asOf, $excludeInvoiceId);
+        $lateFeeDepositPaidTotal = $this->sumByConcept($agreement, 'late_fee_deposit', $asOf, $excludeInvoiceId);
 
         $rentDue = 0.0;
         $rentLateFeeAccrued = 0.0;
@@ -89,12 +94,6 @@ class TenantBalanceService
             }
         }
 
-        // Solo existe un concepto "Morosidad" en las líneas del comprobante (no distingue
-        // si paga mora de alquiler o de depósito): lo cobrado se aplica primero a la mora
-        // de alquiler pendiente y el remanente a la de depósito.
-        $lateFeePaidToRent = min($lateFeePaidTotal, $rentLateFeeAccrued);
-        $lateFeePaidToDeposit = min(round($lateFeePaidTotal - $lateFeePaidToRent, 2), $depositLateFeeAccrued);
-
         return [
             'currency' => $termsNow['currency'] ?? $agreement->currency,
             'rent' => [
@@ -109,13 +108,13 @@ class TenantBalanceService
             ],
             'late_fee_rent' => [
                 'accrued' => round($rentLateFeeAccrued, 2),
-                'paid' => round($lateFeePaidToRent, 2),
-                'balance' => round($rentLateFeeAccrued - $lateFeePaidToRent, 2),
+                'paid' => round($lateFeeRentPaidTotal, 2),
+                'balance' => round($rentLateFeeAccrued - $lateFeeRentPaidTotal, 2),
             ],
             'late_fee_deposit' => [
                 'accrued' => round($depositLateFeeAccrued, 2),
-                'paid' => round($lateFeePaidToDeposit, 2),
-                'balance' => round($depositLateFeeAccrued - $lateFeePaidToDeposit, 2),
+                'paid' => round($lateFeeDepositPaidTotal, 2),
+                'balance' => round($depositLateFeeAccrued - $lateFeeDepositPaidTotal, 2),
             ],
         ];
     }
@@ -198,13 +197,17 @@ class TenantBalanceService
      * Suma lo ya cobrado por un concepto dado, en cualquier comprobante (simple o
      * electrónico) del contrato que no esté anulado y con fecha hasta $asOf inclusive.
      */
-    private function sumByConcept(Agreement $agreement, string $concept, Carbon $asOf): float
+    private function sumByConcept(Agreement $agreement, string $concept, Carbon $asOf, ?int $excludeInvoiceId = null): float
     {
         return (float) InvoiceItem::where('concept', $concept)
-            ->whereHas('invoice', function ($query) use ($agreement, $asOf) {
+            ->whereHas('invoice', function ($query) use ($agreement, $asOf, $excludeInvoiceId) {
                 $query->where('agreement_id', $agreement->id)
                     ->where('status', '!=', 'void')
                     ->whereDate('date', '<=', $asOf);
+
+                if ($excludeInvoiceId !== null) {
+                    $query->where('id', '!=', $excludeInvoiceId);
+                }
             })
             ->sum('line_total');
     }

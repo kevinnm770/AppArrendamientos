@@ -5,7 +5,7 @@
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
                 <h3>Editar adendum #{{ $ademdum->id }}</h3>
-                <p class="text-subtitle text-muted">El arrendatario aún <span style="font-weight: bold;color: #4CD2D9 !important;">no lo ha aceptado</span> por lo que puedes editarlo o eliminarlo.</p>
+                <p class="text-subtitle text-muted">El arrendatario aún <span class="note-cyan" style="font-weight: bold;">no lo ha aceptado</span> por lo que puedes editarlo o eliminarlo.</p>
             </div>
         </div>
     </div>
@@ -71,7 +71,7 @@
                             </div>
                         @endif
                         <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff" @if (!$ademdum->signedDoc) required @endif>
-                        <small style="font-size:10pt;color:#4CD2D9;">
+                        <small class="note-cyan" style="font-size:10pt;">
                             Este es el documento oficial del adendum: asegúrate de adjuntarlo ya firmado por ambas partes.
                             @if ($ademdum->signedDoc)
                                 Si cargas uno nuevo, reemplazará el actual.

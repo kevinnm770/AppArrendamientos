@@ -152,6 +152,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
         Route::get('/create', [InvoiceController::class, 'create'])->name('create');
         Route::get('/payment-receipt/create', [InvoiceController::class, 'createPaymentReceipt'])->name('payment-receipt.create');
         Route::post('/', [InvoiceController::class, 'store'])->name('store');
+        Route::get('/{invoiceId}/edit', [InvoiceController::class, 'edit'])->name('edit');
+        Route::patch('/{invoiceId}/edit', [InvoiceController::class, 'update'])->name('edit.update');
+        Route::delete('/{invoiceId}', [InvoiceController::class, 'delete'])->name('delete');
         Route::post('/{invoiceId}/electronic/send', [InvoiceController::class, 'sendElectronic'])->name('electronic.send');
         Route::post('/{invoiceId}/electronic/retry', [InvoiceController::class, 'retryElectronic'])->name('electronic.retry');
         Route::post('/{invoiceId}/electronic/check-status', [InvoiceController::class, 'checkElectronicStatus'])->name('electronic.check-status');

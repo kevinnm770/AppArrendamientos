@@ -89,11 +89,33 @@
                 </a>
             </li>
 
-            <li class="sidebar-item {{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">
-                <a href="{{ route('admin.invoices.index') }}" class='sidebar-link'>
+            <li class="sidebar-item has-sub {{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">
+                <a href="" class='sidebar-link'>
                     <i class="bi bi-receipt"></i>
                     <span>Facturas</span>
                 </a>
+                <ul class="submenu ">
+
+                    <li class="submenu-item  ">
+                        <a href="{{ route('admin.invoices.index') }}" class="submenu-link {{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">Factura electrónica</a>
+
+                    </li>
+
+                    <li class="submenu-item  ">
+                        <a href="component-alert.html" class="submenu-link">Comprobante de pago</a>
+
+                    </li>
+
+                    <li class="submenu-item  ">
+                        <a href="component-badge.html" class="submenu-link">Aplicación de saldo a favor</a>
+
+                    </li>
+
+                    <li class="submenu-item  ">
+                        <a href="component-breadcrumb.html" class="submenu-link">Otros cargos a cobrar</a>
+
+                    </li>
+                </ul>
             </li>
 
             <li class="sidebar-item {{ request()->routeIs('admin.messages.*') ? 'active' : '' }}">

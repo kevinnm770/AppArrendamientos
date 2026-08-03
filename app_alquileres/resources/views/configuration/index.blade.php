@@ -5,12 +5,6 @@
 @extends($layout)
 
 @section('content')
-    <style>
-        .note-cyan {
-            color: #00e5ff;
-        }
-    </style>
-
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif

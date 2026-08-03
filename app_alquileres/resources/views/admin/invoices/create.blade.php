@@ -1,12 +1,6 @@
 @extends('layouts.admin')
 
 @section('content')
-    <style>
-        .note-cyan {
-            color: #00e5ff;
-        }
-    </style>
-
     <div class="page-title">
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
@@ -47,7 +41,7 @@
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('admin.invoices.store') }}" class="row g-3" id="invoice-form">
+                <form method="POST" action="{{ route('admin.invoices.store') }}" enctype="multipart/form-data" class="row g-3" id="invoice-form">
                     @csrf
                     <input type="hidden" name="invoice_type" value="electronic">
 
@@ -163,6 +157,35 @@
                         </div>
                     </div>
 
+                    <div class="col-12 mt-4">
+                        <div class="border rounded p-3" id="tenant-balance-panel">
+                            <strong class="d-block mb-2">Saldo pendiente del inquilino</strong>
+                            <p class="text-muted small mb-0" id="tenant-balance-placeholder">Selecciona un contrato para ver el saldo pendiente.</p>
+                            <div class="row row-cols-2 row-cols-md-4 g-2 d-none" id="tenant-balance-figures">
+                                <div class="col">
+                                    <div class="small text-muted">Alquiler</div>
+                                    <div class="fw-bold" id="tb-rent">0.00</div>
+                                </div>
+                                <div class="col">
+                                    <div class="small text-muted">Depósito</div>
+                                    <div class="fw-bold" id="tb-deposit">0.00</div>
+                                </div>
+                                <div class="col">
+                                    <div class="small text-muted">Morosidad alquiler</div>
+                                    <div class="fw-bold" id="tb-late-fee-rent">0.00</div>
+                                </div>
+                                <div class="col">
+                                    <div class="small text-muted">Morosidad depósito</div>
+                                    <div class="fw-bold" id="tb-late-fee-deposit">0.00</div>
+                                </div>
+                            </div>
+                            <div class="mt-2 d-none" id="tenant-balance-total-wrap">
+                                <strong>Total pendiente: <span id="tb-total">0.00</span> <span id="tb-currency"></span></strong>
+                            </div>
+                            <small class="note-cyan d-block mt-2 d-none" id="tenant-balance-note">Calculado a la fecha del comprobante, según los comprobantes previos no anulados (no incluye las líneas de este comprobante).</small>
+                        </div>
+                    </div>
+
                     <div class="col-12 mt-5">
                         <h6 class="text-uppercase text-muted fw-bold mb-1">2) Líneas del comprobante</h6>
                         <hr class="mt-1 mb-2">
@@ -186,12 +209,13 @@
                                         <th>Desc. %</th>
                                         <th>IVA %</th>
                                         <th>Total línea</th>
+                                        <th>Evidencia</th>
                                         <th style="width: 90px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="invoice-items-body">
                                     <tr id="invoice-items-empty-row">
-                                        <td colspan="9" class="text-center text-muted">Aún no hay líneas. Usa "+ Añadir línea".</td>
+                                        <td colspan="10" class="text-center text-muted">Aún no hay líneas. Usa "+ Añadir línea".</td>
                                     </tr>
                                 </tbody>
                                 <tfoot>
@@ -199,10 +223,12 @@
                                         <td colspan="7" class="text-end fw-bold">Subtotal</td>
                                         <td id="items-subtotal-display">0.00</td>
                                         <td></td>
+                                        <td></td>
                                     </tr>
                                     <tr>
                                         <td colspan="7" class="text-end fw-bold">Total comprobante</td>
                                         <td id="items-total-display">0.00</td>
+                                        <td></td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -393,6 +419,16 @@
                         </select>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label">Evidencia de pago (opcional)</label>
+                        <div class="small mb-1 d-none" id="modal-evidence-current-wrap">
+                            <span id="modal-evidence-current-name"></span>
+                            <button type="button" class="btn btn-sm btn-link p-0 ms-1" id="modal-evidence-clear">Quitar</button>
+                        </div>
+                        <input type="file" class="form-control" id="modal-evidence-file" accept=".pdf,.png,.jpg,.jpeg,.webp">
+                        <small class="note-cyan">Imágenes o PDF, máximo 15MB.</small>
+                    </div>
+
                     <div class="d-flex justify-content-end gap-2 mt-3">
                         <button type="button" class="btn btn-outline-secondary" id="item-modal-cancel">Cancelar</button>
                         <button type="button" class="btn btn-primary" id="item-modal-save">Guardar línea</button>
@@ -407,6 +443,7 @@
                 // CABYS que se precarga siempre en una línea nueva (primera opción curada).
                 const defaultCabys = { code: '7211100000100', description: '', tax_rate: 13 };
                 const billingTermsBaseUrl = @json(route('admin.agreements.billing-terms', ['agreementId' => '__ID__']));
+                const tenantBalanceBaseUrl = @json(route('admin.agreements.tenant-balance', ['agreementId' => '__ID__']));
                 const agreementSelect = document.getElementById('agreement_id');
                 const documentTypeSelect = document.getElementById('document_type');
 
@@ -457,6 +494,7 @@
                             <td>${item.discount_percent || 0}</td>
                             <td>${item.tax_rate || 0}</td>
                             <td>${lineTotal.toFixed(2)}</td>
+                            <td>${item.evidence_file ? '📎 ' + item.evidence_file.name : '-'}</td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-outline-secondary edit-item-btn" data-index="${idx}">Editar</button>
                                 <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" data-index="${idx}">&times;</button>
@@ -471,6 +509,21 @@
                             input.value = item[field] ?? '';
                             hiddenContainer.appendChild(input);
                         });
+
+                        // Un <input type="file"> no se puede rellenar con un valor normal:
+                        // se recrea en cada renderAll() y, si ya había un File en memoria
+                        // para esta línea, se le reasigna vía DataTransfer (único truco que
+                        // los navegadores permiten para setear .files por código).
+                        const fileInput = document.createElement('input');
+                        fileInput.type = 'file';
+                        fileInput.name = `items[${idx}][evidence_file]`;
+                        fileInput.style.display = 'none';
+                        if (item.evidence_file) {
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(item.evidence_file);
+                            fileInput.files = dataTransfer.files;
+                        }
+                        hiddenContainer.appendChild(fileInput);
                     });
 
                     emptyRow.style.display = lineItems.length ? 'none' : '';
@@ -511,6 +564,33 @@
                 const taxRateField = document.getElementById('modal-tax-rate');
                 const taxConditionField = document.getElementById('modal-tax-condition');
                 const transactionTypeField = document.getElementById('modal-transaction-type');
+                const evidenceFileField = document.getElementById('modal-evidence-file');
+                const evidenceCurrentWrap = document.getElementById('modal-evidence-current-wrap');
+                const evidenceCurrentName = document.getElementById('modal-evidence-current-name');
+                let modalEvidenceFile = null;
+
+                function setModalEvidenceFile(file) {
+                    modalEvidenceFile = file || null;
+                    evidenceFileField.value = '';
+
+                    if (modalEvidenceFile) {
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(modalEvidenceFile);
+                        evidenceFileField.files = dataTransfer.files;
+                        evidenceCurrentName.textContent = modalEvidenceFile.name;
+                        evidenceCurrentWrap.classList.remove('d-none');
+                    } else {
+                        evidenceCurrentWrap.classList.add('d-none');
+                    }
+                }
+
+                evidenceFileField.addEventListener('change', function() {
+                    setModalEvidenceFile(evidenceFileField.files[0] || null);
+                });
+
+                document.getElementById('modal-evidence-clear').addEventListener('click', function() {
+                    setModalEvidenceFile(null);
+                });
 
                 function toggleTaxRateField() {
                     const isGravado = taxConditionField.value === 'gravado';
@@ -566,6 +646,7 @@
                     commercialUnitField.value = '';
                     taxConditionField.value = 'gravado';
                     transactionTypeField.value = '';
+                    setModalEvidenceFile(null);
                     toggleTaxRateField();
                 }
 
@@ -582,6 +663,7 @@
                     taxConditionField.value = item.tax_condition || 'gravado';
                     taxRateField.value = item.tax_rate ?? 13;
                     transactionTypeField.value = item.transaction_type || '';
+                    setModalEvidenceFile(item.evidence_file || null);
                     toggleTaxRateField();
                 }
 
@@ -642,6 +724,7 @@
                         discount_percent: parseFloat(discountField.value) || 0,
                         tax_condition: taxConditionField.value || 'gravado',
                         tax_rate: taxConditionField.value === 'gravado' ? (parseFloat(taxRateField.value) || 0) : 0,
+                        evidence_file: modalEvidenceFile,
                     };
 
                     if (editingIndex === null) {
@@ -753,6 +836,53 @@
                     `;
                 }
 
+                const tenantBalancePlaceholder = document.getElementById('tenant-balance-placeholder');
+                const tenantBalanceFigures = document.getElementById('tenant-balance-figures');
+                const tenantBalanceTotalWrap = document.getElementById('tenant-balance-total-wrap');
+                const tenantBalanceNote = document.getElementById('tenant-balance-note');
+
+                function renderTenantBalance(data) {
+                    if (!data) return;
+
+                    document.getElementById('tb-rent').textContent = data.rent.balance.toFixed(2);
+                    document.getElementById('tb-deposit').textContent = data.deposit.balance.toFixed(2);
+                    document.getElementById('tb-late-fee-rent').textContent = data.late_fee_rent.balance.toFixed(2);
+                    document.getElementById('tb-late-fee-deposit').textContent = data.late_fee_deposit.balance.toFixed(2);
+
+                    const total = data.rent.balance + data.deposit.balance + data.late_fee_rent.balance + data.late_fee_deposit.balance;
+                    document.getElementById('tb-total').textContent = total.toFixed(2);
+                    document.getElementById('tb-currency').textContent = data.currency || '';
+
+                    tenantBalancePlaceholder.classList.add('d-none');
+                    tenantBalanceFigures.classList.remove('d-none');
+                    tenantBalanceTotalWrap.classList.remove('d-none');
+                    tenantBalanceNote.classList.remove('d-none');
+                }
+
+                function resetTenantBalance() {
+                    tenantBalancePlaceholder.classList.remove('d-none');
+                    tenantBalanceFigures.classList.add('d-none');
+                    tenantBalanceTotalWrap.classList.add('d-none');
+                    tenantBalanceNote.classList.add('d-none');
+                }
+
+                function refreshTenantBalance() {
+                    const agreementId = agreementSelect.value;
+
+                    if (!agreementId) {
+                        resetTenantBalance();
+                        return;
+                    }
+
+                    const url = new URL(tenantBalanceBaseUrl.replace('__ID__', agreementId), window.location.origin);
+                    if (invoiceDateField.value) url.searchParams.set('date', invoiceDateField.value);
+
+                    fetch(url, { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+                        .then(function(response) { return response.ok ? response.json() : null; })
+                        .then(renderTenantBalance)
+                        .catch(function() {});
+                }
+
                 function refreshBillingTerms(preloadCanon) {
                     const agreementId = agreementSelect.value;
 
@@ -799,10 +929,12 @@
                     updateReceptorDisplay();
                     filterReferenceInvoicesByAgreement();
                     refreshBillingTerms(true);
+                    refreshTenantBalance();
                 });
 
                 invoiceDateField.addEventListener('change', function() {
                     refreshBillingTerms(false);
+                    refreshTenantBalance();
                 });
 
                 // --- "Otros" en métodos de pago: pide describirlo ---
@@ -843,6 +975,7 @@
                 });
 
                 updateReceptorDisplay();
+                refreshTenantBalance();
                 renderAll();
             });
         </script>

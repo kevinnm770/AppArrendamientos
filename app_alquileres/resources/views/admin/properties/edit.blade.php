@@ -41,7 +41,7 @@
                             <option value="disabled" @selected(old('status', $property->status ?? 'available') === 'disabled')>Deshabilitada</option>
                         </select>
                         @if ($hasLockedAgreement)
-                            <small class="d-block mt-1" style="font-size:10pt;color:#4CD2D9;">El estado queda bloqueado en <strong>Ocupada</strong> por un contrato en estado accepted.</small>
+                            <small class="d-block mt-1 note-cyan" style="font-size:10pt;">El estado queda bloqueado en <strong>Ocupada</strong> por un contrato en estado accepted.</small>
                         @endif
                         @error('status')
                             <span class="invalid-feedback" role="alert">
@@ -199,7 +199,7 @@
                         <label class="form-label" for="materials_input">Materiales (tags)</label>
                         <input type="text" class="form-control tag-source @error('materials') is-invalid @enderror" id="materials_input"
                             data-target="materials_tags" placeholder="Escribe y presiona Enter (ej: piso cerámica)">
-                        <small style="font-size:10pt;color:#4CD2D9;">Presiona Enter o coma para crear cada material.</small>
+                        <small class="note-cyan" style="font-size:10pt;">Presiona Enter o coma para crear cada material.</small>
                         <input type="hidden" name="materials" id="materials_tags" value="{{ old('materials', json_encode($property->materials ?? [])) }}">
                         @error('materials')
                             <span class="invalid-feedback d-block" role="alert">
@@ -213,7 +213,7 @@
                         <label class="form-label" for="included_objects_input">Objetos incluidos (tags)</label>
                         <input type="text" class="form-control tag-source @error('included_objects') is-invalid @enderror" id="included_objects_input"
                             data-target="included_objects_tags" placeholder="Escribe y presiona Enter (ej: refrigeradora)">
-                        <small style="font-size:10pt;color:#4CD2D9;">Presiona Enter o coma para crear cada objeto.</small>
+                        <small class="note-cyan" style="font-size:10pt;">Presiona Enter o coma para crear cada objeto.</small>
                         <input type="hidden" name="included_objects" id="included_objects_tags" value="{{ old('included_objects', json_encode($property->included_objects ?? [])) }}">
                         @error('included_objects')
                             <span class="invalid-feedback d-block" role="alert">
@@ -282,7 +282,7 @@
                                 <input class="form-check-input @error('is_public') is-invalid @enderror" type="checkbox" role="switch" id="is_public" name="is_public" value="1" @checked(old('is_public', ($property->is_public ?? false) ? '1' : '0') === '1')>
                                 <label class="form-check-label" for="is_public">Visible para arrendatarios</label>
                             </div>
-                            <small style="font-size:10pt;color:#4CD2D9;">Solo se puede publicar cuando el estado está en <strong>Disponible</strong>.</small>
+                            <small class="note-cyan" style="font-size:10pt;">Solo se puede publicar cuando el estado está en <strong>Disponible</strong>.</small>
                             @error('is_public')
                                 <span class="invalid-feedback d-block" role="alert">
                                     <strong>{{ $message }}</strong>

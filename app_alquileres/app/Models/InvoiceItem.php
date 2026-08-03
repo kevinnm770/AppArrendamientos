@@ -11,10 +11,15 @@ class InvoiceItem extends Model
         'service' => 'Servicio',
         'deposit' => 'Depósito',
         'discount' => 'Descuento',
-        'late_fee' => 'Morosidad',
+        'late_fee_rent' => 'Morosidad alquiler',
+        'late_fee_deposit' => 'Morosidad depósito',
         'repair' => 'Reparación',
         'other' => 'Otro',
     ];
+
+    // Conceptos cuyo saldo pendiente se calcula y se guarda en balance_pending
+    // (ver InvoiceController::applyConceptBalances() y TenantBalanceService).
+    public const BALANCE_TRACKED_CONCEPTS = ['rent', 'deposit', 'late_fee_rent', 'late_fee_deposit'];
 
     protected $fillable = [
         'invoice_id',
@@ -24,6 +29,8 @@ class InvoiceItem extends Model
         'description',
         'quantity',
         'concept',
+        'is_return',
+        'file_payment_id',
         'unit_of_measure',
         'transaction_type',
         'commercial_unit_of_measure',
@@ -37,11 +44,13 @@ class InvoiceItem extends Model
         'tax_total',
         'subtotal',
         'line_total',
+        'balance_pending',
         'position',
     ];
 
     protected $casts = [
         'quantity' => 'decimal:3',
+        'is_return' => 'boolean',
         'unit_price' => 'decimal:2',
         'discount_percent' => 'decimal:2',
         'discount_total' => 'decimal:2',
@@ -49,11 +58,17 @@ class InvoiceItem extends Model
         'tax_total' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'line_total' => 'decimal:2',
+        'balance_pending' => 'decimal:2',
     ];
 
     public function invoice()
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function filePayment()
+    {
+        return $this->belongsTo(FilePayment::class);
     }
 
     public static function conceptOptions(): array
@@ -65,10 +80,13 @@ class InvoiceItem extends Model
     {
         $quantity = (float) ($input['quantity'] ?? 1);
         $concept = $input['concept'] ?? null;
+        $isReturn = (bool) ($input['is_return'] ?? false);
         $unitPrice = (float) ($input['unit_price'] ?? 0);
-        // Un "Descuento" resta del total del comprobante: se guarda como monto negativo
-        // para que Invoice::recalculateTotalsFromItems() (que solo suma line_total) lo reste solo.
-        if ($concept === 'discount') {
+        // Un "Descuento" resta del total del comprobante, y una devolución de dinero al
+        // inquilino igual (is_return): ambos se guardan como monto negativo para que
+        // Invoice::recalculateTotalsFromItems() y TenantBalanceService::sumByConcept()
+        // (que solo suman line_total) los resten solos, sin lógica aparte.
+        if ($concept === 'discount' || $isReturn) {
             $unitPrice = -abs($unitPrice);
         }
         $discountPercent = (float) ($input['discount_percent'] ?? 0);
@@ -90,6 +108,7 @@ class InvoiceItem extends Model
             'description' => $input['description'],
             'quantity' => $quantity,
             'concept' => $concept,
+            'is_return' => $isReturn,
             'unit_of_measure' => $input['unit_of_measure'] ?? 'Unid',
             'transaction_type' => $input['transaction_type'] ?? null,
             'commercial_unit_of_measure' => $input['commercial_unit_of_measure'] ?? null,

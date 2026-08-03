@@ -460,7 +460,13 @@ class AgreementController extends Controller
             ? Carbon::parse($request->query('date'))
             : Carbon::now();
 
-        return response()->json($this->tenantBalanceService->breakdownFor($agreement, $asOf));
+        $excludeInvoiceId = $request->query('exclude_invoice_id');
+
+        return response()->json($this->tenantBalanceService->breakdownFor(
+            $agreement,
+            $asOf,
+            $excludeInvoiceId !== null ? (int) $excludeInvoiceId : null
+        ));
     }
 
     public function store(Request $request, SignedDocService $signedDocService)

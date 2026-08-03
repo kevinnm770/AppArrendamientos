@@ -73,7 +73,7 @@
                     <div class="col-md-12">
                         <label for="signed_doc_file" class="form-label">Documento oficial firmado</label>
                         <input id="signed_doc_file" type="file" name="signed_doc_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff" required>
-                        <small style="font-size:10pt;color:#4CD2D9;">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB). Este será el documento oficial del adendum: asegúrate de adjuntarlo ya firmado por ambas partes.</small>
+                        <small class="note-cyan" style="font-size:10pt;">Formatos permitidos: PDF, JPG, PNG, WEBP, BMP o TIFF (máx. 10 MB). Este será el documento oficial del adendum: asegúrate de adjuntarlo ya firmado por ambas partes.</small>
                     </div>
                 </div>
             </div>
