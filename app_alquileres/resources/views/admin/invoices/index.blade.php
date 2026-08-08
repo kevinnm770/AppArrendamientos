@@ -4,19 +4,19 @@
     <div class="page-title">
         <div class="row">
             <div class="col-12 col-md-6 order-md-1 order-last">
-                <h3>Facturas</h3>
-                <p class="text-subtitle text-muted">Consulta y da seguimiento a las facturas emitidas a tus arrendatarios.</p>
+                <h3>Comprobantes electrónicos</h3>
+                <p class="text-subtitle text-muted">Consulta y da seguimiento a los comprobantes electrónicas emitidas a tus arrendatarios ante Hacienda.</p>
             </div>
             <div class="col-12 col-md-6 order-md-2 order-first">
                 <div class="d-flex flex-column align-items-start align-items-md-end gap-2">
-                    <button type="button" class="btn-brand-action" id="new-invoice-btn">
+                    <a href="{{ route('admin.invoices.create') }}" class="btn-brand-action">
                         <i class="bi bi-plus-lg"></i>
-                        <span>Nueva factura</span>
-                    </button>
+                        <span>Nuevo registro</span>
+                    </a>
                     <nav aria-label="breadcrumb" class="breadcrumb-header">
                         <ol class="breadcrumb mb-0">
                             <li class="breadcrumb-item"><a href="{{ route('admin.index') }}">Admin</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">Invoices</li>
+                            <li class="breadcrumb-item active" aria-current="page">Electronic-invoice</li>
                         </ol>
                     </nav>
                 </div>
@@ -27,7 +27,7 @@
     <section class="section">
         <div class="card">
             <div class="card-header">
-                <h4 class="card-title mb-0">Facturas registradas</h4>
+                <h4 class="card-title mb-0">Comprobantes registrados</h4>
             </div>
             <div class="card-body">
                 @if (session('success'))
@@ -47,7 +47,7 @@
                 <form method="GET" action="{{ route('admin.invoices.index') }}" class="row g-2 mb-4">
                     <div class="col-md-3">
                         <label class="form-label">Buscar</label>
-                        <input type="text" name="search" class="form-control" placeholder="N° factura o cliente" value="{{ $filters['search'] ?? '' }}">
+                        <input type="text" name="search" class="form-control" placeholder="N° comprobante o cliente" value="{{ $filters['search'] ?? '' }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Contrato</label>
@@ -92,7 +92,6 @@
                                 <th>Fecha</th>
                                 <th>Total</th>
                                 <th>Estado Hacienda</th>
-                                <th>Trazabilidad</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -102,28 +101,11 @@
                                     <td>{{ $invoice->roomer->legal_name ?? '-' }}</td>
                                     <td>{{ optional($invoice->date)->format('Y-m-d') }}</td>
                                     <td>{{ $invoice->currency }} {{ number_format((float) $invoice->total, 2) }}</td>
-                                    <td>
-                                        @if ($invoice->electronicDetail)
-                                            {{ $haciendaStatusOptions[$invoice->electronicDetail->electronic_status ?? 'pending'] ?? 'Pendiente' }}
-                                        @else
-                                            No aplica
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if ($invoice->electronicDetail)
-                                            <small class="d-block text-muted">Cola: {{ optional($invoice->electronicDetail->queued_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
-                                            <small class="d-block text-muted">Enviado: {{ optional($invoice->electronicDetail->sent_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
-                                            <small class="d-block text-muted">Aceptado: {{ optional($invoice->electronicDetail->accepted_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
-                                            <small class="d-block text-muted">Rechazado: {{ optional($invoice->electronicDetail->rejected_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
-                                            <small class="d-block text-muted">Error: {{ optional($invoice->electronicDetail->error_at)->format('Y-m-d H:i:s') ?? '-' }}</small>
-                                        @else
-                                            -
-                                        @endif
-                                    </td>
+                                    <td>{{ $haciendaStatusOptions[$invoice->electronicDetail->electronic_status ?? 'pending'] ?? 'Pendiente' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">No se encontraron facturas.</td>
+                                    <td colspan="5" class="text-center text-muted">No se encontraron comprobantes.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -134,7 +116,7 @@
             </div>
         </div>
 
-        {{-- Plantillas ocultas con el detalle completo de cada factura. Al hacer clic en una
+        {{-- Plantillas ocultas con el detalle completo de cada comprobante. Al hacer clic en una
         fila, su contenido se copia dentro del modal compartido. --}}
         @foreach ($invoices as $invoice)
             <template id="invoice-detail-{{ $invoice->id }}">
@@ -154,18 +136,12 @@
                 </div>
                 <div class="row mb-3">
                     <div class="col-4">
-                        <strong class="d-block">Estado factura</strong>
+                        <strong class="d-block">Estado comprobante</strong>
                         <span>{{ $statusOptions[$invoice->status] ?? $invoice->status }}</span>
                     </div>
                     <div class="col-4">
                         <strong class="d-block">Estado Hacienda</strong>
-                        <span>
-                            @if ($invoice->electronicDetail)
-                                {{ $haciendaStatusOptions[$invoice->electronicDetail->electronic_status ?? 'pending'] ?? 'Pendiente' }}
-                            @else
-                                No aplica
-                            @endif
-                        </span>
+                        <span>{{ $haciendaStatusOptions[$invoice->electronicDetail->electronic_status ?? 'pending'] ?? 'Pendiente' }}</span>
                     </div>
                     <div class="col-4">
                         <strong class="d-block">Condición venta</strong>
@@ -275,73 +251,82 @@
 
                 <hr>
 
-                @if ($invoice->electronicDetail)
-                    @php $feStatus = $invoice->electronicDetail->electronic_status; @endphp
+                @php $feStatus = $invoice->electronicDetail->electronic_status; @endphp
 
-                    <div class="mb-3">
-                        <strong class="d-block">Último mensaje</strong>
-                        <span>{{ $invoice->electronicDetail->last_transition_message ?? '-' }}</span>
-                    </div>
+                <div class="mb-3">
+                    <strong class="d-block">Último mensaje</strong>
+                    <span>{{ $invoice->electronicDetail->last_transition_message ?? '-' }}</span>
+                </div>
 
-                    <div class="mb-3">
-                        <strong class="d-block mb-1">Acciones</strong>
-                        <div class="d-flex flex-wrap gap-2">
-                            @if ($feStatus === 'pending')
-                                <form method="POST" action="{{ route('admin.invoices.electronic.send', $invoice->id) }}">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline-primary">Enviar</button>
-                                </form>
-                            @endif
-
-                            @if (in_array($feStatus, ['rejected', 'error'], true))
-                                <form method="POST" action="{{ route('admin.invoices.electronic.retry', $invoice->id) }}">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline-warning">Reintentar</button>
-                                </form>
-                            @endif
-
-                            @if (in_array($feStatus, ['queued', 'sent', 'rejected', 'error'], true))
-                                <form method="POST" action="{{ route('admin.invoices.electronic.check-status', $invoice->id) }}">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline-info">Consultar estado</button>
-                                </form>
-                            @endif
-
-                            @if ($feStatus === 'accepted')
-                                <span class="text-success small align-self-center">Aceptada, nada pendiente.</span>
-                            @endif
+                <div class="mb-3">
+                    <strong class="d-block mb-1">Trazabilidad</strong>
+                    <div class="row row-cols-2 row-cols-md-5 g-2">
+                        <div class="col">
+                            <div class="small text-muted">Cola</div>
+                            <div>{{ optional($invoice->electronicDetail->queued_at)->format('Y-m-d H:i:s') ?? '-' }}</div>
+                        </div>
+                        <div class="col">
+                            <div class="small text-muted">Enviado</div>
+                            <div>{{ optional($invoice->electronicDetail->sent_at)->format('Y-m-d H:i:s') ?? '-' }}</div>
+                        </div>
+                        <div class="col">
+                            <div class="small text-muted">Aceptado</div>
+                            <div>{{ optional($invoice->electronicDetail->accepted_at)->format('Y-m-d H:i:s') ?? '-' }}</div>
+                        </div>
+                        <div class="col">
+                            <div class="small text-muted">Rechazado</div>
+                            <div>{{ optional($invoice->electronicDetail->rejected_at)->format('Y-m-d H:i:s') ?? '-' }}</div>
+                        </div>
+                        <div class="col">
+                            <div class="small text-muted">Error</div>
+                            <div>{{ optional($invoice->electronicDetail->error_at)->format('Y-m-d H:i:s') ?? '-' }}</div>
                         </div>
                     </div>
+                </div>
 
-                    <hr>
-
+                <div class="mb-3">
+                    <strong class="d-block mb-1">Acciones</strong>
                     <div class="d-flex flex-wrap gap-2">
-                        @if ($invoice->electronicDetail->ptec_response)
-                            <a href="{{ route('admin.invoices.electronic.response', $invoice->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Descargar respuesta factura electrónica</a>
+                        @if ($feStatus === 'pending')
+                            <form method="POST" action="{{ route('admin.invoices.electronic.send', $invoice->id) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Enviar</button>
+                            </form>
                         @endif
 
-                        @if ($invoice->electronicDetail->xml_content)
-                            <a href="{{ route('admin.invoices.electronic.xml', $invoice->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Descargar factura electrónica enviada</a>
+                        @if (in_array($feStatus, ['rejected', 'error'], true))
+                            <form method="POST" action="{{ route('admin.invoices.electronic.retry', $invoice->id) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-warning">Reintentar</button>
+                            </form>
                         @endif
 
-                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Aún no disponible">Descargar documento PDF</button>
-                    </div>
-                @else
-                    <div class="mb-12">
-                        @if ($invoice->canEditOrDeleteReceipt())
-                            <div class="d-flex flex-wrap gap-2">
-                                <a href="{{ route('admin.invoices.edit', $invoice->id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
-                                <form method="POST" class="mb-0" action="{{ route('admin.invoices.delete', $invoice->id) }}" onsubmit="return confirm('¿Eliminar este comprobante de pago? Se notificará al inquilino y esta acción no se puede deshacer.');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-                                </form>
-                            </div>
-                        @else
-                            <span class="text-muted small">Ya pasaron más de 24 horas desde su creación: no se puede editar ni eliminar.</span>
+                        @if (in_array($feStatus, ['queued', 'sent', 'rejected', 'error'], true))
+                            <form method="POST" action="{{ route('admin.invoices.electronic.check-status', $invoice->id) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-info">Consultar estado</button>
+                            </form>
+                        @endif
+
+                        @if ($feStatus === 'accepted')
+                            <span class="text-success small align-self-center">Aceptada, nada pendiente.</span>
                         @endif
                     </div>
-                @endif
+                </div>
+
+                <hr>
+
+                <div class="d-flex flex-wrap gap-2">
+                    @if ($invoice->electronicDetail->ptec_response)
+                        <a href="{{ route('admin.invoices.electronic.response', $invoice->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Descargar respuesta comprobante electrónico</a>
+                    @endif
+
+                    @if ($invoice->electronicDetail->xml_content)
+                        <a href="{{ route('admin.invoices.electronic.xml', $invoice->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Descargar comprobante electrónico enviado</a>
+                    @endif
+
+                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Aún no disponible">Descargar documento PDF</button>
+                </div>
             </template>
         @endforeach
 
@@ -349,32 +334,10 @@
             <div class="card" style="width: 100%; max-width: 820px; max-height: 90vh; overflow-y: auto;">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h4 class="mb-0">Detalle de la factura</h4>
+                        <h4 class="mb-0">Detalle del comprobante</h4>
                         <button type="button" class="btn-close" id="invoice-detail-modal-close" aria-label="Cerrar"></button>
                     </div>
                     <div id="invoice-detail-modal-body"></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="new-invoice-modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1050; align-items:center; justify-content:center;">
-            <div class="card" style="width: 100%; max-width: 480px;">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h4 class="mb-0">Nueva factura</h4>
-                        <button type="button" class="btn-close" id="new-invoice-modal-close" aria-label="Cerrar"></button>
-                    </div>
-                    <p class="text-muted small mb-3">¿Qué tipo de comprobante querés crear?</p>
-                    <div class="d-grid gap-2">
-                        <a href="{{ route('admin.invoices.create') }}" class="btn btn-primary text-start">
-                            <strong class="d-block">Comprobante electrónico</strong>
-                            <small class="d-block fw-normal">Factura o nota de crédito con validez tributaria, se envía a Hacienda.</small>
-                        </a>
-                        <a href="{{ route('admin.invoices.payment-receipt.create') }}" class="btn btn-outline-secondary text-start">
-                            <strong class="d-block">Comprobante de pago</strong>
-                            <small class="d-block fw-normal">Constancia de un pago del inquilino, solo queda registrada en el sistema.</small>
-                        </a>
-                    </div>
                 </div>
             </div>
         </div>
@@ -401,20 +364,6 @@
 
                 detailBackdrop.addEventListener('click', function(event) {
                     if (event.target === detailBackdrop) detailBackdrop.style.display = 'none';
-                });
-
-                const newInvoiceBackdrop = document.getElementById('new-invoice-modal-backdrop');
-
-                document.getElementById('new-invoice-btn').addEventListener('click', function() {
-                    newInvoiceBackdrop.style.display = 'flex';
-                });
-
-                document.getElementById('new-invoice-modal-close').addEventListener('click', function() {
-                    newInvoiceBackdrop.style.display = 'none';
-                });
-
-                newInvoiceBackdrop.addEventListener('click', function(event) {
-                    if (event.target === newInvoiceBackdrop) newInvoiceBackdrop.style.display = 'none';
                 });
             });
         </script>

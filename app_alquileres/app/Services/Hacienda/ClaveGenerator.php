@@ -73,6 +73,26 @@ class ClaveGenerator
         return $this->consecutivo($sucursal, $terminal, $documentTypeCode, $lastSequence + 1);
     }
 
+    /**
+     * Igual que nextConsecutivo() pero de solo lectura (sin lockForUpdate): para
+     * previsualizar el consecutivo que se asignaría al guardar, sin reservar nada. No usar
+     * para el envío real — ahí sí hace falta el lock para evitar colisiones entre envíos
+     * simultáneos.
+     */
+    public function peekNextConsecutivo(int $lessorId, string $sucursal, string $terminal, string $documentTypeCode): string
+    {
+        $prefix = $this->consecutivo($sucursal, $terminal, $documentTypeCode, 0);
+        $prefix = substr($prefix, 0, 10);
+
+        $lastNumber = Invoice::where('lessor_id', $lessorId)
+            ->where('invoice_number', 'like', $prefix . '%')
+            ->max('invoice_number');
+
+        $lastSequence = $lastNumber ? (int) substr((string) $lastNumber, 10, 10) : 0;
+
+        return $this->consecutivo($sucursal, $terminal, $documentTypeCode, $lastSequence + 1);
+    }
+
     protected function padIssuerId(string $idNumber): string
     {
         $digits = preg_replace('/\D+/', '', $idNumber) ?? '';

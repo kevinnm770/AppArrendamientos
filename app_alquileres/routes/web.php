@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\AccountSecurityController;
+use App\Http\Controllers\AdditionalChargeController;
 use App\Http\Controllers\AdemdumController;
 use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\CabysCodeController;
+use App\Http\Controllers\CreditBalanceController;
 use App\Http\Controllers\CrLocationController;
 use App\Http\Controllers\lessorController;
 use App\Http\Controllers\LoginController;
@@ -13,6 +15,7 @@ use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\PaymentReceiptController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\PublicPropertyController;
 use App\Http\Controllers\RegisterController;
@@ -134,6 +137,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
         Route::get('/{agreementId}/tenant-balance', [AgreementController::class, 'tenantBalance'])
             ->name('tenant-balance')
             ->whereNumber('agreementId');
+        Route::get('/{agreementId}/unpaid-invoices', [AgreementController::class, 'unpaidElectronicInvoices'])
+            ->name('unpaid-invoices')
+            ->whereNumber('agreementId');
 
         Route::post('/register', [AgreementController::class, 'store'])->name('register.store');
         Route::get('/{agreementId}/signed-doc/download', [AgreementController::class, 'downloadSignedDoc'])->name('signed-doc.download');
@@ -146,20 +152,43 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'lessor'
         Route::delete('/{agreementId}', [AgreementController::class, 'delete'])->name('delete');
     });
 
-    // Facturas
+    // Facturas electrónicas (documento tributario, se envía a Hacienda)
     Route::prefix('invoices')->name('invoices.')->middleware('auth')->group(function () {
         Route::get('/', [InvoiceController::class, 'index'])->name('index');
         Route::get('/create', [InvoiceController::class, 'create'])->name('create');
-        Route::get('/payment-receipt/create', [InvoiceController::class, 'createPaymentReceipt'])->name('payment-receipt.create');
+        Route::post('/preview', [InvoiceController::class, 'previewXml'])->name('preview');
         Route::post('/', [InvoiceController::class, 'store'])->name('store');
-        Route::get('/{invoiceId}/edit', [InvoiceController::class, 'edit'])->name('edit');
-        Route::patch('/{invoiceId}/edit', [InvoiceController::class, 'update'])->name('edit.update');
-        Route::delete('/{invoiceId}', [InvoiceController::class, 'delete'])->name('delete');
         Route::post('/{invoiceId}/electronic/send', [InvoiceController::class, 'sendElectronic'])->name('electronic.send');
         Route::post('/{invoiceId}/electronic/retry', [InvoiceController::class, 'retryElectronic'])->name('electronic.retry');
         Route::post('/{invoiceId}/electronic/check-status', [InvoiceController::class, 'checkElectronicStatus'])->name('electronic.check-status');
         Route::get('/{invoiceId}/electronic/xml', [InvoiceController::class, 'downloadElectronicXml'])->name('electronic.xml');
         Route::get('/{invoiceId}/electronic/response', [InvoiceController::class, 'downloadElectronicResponse'])->name('electronic.response');
+    });
+
+    // Comprobantes de pago (constancia interna de dinero ya recibido, no se envía a Hacienda)
+    Route::prefix('payment-receipts')->name('payment-receipts.')->middleware('auth')->group(function () {
+        Route::get('/', [PaymentReceiptController::class, 'index'])->name('index');
+        Route::get('/create', [PaymentReceiptController::class, 'create'])->name('create');
+        Route::post('/', [PaymentReceiptController::class, 'store'])->name('store');
+        Route::get('/{receiptId}/edit', [PaymentReceiptController::class, 'edit'])->name('edit');
+        Route::patch('/{receiptId}', [PaymentReceiptController::class, 'update'])->name('update');
+        Route::delete('/{receiptId}', [PaymentReceiptController::class, 'delete'])->name('delete');
+    });
+
+    // Otros cargos a cobrar (cobros fuera de lo establecido por el contrato)
+    Route::prefix('additional-charges')->name('additional-charges.')->middleware('auth')->group(function () {
+        Route::get('/', [AdditionalChargeController::class, 'index'])->name('index');
+        Route::get('/create', [AdditionalChargeController::class, 'create'])->name('create');
+        Route::post('/', [AdditionalChargeController::class, 'store'])->name('store');
+        Route::patch('/{chargeId}/cancel', [AdditionalChargeController::class, 'cancel'])->name('cancel');
+    });
+
+    // Aplicación de saldo a favor (otorgar crédito manual o aplicar el ya disponible)
+    Route::prefix('credit-balance')->name('credit-balance.')->middleware('auth')->group(function () {
+        Route::get('/', [CreditBalanceController::class, 'index'])->name('index');
+        Route::get('/create', [CreditBalanceController::class, 'create'])->name('create');
+        Route::post('/grant', [CreditBalanceController::class, 'storeGrant'])->name('grant');
+        Route::post('/apply', [CreditBalanceController::class, 'storeApply'])->name('apply');
     });
 
     // Catálogo CABYS (autocompletado en el formulario de facturas)

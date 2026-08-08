@@ -5,18 +5,23 @@ namespace App\Http\Controllers;
 use App\Jobs\SendElectronicInvoiceJob;
 use App\Jobs\SyncElectronicInvoiceStatusJob;
 use App\Models\Agreement;
+use App\Models\CreditBalanceMovement;
 use App\Models\FilePayment;
 use App\Models\Invoice;
 use App\Models\InvoiceElectronicDetail;
 use App\Models\InvoiceItem;
 use App\Models\Lessor;
+use App\Models\PaymentReceipt;
+use App\Models\PaymentReceiptItem;
 use App\Services\CostaRicaElectronicInvoiceService;
 use App\Services\Hacienda\Catalogs;
 use App\Services\Hacienda\ClaveGenerator;
+use App\Services\Hacienda\InvoiceXmlBuilder;
 use App\Services\InvoicePaymentFileStorageService;
-use App\Services\NotificationService;
+use App\Services\PaymentReceiptService;
 use App\Services\TenantBalanceService;
 use Carbon\Carbon;
+use DOMDocument;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -30,9 +35,9 @@ class InvoiceController extends Controller
 
     public function __construct(
         protected ClaveGenerator $claveGenerator,
-        private readonly NotificationService $notificationService,
-        private readonly TenantBalanceService $tenantBalanceService,
-        private readonly InvoicePaymentFileStorageService $fileStorage
+        private readonly InvoicePaymentFileStorageService $fileStorage,
+        private readonly PaymentReceiptService $paymentReceiptService,
+        private readonly TenantBalanceService $tenantBalanceService
     ) {
     }
 
@@ -120,220 +125,10 @@ class InvoiceController extends Controller
             'saleConditionOptions' => Invoice::saleConditionOptions(),
             'paymentMethodOptions' => Invoice::paymentMethodOptions(),
             'creditNoteReasonOptions' => Catalogs::creditNoteReasonOptions(),
+            'conceptOptions' => InvoiceItem::conceptOptions(),
+            'appliableConceptOptions' => CreditBalanceMovement::appliableConceptOptions(),
             'nextInvoiceNumberPreview' => $this->nextInvoiceNumber($lessor, '01'),
         ]);
-    }
-
-    /**
-     * Formulario simplificado para dejar constancia de un pago del inquilino solo en el
-     * sistema (invoice_type = 'simple'): no genera XML ni se envía a Hacienda, así que no
-     * pide CABYS ni tipo de documento.
-     */
-    public function createPaymentReceipt(Request $request)
-    {
-        $user = $request->user();
-        $lessor = $user?->lessor;
-
-        if (!$lessor) {
-            return redirect()->route('admin.index');
-        }
-
-        $agreements = Agreement::with(['roomer.user', 'property'])
-            ->where('lessor_id', $lessor->id)
-            ->whereIn('status', ['accepted', 'canceling'])
-            ->orderByDesc('start_at')
-            ->get();
-
-        return view('admin.invoices.payment-receipt', [
-            'lessor' => $lessor,
-            'agreements' => $agreements,
-            'paymentMethodOptions' => Invoice::paymentMethodOptions(),
-            'conceptOptions' => InvoiceItem::conceptOptions(),
-            'nextInvoiceNumberPreview' => $this->nextInvoiceNumber($lessor, '01'),
-        ]);
-    }
-
-    /**
-     * Reusa la misma vista de creación en modo edición — solo disponible para
-     * comprobantes de pago simples y dentro de la ventana de Invoice::canEditOrDeleteReceipt().
-     */
-    public function edit(Request $request, int $invoiceId)
-    {
-        $lessor = $request->user()?->lessor;
-
-        if (!$lessor) {
-            return redirect()->route('admin.index');
-        }
-
-        $invoice = Invoice::with(['items.filePayment', 'electronicDetail'])
-            ->where('lessor_id', $lessor->id)
-            ->findOrFail($invoiceId);
-
-        if (!$invoice->canEditOrDeleteReceipt()) {
-            return redirect()
-                ->route('admin.invoices.index')
-                ->withErrors('Este comprobante ya no se puede editar: solo se permite dentro de las 24 horas posteriores a su creación.');
-        }
-
-        $agreements = Agreement::with(['roomer.user', 'property'])
-            ->where('lessor_id', $lessor->id)
-            ->whereIn('status', ['accepted', 'canceling'])
-            ->orderByDesc('start_at')
-            ->get();
-
-        return view('admin.invoices.payment-receipt', [
-            'lessor' => $lessor,
-            'agreements' => $agreements,
-            'paymentMethodOptions' => Invoice::paymentMethodOptions(),
-            'conceptOptions' => InvoiceItem::conceptOptions(),
-            'nextInvoiceNumberPreview' => $invoice->invoice_number,
-            'invoice' => $invoice,
-        ]);
-    }
-
-    public function update(Request $request, int $invoiceId)
-    {
-        $lessor = $request->user()?->lessor;
-
-        if (!$lessor) {
-            return redirect()->route('admin.index');
-        }
-
-        $invoice = Invoice::with(['electronicDetail', 'items'])
-            ->where('lessor_id', $lessor->id)
-            ->findOrFail($invoiceId);
-
-        if (!$invoice->canEditOrDeleteReceipt()) {
-            return redirect()
-                ->route('admin.invoices.index')
-                ->withErrors('Este comprobante ya no se puede editar: solo se permite dentro de las 24 horas posteriores a su creación.');
-        }
-
-        $validated = $request->validate([
-            'agreement_id' => ['required', Rule::exists('agreements', 'id')->where('lessor_id', $lessor->id)],
-            'date' => ['required', 'date'],
-            'currency' => ['required', Rule::in(['CRC', 'USD'])],
-            'sale_condition' => ['required', Rule::in(array_keys(Invoice::saleConditionOptions()))],
-            'payment_methods' => ['required', 'array', 'min:1'],
-            'payment_methods.*' => [Rule::in(array_keys(Invoice::paymentMethodOptions()))],
-            'payment_method_other_description' => [
-                Rule::requiredIf(fn () => in_array('other', (array) $request->input('payment_methods', []), true)),
-                'nullable', 'string', 'max:255',
-            ],
-            'notes' => ['nullable', 'string'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.description' => ['required', 'string', 'max:500'],
-            'items.*.quantity' => ['required', 'numeric', 'min:0.001'],
-            'items.*.concept' => ['required', Rule::in(array_keys(InvoiceItem::CONCEPT_OPTIONS))],
-            'items.*.is_return' => ['nullable', 'boolean'],
-            'items.*.evidence_file' => ['nullable', 'file', 'mimes:'.self::ALLOWED_EVIDENCE_MIMES, 'max:'.self::MAX_EVIDENCE_KB],
-            'items.*.remove_evidence_file' => ['nullable', 'boolean'],
-            'items.*.existing_file_payment_id' => ['nullable', 'string'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
-        ]);
-
-        $agreement = Agreement::where('lessor_id', $lessor->id)->findOrFail((int) $validated['agreement_id']);
-        $firstDescription = $validated['items'][0]['description'];
-
-        // Se captura antes de tocar nada: como update() borra todas las líneas viejas y
-        // crea nuevas (no hay id estable de línea entre un submit y otro), cualquier
-        // file_payment que quedó sin ninguna línea nueva apuntándole al final se limpia
-        // de R2 y de la BD (cubre reemplazo, remoción explícita, y borrar la línea entera).
-        $oldFilePaymentIds = $invoice->items->pluck('file_payment_id')->filter()->values();
-
-        DB::transaction(function () use ($invoice, $validated, $agreement, $request, $firstDescription, $oldFilePaymentIds) {
-            $invoice->update([
-                'agreement_id' => $agreement->id,
-                'roomer_id' => $agreement->roomer_id,
-                'date' => $validated['date'],
-                'description' => $firstDescription,
-                'currency' => $validated['currency'],
-                'sale_condition' => $validated['sale_condition'],
-                'payment_methods' => $validated['payment_methods'],
-                'payment_method_other_description' => $validated['payment_method_other_description'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-                'updated_by_user_id' => $request->user()->id,
-            ]);
-
-            $invoice->items()->delete();
-
-            $keptFilePaymentIds = collect();
-
-            foreach ($validated['items'] as $position => $itemInput) {
-                $filePaymentId = null;
-
-                if ($request->hasFile("items.{$position}.evidence_file")) {
-                    $filePayment = $this->storeEvidenceFile($request->file("items.{$position}.evidence_file"), $agreement->id, $invoice->id);
-                    $filePaymentId = $filePayment->id;
-                } elseif (empty($itemInput['remove_evidence_file']) && !empty($itemInput['existing_file_payment_id']) && $oldFilePaymentIds->contains($itemInput['existing_file_payment_id'])) {
-                    // Ni archivo nuevo ni remoción: el archivo que ya tenía la línea sobrevive,
-                    // solo se reasigna a la línea nueva que la reemplaza.
-                    $filePaymentId = $itemInput['existing_file_payment_id'];
-                }
-
-                if ($filePaymentId) {
-                    $keptFilePaymentIds->push($filePaymentId);
-                }
-
-                InvoiceItem::create([
-                    'invoice_id' => $invoice->id,
-                    'position' => $position + 1,
-                    'file_payment_id' => $filePaymentId,
-                    ...InvoiceItem::computeFromInput($itemInput),
-                ]);
-            }
-
-            $invoice->recalculateTotalsFromItems();
-
-            foreach ($oldFilePaymentIds->diff($keptFilePaymentIds) as $orphanId) {
-                $orphan = FilePayment::find($orphanId);
-
-                if ($orphan) {
-                    $this->fileStorage->delete($orphan->bucket);
-                    $orphan->delete();
-                }
-            }
-        });
-
-        $freshInvoice = $invoice->fresh(['items', 'agreement.property', 'roomer.user']);
-        $this->applyConceptBalances($freshInvoice, $agreement);
-        $this->notifyReceiptEvent($freshInvoice, 'updated');
-
-        return redirect()
-            ->route('admin.invoices.index')
-            ->with('success', 'Comprobante de pago actualizado correctamente.');
-    }
-
-    public function delete(Request $request, int $invoiceId)
-    {
-        $lessor = $request->user()?->lessor;
-
-        if (!$lessor) {
-            return redirect()->route('admin.index');
-        }
-
-        $invoice = Invoice::with(['electronicDetail', 'items.filePayment', 'agreement.property', 'roomer.user'])
-            ->where('lessor_id', $lessor->id)
-            ->findOrFail($invoiceId);
-
-        if (!$invoice->canEditOrDeleteReceipt()) {
-            return back()->withErrors('Este comprobante ya no se puede eliminar: solo se permite dentro de las 24 horas posteriores a su creación.');
-        }
-
-        // Los file_payment no se borran solos en cascada (la FK está al revés: invoice_items
-        // apunta a file_payment, no lo contrario), así que se limpian a mano antes de borrar
-        // el comprobante para no dejar basura en R2 ni filas huérfanas.
-        $this->deleteEvidenceFilesFor($invoice->items);
-
-        // invoice_items se borran en cascada por FK (ver create_invoice_items_table); se
-        // notifica después de borrar, usando los datos que ya están cargados en memoria.
-        $invoice->delete();
-
-        $this->notifyReceiptEvent($invoice, 'deleted');
-
-        return redirect()
-            ->route('admin.invoices.index')
-            ->with('success', 'Comprobante de pago eliminado correctamente.');
     }
 
     public function sendElectronic(Request $request, int $invoiceId)
@@ -464,12 +259,13 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Sube un archivo de evidencia de pago al bucket de R2 (files_invoice/{agreement}/{invoice}/)
-     * y crea su registro en file_payment. Reutilizado por store() y update().
+     * Sube un archivo de evidencia de pago al bucket de R2 (files_invoice/{agreement}/{record}/)
+     * y crea su registro en file_payment. Reutilizado por store() tanto para líneas de la
+     * factura como para líneas del comprobante de pago que se crea junto con ella.
      */
-    private function storeEvidenceFile(UploadedFile $file, int $agreementId, int $invoiceId): FilePayment
+    private function storeEvidenceFile(UploadedFile $file, int $agreementId, int $recordId): FilePayment
     {
-        $path = $this->fileStorage->store($file, $agreementId, $invoiceId);
+        $path = $this->fileStorage->store($file, $agreementId, $recordId);
 
         return FilePayment::create([
             'name_file' => $file->getClientOriginalName(),
@@ -480,124 +276,40 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Borra de R2 y de la base de datos los file_payment de una lista de invoice_items ya
-     * cargados (con su relación filePayment). Usado al eliminar un comprobante completo.
+     * Suma cuánto de las líneas "Aplicar saldo a favor" del comprobante de pago (dentro del
+     * modal de "ya pagó") se pide consumir, y confirma que no exceda lo disponible a la
+     * fecha del comprobante. Igual que PaymentReceiptController::checkAvailableCredit().
      */
-    private function deleteEvidenceFilesFor(iterable $items): void
+    private function checkAvailableCredit(array $receiptData, Agreement $agreement): ?string
     {
-        foreach ($items as $item) {
-            if ($item->filePayment) {
-                $this->fileStorage->delete($item->filePayment->bucket);
-                $item->filePayment->delete();
-            }
+        $requested = collect($receiptData['items'] ?? [])
+            ->filter(fn ($item) => !empty($item['is_credit_application']))
+            ->sum(fn ($item) => (float) ($item['unit_price'] ?? 0));
+
+        if ($requested <= 0) {
+            return null;
         }
+
+        $available = $this->tenantBalanceService
+            ->breakdownFor($agreement, Carbon::parse($receiptData['date']))['credit_balance']['available'];
+
+        if ($requested > $available) {
+            return 'El monto de saldo a favor aplicado ('.number_format($requested, 2).') excede el disponible ('.number_format($available, 2).').';
+        }
+
+        return null;
     }
 
     /**
-     * Guarda en cada línea (según su concepto) el saldo pendiente de ese concepto
-     * inmediatamente después de este comprobante, usando TenantBalanceService con
-     * $asOf = fecha del comprobante para que quede fiel a la vigencia del contrato en
-     * ese momento. Los conceptos que no se rastrean como deuda (servicio, descuento,
-     * reparación, otro) quedan en null. Solo aplica a comprobantes de pago simples.
+     * Reglas compartidas por store() (guardado real) y previewXml() (vista previa antes de
+     * confirmar) — deben ser exactamente las mismas para que lo que el usuario revisa en el
+     * modal de confirmación sea fiel a lo que realmente se va a guardar y enviar.
      */
-    private function applyConceptBalances(Invoice $invoice, Agreement $agreement): void
+    private function validateInvoicePayload(Request $request, Lessor $lessor): array
     {
-        $breakdown = $this->tenantBalanceService->breakdownFor($agreement, Carbon::parse($invoice->date));
-
-        $balanceByConcept = [
-            'rent' => $breakdown['rent']['balance'],
-            'deposit' => $breakdown['deposit']['balance'],
-            'late_fee_rent' => $breakdown['late_fee_rent']['balance'],
-            'late_fee_deposit' => $breakdown['late_fee_deposit']['balance'],
-        ];
-
-        foreach ($invoice->items as $item) {
-            $item->update(['balance_pending' => $balanceByConcept[$item->concept] ?? null]);
-        }
-    }
-
-    /**
-     * Notifica por email al inquilino cuando se crea, edita o elimina un comprobante de
-     * pago (factura simple). En creación/edición el correo trae el desglose completo de
-     * líneas; en eliminación solo los datos básicos que se están perdiendo. Reutiliza
-     * NotificationService::emailUsers() (App\Notifications\AppEventMail), que ya se usa
-     * para el resto de correos transaccionales de la app.
-     */
-    private function notifyReceiptEvent(Invoice $invoice, string $action): void
-    {
-        $roomerUser = $invoice->roomer?->user;
-
-        if (!$roomerUser) {
-            return;
-        }
-
-        $contractLabel = trim(($invoice->agreement->contract_number ?? '') . ' - ' . ($invoice->agreement->property->name ?? ''), ' -');
-        $dateLabel = optional($invoice->date)->format('d/m/Y') ?? '-';
-
-        $subject = match ($action) {
-            'created' => "Nuevo comprobante de pago #{$invoice->invoice_number}",
-            'updated' => "Comprobante de pago #{$invoice->invoice_number} actualizado",
-            'deleted' => "Comprobante de pago #{$invoice->invoice_number} eliminado",
-        };
-
-        if ($action === 'deleted') {
-            $body = "Se eliminó el comprobante de pago N° {$invoice->invoice_number} del {$dateLabel}, "
-                . "por {$invoice->currency} " . number_format((float) $invoice->total, 2)
-                . ($contractLabel !== '' ? ", correspondiente al contrato {$contractLabel}." : '.') . "\n"
-                . 'Si tienes dudas sobre este cambio, contacta a tu arrendador.';
-
-            $this->notificationService->emailUsers([$roomerUser], $subject, $body);
-
-            return;
-        }
-
-        $verb = $action === 'created' ? 'Se registró' : 'Se actualizó';
-
-        $lines = [
-            "{$verb} un comprobante de pago" . ($contractLabel !== '' ? " para tu contrato {$contractLabel}." : '.'),
-            "Fecha: {$dateLabel}",
-            "Número: {$invoice->invoice_number}",
-            "Moneda: {$invoice->currency}",
-            'Detalle:',
-        ];
-
-        foreach ($invoice->items as $item) {
-            $conceptLabel = InvoiceItem::CONCEPT_OPTIONS[$item->concept] ?? 'Otro';
-            if ($item->is_return) {
-                $conceptLabel .= ' - retorno al inquilino';
-            }
-            $lines[] = "- [{$conceptLabel}] {$item->description}: {$invoice->currency} " . number_format((float) $item->line_total, 2);
-        }
-
-        $lines[] = "Total: {$invoice->currency} " . number_format((float) $invoice->total, 2);
-
-        $paymentMethodLabels = collect($invoice->payment_methods ?? [])
-            ->map(fn ($method) => Invoice::PAYMENT_METHOD_OPTIONS[$method] ?? $method)
-            ->implode(', ');
-
-        if ($paymentMethodLabels !== '') {
-            $lines[] = "Métodos de pago: {$paymentMethodLabels}";
-        }
-
-        if (!empty($invoice->notes)) {
-            $lines[] = "Notas: {$invoice->notes}";
-        }
-
-        $this->notificationService->emailUsers([$roomerUser], $subject, implode("\n", $lines));
-    }
-
-    public function store(Request $request)
-    {
-        $lessor = $request->user()?->lessor;
-
-        if (!$lessor) {
-            return redirect()->route('admin.index');
-        }
-
-        $validated = $request->validate([
+        return $request->validate([
             'agreement_id' => ['required', Rule::exists('agreements', 'id')->where('lessor_id', $lessor->id)],
-            'invoice_type' => ['required', Rule::in(['electronic', 'simple'])],
-            'document_type' => ['required_if:invoice_type,electronic', 'nullable', Rule::in(['01', '03'])],
+            'document_type' => ['required', Rule::in(['01', '03'])],
             'reference_invoice_id' => ['required_if:document_type,03', 'nullable', Rule::exists('invoices', 'id')->where('lessor_id', $lessor->id)],
             'credit_note_reason_code' => ['required_if:document_type,03', 'nullable', Rule::in(array_keys(Catalogs::creditNoteReasonOptions()))],
             'credit_note_reason_text' => ['required_if:document_type,03', 'nullable', 'string', 'max:255'],
@@ -615,19 +327,39 @@ class InvoiceController extends Controller
             ],
             'reference_code' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
+            'create_payment_receipt' => ['nullable', 'boolean'],
+            // Datos del comprobante de pago que se crea junto con la factura cuando se marca
+            // "ya pagó" — capturados en su propio modal (precargado desde las líneas de la
+            // factura, pero editable), nunca derivados a ciegas de items[] en el servidor.
+            'payment_receipt' => ['nullable', 'array', 'required_if:create_payment_receipt,1'],
+            'payment_receipt.date' => ['nullable', 'date', 'required_if:create_payment_receipt,1'],
+            'payment_receipt.currency' => ['nullable', Rule::in(['CRC', 'USD']), 'required_if:create_payment_receipt,1'],
+            'payment_receipt.payment_methods' => ['nullable', 'array', 'min:1', 'required_if:create_payment_receipt,1'],
+            'payment_receipt.payment_methods.*' => [Rule::in(array_keys(Invoice::paymentMethodOptions()))],
+            'payment_receipt.payment_method_other_description' => [
+                Rule::requiredIf(fn () => in_array('other', (array) $request->input('payment_receipt.payment_methods', []), true)),
+                'nullable', 'string', 'max:255',
+            ],
+            'payment_receipt.notes' => ['nullable', 'string'],
+            'payment_receipt.items' => ['nullable', 'array', 'min:1', 'required_if:create_payment_receipt,1'],
+            'payment_receipt.items.*.description' => ['required_with:payment_receipt.items', 'string', 'max:500'],
+            'payment_receipt.items.*.concept' => ['required_with:payment_receipt.items', Rule::in(array_keys(InvoiceItem::CONCEPT_OPTIONS))],
+            'payment_receipt.items.*.is_return' => ['nullable', 'boolean'],
+            'payment_receipt.items.*.is_credit_application' => ['nullable', 'boolean'],
+            'payment_receipt.items.*.unit_price' => ['required_with:payment_receipt.items', 'numeric', 'min:0'],
+            'payment_receipt.items.*.evidence_file' => ['nullable', 'file', 'mimes:'.self::ALLOWED_EVIDENCE_MIMES, 'max:'.self::MAX_EVIDENCE_KB],
             'items' => ['required', 'array', 'min:1'],
-            // Obligatorio para facturas electrónicas (Hacienda lo exige en el XSD real; una
-            // línea sin CABYS produce rechazo). Las facturas "simple" no se envían a Hacienda.
-            'items.*.cabys_code' => ['required_if:invoice_type,electronic', 'nullable', 'string', 'max:13'],
+            // Hacienda lo exige en el XSD real; una línea sin CABYS produce rechazo.
+            'items.*.cabys_code' => ['required', 'string', 'max:13'],
             'items.*.commercial_code_type' => ['nullable', Rule::in(['01', '02', '03', '04'])],
             'items.*.commercial_code' => ['nullable', 'required_with:items.*.commercial_code_type', 'string', 'max:50'],
             'items.*.description' => ['required', 'string', 'max:500'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.001'],
-            // Solo lo usa el comprobante de pago simple; las facturas electrónicas se
-            // clasifican por CABYS, no por este concepto interno.
-            'items.*.concept' => ['required_if:invoice_type,simple', 'nullable', Rule::in(array_keys(InvoiceItem::CONCEPT_OPTIONS))],
             'items.*.is_return' => ['nullable', 'boolean'],
-            'items.*.evidence_file' => ['nullable', 'file', 'mimes:'.self::ALLOWED_EVIDENCE_MIMES, 'max:'.self::MAX_EVIDENCE_KB],
+            // No es un campo de Hacienda (no entra al XML, ver InvoiceXmlBuilder), pero es de
+            // uso interno obligatorio: lo lee TenantBalanceService::sumByConcept() para
+            // calcular saldos, vía el concepto que cada línea hereda en PaymentReceiptItem.
+            'items.*.concept' => ['required', Rule::in(array_keys(InvoiceItem::CONCEPT_OPTIONS))],
             'items.*.unit_of_measure' => ['nullable', 'string', 'max:20'],
             'items.*.transaction_type' => ['nullable', Rule::in(array_keys(Catalogs::transactionTypeOptions()))],
             'items.*.commercial_unit_of_measure' => ['nullable', 'string', 'max:50'],
@@ -637,14 +369,150 @@ class InvoiceController extends Controller
             'items.*.tax_condition' => ['nullable', Rule::in(['gravado', 'exento', 'no_sujeto'])],
             'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ], [
-            'items.*.cabys_code.required_if' => 'Cada línea de una factura electrónica necesita un código CABYS (búscalo en el modal de la línea).',
+            'items.*.cabys_code.required' => 'Cada línea de una factura electrónica necesita un código CABYS (búscalo en el modal de la línea).',
         ]);
+    }
+
+    /**
+     * Arma (sin guardar nada) el XML de negocio tal como quedaría si se confirma el
+     * guardado, para que el modal de "¿Confirmas guardar y enviar?" pueda mostrarlo. Usa
+     * modelos en memoria (Invoice/InvoiceItem sin persistir) y un consecutivo de solo
+     * lectura (ClaveGenerator::peekNextConsecutivo(), sin lock) — no reserva numeración de
+     * Hacienda ni toca la base de datos; el consecutivo y la clave definitivos se asignan
+     * recién al guardar de verdad (ver store() → CostaRicaElectronicInvoiceService).
+     */
+    public function previewXml(Request $request, InvoiceXmlBuilder $xmlBuilder)
+    {
+        $lessor = $request->user()?->lessor;
+
+        if (!$lessor) {
+            return response()->json(['message' => 'No autorizado.'], 403);
+        }
+
+        $validated = $this->validateInvoicePayload($request, $lessor);
+
+        $agreement = Agreement::with('roomer.user')
+            ->where('lessor_id', $lessor->id)
+            ->findOrFail((int) $validated['agreement_id']);
+
+        $documentType = $validated['document_type'];
+        $isCreditNote = $documentType === '03';
+
+        $referenceInvoice = null;
+
+        if ($isCreditNote) {
+            $referenceInvoice = Invoice::with('electronicDetail')
+                ->where('lessor_id', $lessor->id)
+                ->findOrFail((int) $validated['reference_invoice_id']);
+        }
+
+        $lateFeeTotal = (float) ($validated['late_fee_total'] ?? 0);
+        $issuedAt = now()->setDateFrom($validated['date']);
+
+        $previewItems = collect();
+        $position = 1;
+
+        foreach ($validated['items'] as $itemInput) {
+            $previewItems->push(InvoiceItem::make([...InvoiceItem::computeFromInput($itemInput), 'position' => $position++]));
+        }
+
+        if ($lateFeeTotal > 0) {
+            $previewItems->push(InvoiceItem::make([...InvoiceItem::computeFromInput([
+                'description' => 'Interés moratorio / recargo por mora',
+                'concept' => 'late_fee_rent',
+                'quantity' => 1,
+                'unit_price' => $lateFeeTotal,
+                'tax_rate' => 0,
+                'tax_code' => null,
+            ]), 'position' => $position++]));
+        }
+
+        // Mismo cálculo que Invoice::recalculateTotalsFromItems(), pero sobre las líneas en
+        // memoria: esa función real consulta $this->items()->get() en base de datos, que
+        // para una factura todavía no guardada no devolvería nada.
+        $subtotal = (float) $previewItems->sum(fn (InvoiceItem $item) => (float) $item->subtotal + (float) $item->discount_total);
+        $discountTotal = (float) $previewItems->sum('discount_total');
+        $taxTotal = (float) $previewItems->sum('tax_total');
+        $total = (float) $previewItems->sum('line_total');
+
+        $invoice = Invoice::make([
+            'agreement_id' => $agreement->id,
+            'reference_invoice_id' => $referenceInvoice?->id,
+            'credit_note_reason_code' => $isCreditNote ? ($validated['credit_note_reason_code'] ?? null) : null,
+            'credit_note_reason_text' => $isCreditNote ? ($validated['credit_note_reason_text'] ?? null) : null,
+            'lessor_id' => $lessor->id,
+            'roomer_id' => $agreement->roomer_id,
+            'date' => $validated['date'],
+            'issued_at' => $issuedAt,
+            'due_date' => $validated['due_date'] ?? null,
+            'description' => $validated['items'][0]['description'],
+            'currency' => $validated['currency'],
+            'exchange_rate' => $validated['currency'] === 'CRC' ? 1 : ($validated['exchange_rate'] ?? null),
+            'subtotal' => round($subtotal, 2),
+            'discount_total' => round($discountTotal, 2),
+            'tax_total' => round($taxTotal, 2),
+            'total' => round($total, 2),
+            'late_fee_total' => $lateFeeTotal,
+            'sale_condition' => $validated['sale_condition'],
+            'payment_methods' => $validated['payment_methods'],
+            'payment_method_other_description' => $validated['payment_method_other_description'] ?? null,
+            'reference_code' => $validated['reference_code'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+            'status' => 'draft',
+        ]);
+
+        $invoice->setRelation('lessor', $lessor);
+        $invoice->setRelation('roomer', $agreement->roomer);
+        $invoice->setRelation('items', $previewItems);
+        $invoice->setRelation('electronicDetail', new InvoiceElectronicDetail(['document_type' => $documentType]));
+
+        if ($referenceInvoice) {
+            $invoice->setRelation('referenceInvoice', $referenceInvoice);
+        }
+
+        $sucursal = (string) config('services.cr_einvoice.branch', '001');
+        $terminal = (string) config('services.cr_einvoice.terminal', '00001');
+        $previewConsecutivo = $this->claveGenerator->peekNextConsecutivo($lessor->id, $sucursal, $terminal, $documentType);
+        $previewClave = $this->claveGenerator->clave((string) $lessor->id_number, $previewConsecutivo, $issuedAt);
+
+        try {
+            $xml = $xmlBuilder->build($invoice, $previewClave, $previewConsecutivo);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        // Solo para lectura humana en el modal; el XML real que se firma y envía a Hacienda
+        // no lleva este formateo (ver InvoiceXmlBuilder::build(), formatOutput = false).
+        $formatted = new DOMDocument('1.0', 'UTF-8');
+        $formatted->preserveWhiteSpace = false;
+        $formatted->formatOutput = true;
+        $formatted->loadXML($xml);
+
+        return response()->json([
+            'xml' => $formatted->saveXML(),
+            'preview_consecutivo' => $previewConsecutivo,
+        ]);
+    }
+
+    /**
+     * Crea una factura electrónica (Factura 01) o una Nota de Crédito electrónica (03).
+     * Los comprobantes de pago simples se crean desde PaymentReceiptController.
+     */
+    public function store(Request $request)
+    {
+        $lessor = $request->user()?->lessor;
+
+        if (!$lessor) {
+            return redirect()->route('admin.index');
+        }
+
+        $validated = $this->validateInvoicePayload($request, $lessor);
 
         $agreement = Agreement::with('roomer')
             ->where('lessor_id', $lessor->id)
             ->findOrFail((int) $validated['agreement_id']);
 
-        $documentType = $validated['invoice_type'] === 'electronic' ? $validated['document_type'] : null;
+        $documentType = $validated['document_type'];
         $isCreditNote = $documentType === '03';
 
         if ($isCreditNote) {
@@ -659,12 +527,17 @@ class InvoiceController extends Controller
             }
         }
 
+        if (!empty($validated['create_payment_receipt']) && !$isCreditNote) {
+            if ($error = $this->checkAvailableCredit($validated['payment_receipt'], $agreement)) {
+                return back()->withErrors(['payment_receipt' => $error])->withInput();
+            }
+        }
+
         $lateFeeTotal = (float) ($validated['late_fee_total'] ?? 0);
         $issuedAt = now()->setDateFrom($validated['date']);
         $firstDescription = $validated['items'][0]['description'];
-        $numberDocumentType = $documentType ?: '01';
 
-        $invoice = DB::transaction(function () use ($request, $validated, $agreement, $lessor, $lateFeeTotal, $issuedAt, $firstDescription, $numberDocumentType, $isCreditNote) {
+        $invoice = DB::transaction(function () use ($request, $validated, $agreement, $lessor, $lateFeeTotal, $issuedAt, $firstDescription, $documentType, $isCreditNote) {
             $invoice = Invoice::create([
                 'agreement_id' => $agreement->id,
                 'reference_invoice_id' => $isCreditNote ? $validated['reference_invoice_id'] : null,
@@ -672,7 +545,7 @@ class InvoiceController extends Controller
                 'credit_note_reason_text' => $isCreditNote ? $validated['credit_note_reason_text'] : null,
                 'lessor_id' => $lessor->id,
                 'roomer_id' => $agreement->roomer_id,
-                'invoice_number' => $this->nextInvoiceNumber($lessor, $numberDocumentType),
+                'invoice_number' => $this->nextInvoiceNumber($lessor, $documentType),
                 'date' => $validated['date'],
                 'issued_at' => $issuedAt,
                 'due_date' => $validated['due_date'] ?? null,
@@ -697,16 +570,11 @@ class InvoiceController extends Controller
             ]);
 
             foreach ($validated['items'] as $position => $itemInput) {
-                $item = InvoiceItem::create([
+                InvoiceItem::create([
                     'invoice_id' => $invoice->id,
                     'position' => $position + 1,
                     ...InvoiceItem::computeFromInput($itemInput),
                 ]);
-
-                if ($request->hasFile("items.{$position}.evidence_file")) {
-                    $filePayment = $this->storeEvidenceFile($request->file("items.{$position}.evidence_file"), $agreement->id, $invoice->id);
-                    $item->update(['file_payment_id' => $filePayment->id]);
-                }
             }
 
             // La mora se factura como su propia línea (en vez de sumarse suelta al total)
@@ -717,6 +585,7 @@ class InvoiceController extends Controller
                     'position' => count($validated['items']) + 1,
                     ...InvoiceItem::computeFromInput([
                         'description' => 'Interés moratorio / recargo por mora',
+                        'concept' => 'late_fee_rent',
                         'quantity' => 1,
                         'unit_price' => $lateFeeTotal,
                         'tax_rate' => 0,
@@ -730,54 +599,103 @@ class InvoiceController extends Controller
             return $invoice;
         });
 
-        if ($documentType) {
-            $invoice->electronicDetail()->create([
-                'hacienda_key' => null,
-                'hacienda_consecutive' => $invoice->invoice_number,
-                'sucursal' => (string) config('services.cr_einvoice.branch', '001'),
-                'terminal' => (string) config('services.cr_einvoice.terminal', '00001'),
-                'document_type' => $documentType,
-                'internal_number' => str_pad((string) $invoice->id, 10, '0', STR_PAD_LEFT),
-                'emisor_nit' => (string) ($lessor->id_number ?? ''),
-                'emisor_name' => (string) ($lessor->legal_name ?? ''),
-                'receptor_nit' => (string) ($agreement->roomer?->id_number ?? ''),
-                'receptor_name' => (string) ($agreement->roomer?->legal_name ?? ''),
-                'electronic_status' => InvoiceElectronicDetail::STATE_PENDING,
-                'last_transition_message' => 'Comprobante electrónico creado y pendiente de envío a Hacienda.',
-                'transition_log' => [[
-                    'from' => null,
-                    'to' => InvoiceElectronicDetail::STATE_PENDING,
-                    'message' => 'Comprobante electrónico creado y pendiente de envío a Hacienda.',
-                    'at' => now()->toIso8601String(),
-                ]],
-            ]);
+        $invoice->electronicDetail()->create([
+            'hacienda_key' => null,
+            'hacienda_consecutive' => $invoice->invoice_number,
+            'sucursal' => (string) config('services.cr_einvoice.branch', '001'),
+            'terminal' => (string) config('services.cr_einvoice.terminal', '00001'),
+            'document_type' => $documentType,
+            'internal_number' => str_pad((string) $invoice->id, 10, '0', STR_PAD_LEFT),
+            'emisor_nit' => (string) ($lessor->id_number ?? ''),
+            'emisor_name' => (string) ($lessor->legal_name ?? ''),
+            'receptor_nit' => (string) ($agreement->roomer?->id_number ?? ''),
+            'receptor_name' => (string) ($agreement->roomer?->legal_name ?? ''),
+            'electronic_status' => InvoiceElectronicDetail::STATE_PENDING,
+            'last_transition_message' => 'Comprobante electrónico creado y pendiente de envío a Hacienda.',
+            'transition_log' => [[
+                'from' => null,
+                'to' => InvoiceElectronicDetail::STATE_PENDING,
+                'message' => 'Comprobante electrónico creado y pendiente de envío a Hacienda.',
+                'at' => now()->toIso8601String(),
+            ]],
+        ]);
+
+        $message = $isCreditNote
+            ? 'Nota de crédito electrónica creada y enviada a Hacienda.'
+            : 'Factura electrónica creada y enviada a Hacienda.';
+
+        try {
+            SendElectronicInvoiceJob::dispatch($invoice->id);
+        } catch (RuntimeException $exception) {
+            // Con cola "sync" el job corre en la misma petición y puede relanzar la
+            // excepción; el detalle del error ya quedó guardado en la factura por el job.
+            return redirect()
+                ->route('admin.invoices.index')
+                ->with('success', 'Factura creada, pero Hacienda rechazó el envío: ' . $exception->getMessage());
         }
 
-        $message = match (true) {
-            $isCreditNote => 'Nota de crédito electrónica creada y enviada a Hacienda.',
-            $documentType !== null => 'Factura electrónica creada y enviada a Hacienda.',
-            default => 'Factura simple creada exitosamente.',
-        };
+        // "Ya fue pagada": genera un comprobante de pago vinculado a esta factura, con los
+        // datos capturados en el modal de "ya pagó" (precargado desde las líneas de la
+        // factura, pero editable) — ver payment_receipt.* en validateInvoicePayload(). No
+        // aplica a Notas de Crédito (no representan un cobro nuevo que se pueda "pagar").
+        if (!empty($validated['create_payment_receipt']) && !$isCreditNote) {
+            $receiptData = $validated['payment_receipt'];
 
-        // Toda factura creada desde este formulario es electrónica: se envía a Hacienda de
-        // inmediato en vez de dejarla pendiente de un clic aparte en "Enviar".
-        if ($documentType) {
-            try {
-                SendElectronicInvoiceJob::dispatch($invoice->id);
-            } catch (RuntimeException $exception) {
-                // Con cola "sync" el job corre en la misma petición y puede relanzar la
-                // excepción; el detalle del error ya quedó guardado en la factura por el job.
-                return redirect()
-                    ->route('admin.invoices.index')
-                    ->with('success', 'Factura creada, pero Hacienda rechazó el envío: ' . $exception->getMessage());
-            }
-        } else {
-            // Solo los comprobantes de pago simples calculan saldo pendiente por línea y
-            // notifican al inquilino por email; las facturas electrónicas ya tienen su
-            // propio seguimiento vía Hacienda.
-            $freshInvoice = $invoice->fresh(['items', 'agreement.property', 'roomer.user']);
-            $this->applyConceptBalances($freshInvoice, $agreement);
-            $this->notifyReceiptEvent($freshInvoice, 'created');
+            $receipt = DB::transaction(function () use ($request, $receiptData, $agreement, $lessor, $invoice) {
+                $receipt = PaymentReceipt::create([
+                    'agreement_id' => $agreement->id,
+                    'invoice_id' => $invoice->id,
+                    'lessor_id' => $lessor->id,
+                    'roomer_id' => $agreement->roomer_id,
+                    'receipt_number' => $this->paymentReceiptService->nextReceiptNumber($lessor),
+                    'date' => $receiptData['date'],
+                    'currency' => $receiptData['currency'],
+                    'payment_methods' => $receiptData['payment_methods'],
+                    'payment_method_other_description' => $receiptData['payment_method_other_description'] ?? null,
+                    'notes' => $receiptData['notes'] ?? null,
+                    'total' => 0,
+                    'created_by_user_id' => $request->user()->id,
+                    'updated_by_user_id' => $request->user()->id,
+                ]);
+
+                foreach ($receiptData['items'] as $position => $itemInput) {
+                    $item = PaymentReceiptItem::create([
+                        'payment_receipt_id' => $receipt->id,
+                        'position' => $position + 1,
+                        ...PaymentReceiptItem::computeFromInput($itemInput),
+                    ]);
+
+                    if ($request->hasFile("payment_receipt.items.{$position}.evidence_file")) {
+                        $filePayment = $this->storeEvidenceFile($request->file("payment_receipt.items.{$position}.evidence_file"), $agreement->id, $receipt->id);
+                        $item->update(['file_payment_id' => $filePayment->id]);
+                    }
+
+                    if (!empty($itemInput['is_credit_application'])) {
+                        CreditBalanceMovement::create([
+                            'agreement_id' => $agreement->id,
+                            'lessor_id' => $lessor->id,
+                            'roomer_id' => $agreement->roomer_id,
+                            'type' => 'applied',
+                            'amount' => (float) ($itemInput['unit_price'] ?? 0),
+                            'currency' => $receiptData['currency'],
+                            'source' => 'manual',
+                            'applied_to_concept' => $itemInput['concept'] ?? null,
+                            'payment_receipt_id' => $receipt->id,
+                            'created_by_user_id' => $request->user()->id,
+                        ]);
+                    }
+                }
+
+                $receipt->recalculateTotalFromItems();
+
+                return $receipt;
+            });
+
+            $freshReceipt = $receipt->fresh(['items', 'agreement.property', 'roomer.user']);
+            $this->paymentReceiptService->applyConceptBalances($freshReceipt, $agreement);
+            $this->paymentReceiptService->notifyReceiptEvent($freshReceipt, 'created');
+
+            $message .= ' Se generó además el comprobante de pago '.$receipt->receipt_number.'.';
         }
 
         return redirect()

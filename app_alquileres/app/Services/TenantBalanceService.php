@@ -2,14 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\AdditionalCharge;
 use App\Models\Agreement;
-use App\Models\InvoiceItem;
+use App\Models\CreditBalanceMovement;
+use App\Models\PaymentReceiptItem;
 use Carbon\Carbon;
 
 /**
  * Calcula cuánto le debe el inquilino al arrendador a una fecha dada (alquiler, depósito
- * y morosidad de cada uno por separado), restando lo ya registrado en comprobantes previos
- * (simples o electrónicos, cualquiera que no esté anulado).
+ * y morosidad de cada uno por separado). Solo consideran "pagado" tres fuentes: comprobantes
+ * de pago, aplicaciones de saldo a favor, y otros cargos a cobrar (como deuda adicional) —
+ * la factura electrónica es puramente el documento tributario de lo que se debe, no
+ * participa en este cálculo (ver Invoice::paymentReceipts() para saber si una factura
+ * puntual ya fue liquidada).
  *
  * El alquiler es recurrente: se recorre periodo por periodo desde el inicio del contrato,
  * resolviendo Agreement::effectiveTerms() en la fecha de inicio de CADA periodo (no en la
@@ -31,19 +36,21 @@ class TenantBalanceService
     private const MAX_PERIODS = 1200;
 
     /**
-     * $excludeInvoiceId permite calcular el saldo "antes de" un comprobante dado (al
-     * editarlo), para que no se reste a sí mismo de lo que ya tiene aplicado.
+     * $excludeReceiptId permite calcular el saldo "antes de" un comprobante de pago dado
+     * (al editarlo), para que no se reste a sí mismo de lo que ya tiene aplicado. Las
+     * facturas electrónicas no se editan una vez creadas, así que no necesitan esta
+     * exclusión (ver InvoiceController::store()).
      */
-    public function breakdownFor(Agreement $agreement, Carbon $asOf, ?int $excludeInvoiceId = null): array
+    public function breakdownFor(Agreement $agreement, Carbon $asOf, ?int $excludeReceiptId = null): array
     {
         $asOf = $asOf->copy()->endOfDay();
 
         $periods = $this->buildRentPeriods($agreement, $asOf);
 
-        $rentPaidTotal = $this->sumByConcept($agreement, 'rent', $asOf, $excludeInvoiceId);
-        $depositPaidTotal = $this->sumByConcept($agreement, 'deposit', $asOf, $excludeInvoiceId);
-        $lateFeeRentPaidTotal = $this->sumByConcept($agreement, 'late_fee_rent', $asOf, $excludeInvoiceId);
-        $lateFeeDepositPaidTotal = $this->sumByConcept($agreement, 'late_fee_deposit', $asOf, $excludeInvoiceId);
+        $rentPaidTotal = $this->sumByConcept($agreement, 'rent', $asOf, $excludeReceiptId);
+        $depositPaidTotal = $this->sumByConcept($agreement, 'deposit', $asOf, $excludeReceiptId);
+        $lateFeeRentPaidTotal = $this->sumByConcept($agreement, 'late_fee_rent', $asOf, $excludeReceiptId);
+        $lateFeeDepositPaidTotal = $this->sumByConcept($agreement, 'late_fee_deposit', $asOf, $excludeReceiptId);
 
         $rentDue = 0.0;
         $rentLateFeeAccrued = 0.0;
@@ -94,6 +101,23 @@ class TenantBalanceService
             }
         }
 
+        $additionalChargesDue = (float) AdditionalCharge::where('agreement_id', $agreement->id)
+            ->active()
+            ->whereDate('charge_date', '<=', $asOf)
+            ->sum('amount');
+        $additionalChargesPaid = $this->sumByConcept($agreement, 'repair', $asOf, $excludeReceiptId)
+            + $this->sumByConcept($agreement, 'other', $asOf, $excludeReceiptId);
+
+        $creditGenerated = (float) CreditBalanceMovement::where('agreement_id', $agreement->id)
+            ->where('type', 'generated')
+            ->whereDate('created_at', '<=', $asOf)
+            ->sum('amount');
+        $creditApplied = (float) CreditBalanceMovement::where('agreement_id', $agreement->id)
+            ->where('type', 'applied')
+            ->whereDate('created_at', '<=', $asOf)
+            ->when($excludeReceiptId, fn ($query) => $query->where('payment_receipt_id', '!=', $excludeReceiptId))
+            ->sum('amount');
+
         return [
             'currency' => $termsNow['currency'] ?? $agreement->currency,
             'rent' => [
@@ -115,6 +139,16 @@ class TenantBalanceService
                 'accrued' => round($depositLateFeeAccrued, 2),
                 'paid' => round($lateFeeDepositPaidTotal, 2),
                 'balance' => round($depositLateFeeAccrued - $lateFeeDepositPaidTotal, 2),
+            ],
+            'additional_charges' => [
+                'due' => round($additionalChargesDue, 2),
+                'paid' => round($additionalChargesPaid, 2),
+                'balance' => round($additionalChargesDue - $additionalChargesPaid, 2),
+            ],
+            'credit_balance' => [
+                'generated' => round($creditGenerated, 2),
+                'applied' => round($creditApplied, 2),
+                'available' => round($creditGenerated - $creditApplied, 2),
             ],
         ];
     }
@@ -194,21 +228,38 @@ class TenantBalanceService
     }
 
     /**
-     * Suma lo ya cobrado por un concepto dado, en cualquier comprobante (simple o
-     * electrónico) del contrato que no esté anulado y con fecha hasta $asOf inclusive.
+     * Suma lo ya cobrado por un concepto dado, sumando dos fuentes: líneas "en efectivo"
+     * de comprobante de pago (PaymentReceiptItem, excluyendo las que son solo el reflejo
+     * de una aplicación de saldo a favor — is_credit_application) y movimientos de saldo a
+     * favor aplicados directamente a ese concepto (CreditBalanceMovement). Ambas fuentes son
+     * necesarias y no se solapan: una línea marcada is_credit_application siempre tiene su
+     * movimiento correspondiente contado del lado de CreditBalanceMovement, nunca del lado
+     * de PaymentReceiptItem, para no contar el mismo dinero dos veces.
+     *
+     * $excludeReceiptId excluye un comprobante de pago puntual (el que se está editando),
+     * tanto sus propias líneas como los movimientos de saldo a favor que generó.
      */
-    private function sumByConcept(Agreement $agreement, string $concept, Carbon $asOf, ?int $excludeInvoiceId = null): float
+    private function sumByConcept(Agreement $agreement, string $concept, Carbon $asOf, ?int $excludeReceiptId = null): float
     {
-        return (float) InvoiceItem::where('concept', $concept)
-            ->whereHas('invoice', function ($query) use ($agreement, $asOf, $excludeInvoiceId) {
+        $fromReceipts = (float) PaymentReceiptItem::where('concept', $concept)
+            ->where('is_credit_application', false)
+            ->whereHas('paymentReceipt', function ($query) use ($agreement, $asOf, $excludeReceiptId) {
                 $query->where('agreement_id', $agreement->id)
-                    ->where('status', '!=', 'void')
                     ->whereDate('date', '<=', $asOf);
 
-                if ($excludeInvoiceId !== null) {
-                    $query->where('id', '!=', $excludeInvoiceId);
+                if ($excludeReceiptId !== null) {
+                    $query->where('id', '!=', $excludeReceiptId);
                 }
             })
             ->sum('line_total');
+
+        $fromCreditApplied = (float) CreditBalanceMovement::where('agreement_id', $agreement->id)
+            ->where('type', 'applied')
+            ->where('applied_to_concept', $concept)
+            ->whereDate('created_at', '<=', $asOf)
+            ->when($excludeReceiptId, fn ($query) => $query->where('payment_receipt_id', '!=', $excludeReceiptId))
+            ->sum('amount');
+
+        return $fromReceipts + $fromCreditApplied;
     }
 }

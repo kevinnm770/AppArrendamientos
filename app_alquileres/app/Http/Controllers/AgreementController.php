@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agreement;
+use App\Models\Invoice;
+use App\Models\InvoiceElectronicDetail;
 use App\Models\Property;
 use App\Models\Roomer;
 use App\Services\NotificationService;
@@ -394,8 +396,9 @@ class AgreementController extends Controller
 
     /**
      * Términos de pago vigentes del contrato (resolviendo adéndums activos) para
-     * precargar la línea de canon al crear una factura, más una tasa de IVA sugerida
-     * según el uso del inmueble (vivienda = exento, comercial = 13%).
+     * precargar la línea de canon al crear una factura, más la unidad de medida sugerida
+     * según el uso del inmueble. El IVA sugerido siempre es 13% (el usuario ajusta a mano
+     * la condición/tarifa si el caso concreto es exento).
      */
     public function effectiveBillingTerms(Request $request, int $agreementId)
     {
@@ -424,7 +427,8 @@ class AgreementController extends Controller
             'amount' => $terms['amount'],
             'currency' => $terms['currency'],
             'frequency_pay' => $terms['frequency_pay'],
-            'suggested_tax_rate' => $isHousing ? 0 : 13,
+            'suggested_tax_rate' => 13,
+            'suggested_unit_of_measure' => $isHousing ? 'Al' : 'Alc',
             'suggested_description' => $isHousing
                 ? 'Canon de arrendamiento de vivienda'
                 : 'Canon de arrendamiento de local comercial',
@@ -460,13 +464,79 @@ class AgreementController extends Controller
             ? Carbon::parse($request->query('date'))
             : Carbon::now();
 
-        $excludeInvoiceId = $request->query('exclude_invoice_id');
+        // Solo los comprobantes de pago se editan (las facturas electrónicas no); ver
+        // TenantBalanceService::breakdownFor().
+        $excludeReceiptId = $request->query('exclude_receipt_id');
 
         return response()->json($this->tenantBalanceService->breakdownFor(
             $agreement,
             $asOf,
-            $excludeInvoiceId !== null ? (int) $excludeInvoiceId : null
+            $excludeReceiptId !== null ? (int) $excludeReceiptId : null
         ));
+    }
+
+    /**
+     * Facturas electrónicas de este contrato, aceptadas por Hacienda, que todavía tienen
+     * saldo pendiente (su total menos la suma de los comprobantes de pago ya vinculados —
+     * una factura puede pagarse por tractos con varios comprobantes). Usado por el
+     * formulario de comprobante de pago para ofrecer "vincular a esta factura" y precargar
+     * el monto que falta.
+     */
+    public function unpaidElectronicInvoices(Request $request, int $agreementId)
+    {
+        $lessor = $request->user()?->lessor;
+
+        if (!$lessor) {
+            return response()->json(['message' => 'No autorizado.'], 403);
+        }
+
+        $agreement = Agreement::where('lessor_id', $lessor->id)->find($agreementId);
+
+        if (!$agreement) {
+            return response()->json(['message' => 'Contrato no encontrado.'], 404);
+        }
+
+        $excludeReceiptId = $request->query('exclude_receipt_id') !== null
+            ? (int) $request->query('exclude_receipt_id')
+            : null;
+
+        $invoices = Invoice::where('agreement_id', $agreement->id)
+            ->whereHas('electronicDetail', fn ($query) => $query->where('electronic_status', InvoiceElectronicDetail::STATE_ACCEPTED))
+            ->with([
+                'paymentReceipts' => function ($query) use ($excludeReceiptId) {
+                    // El comprobante que se está editando ahora mismo no cuenta como "ya
+                    // pagado" de sí mismo, para no perder su propio saldo al reabrirlo.
+                    if ($excludeReceiptId !== null) {
+                        $query->where('id', '!=', $excludeReceiptId);
+                    }
+                },
+                // Saldo a favor aplicado directamente a la factura al crearla (ver
+                // InvoiceController::store()) — no depende de ningún comprobante, así que
+                // no hace falta excluir nada aquí.
+                'creditApplications',
+            ])
+            ->orderByDesc('date')
+            ->get()
+            ->map(function (Invoice $invoice) {
+                $paidViaReceipts = (float) $invoice->paymentReceipts->sum('total');
+                $paidViaCredit = (float) $invoice->creditApplications->sum('amount');
+                $paid = round($paidViaReceipts + $paidViaCredit, 2);
+
+                return [
+                    'id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'date' => optional($invoice->date)->toDateString(),
+                    'currency' => $invoice->currency,
+                    'total' => (float) $invoice->total,
+                    'paid' => $paid,
+                    'remaining' => round((float) $invoice->total - $paid, 2),
+                    'description' => $invoice->description,
+                ];
+            })
+            ->filter(fn (array $invoice) => $invoice['remaining'] > 0.01)
+            ->values();
+
+        return response()->json(['invoices' => $invoices]);
     }
 
     public function store(Request $request, SignedDocService $signedDocService)

@@ -135,6 +135,28 @@ class Invoice extends Model
     }
 
     /**
+     * Comprobante(s) de pago que liquidan esta factura, total o parcialmente por tractos
+     * (vínculo opcional, ver payment_receipts.invoice_id). El saldo pendiente real —no
+     * solo si tiene o no algún comprobante— se calcula en
+     * AgreementController::unpaidElectronicInvoices() sumando sus totales.
+     */
+    public function paymentReceipts()
+    {
+        return $this->hasMany(PaymentReceipt::class);
+    }
+
+    /**
+     * Aplicaciones de saldo a favor registradas directamente contra esta factura (opcional,
+     * al crearla) — no son un cargo de la factura ni viajan en el XML a Hacienda (ver
+     * InvoiceController::store()), pero sí cuentan como "pagado" junto con paymentReceipts()
+     * para saber si la factura queda saldada.
+     */
+    public function creditApplications()
+    {
+        return $this->hasMany(CreditBalanceMovement::class)->where('type', 'applied');
+    }
+
+    /**
      * Factura original que esta Nota de Crédito corrige/anula (solo aplica cuando el
      * documento electrónico es de tipo "03").
      */
