@@ -101,6 +101,13 @@ class CreditBalanceController extends Controller
             'created_by_user_id' => $request->user()->id,
         ]);
 
+        // Usado también desde el modal rápido de "Otorgar saldo a favor" en Comprobante de
+        // pago y Factura electrónica (via fetch), que no puede seguir una redirección sin
+        // perder las líneas que el usuario ya llenó en el formulario que lo abrió.
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Saldo a favor otorgado exitosamente.']);
+        }
+
         return redirect()
             ->route('admin.credit-balance.index')
             ->with('success', 'Saldo a favor otorgado exitosamente.');

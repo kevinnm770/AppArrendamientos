@@ -178,6 +178,7 @@
                                 <strong>Total pendiente: <span id="tb-total">0.00</span> <span id="tb-currency"></span></strong>
                             </div>
                             <small class="note-cyan d-block mt-2 d-none" id="tenant-balance-note">Calculado a la fecha del comprobante, según los comprobantes previos no anulados (no incluye las líneas de este comprobante).</small>
+                            <button type="button" class="btn btn-sm btn-outline-info mt-2 d-none" id="tb-grant-btn"></button>
                         </div>
                     </div>
 
@@ -503,6 +504,11 @@
                     <button type="button" class="btn btn-sm btn-outline-info" id="pr-add-credit-application-btn">Aplicar saldo a favor</button>
                     <small class="note-cyan d-block mt-1">"Aplicar saldo a favor" agrega una línea que consume saldo a favor ya disponible (no dinero nuevo) — queda registrada también como su propio movimiento en Aplicación de saldo a favor.</small>
 
+                    <div class="alert alert-info d-none mt-2 py-2 px-3 mb-0" id="pr-excess-banner">
+                        <span id="pr-excess-text"></span>
+                        <button type="button" class="btn btn-sm btn-outline-info ms-2" id="pr-excess-grant-btn">Otorgar saldo a favor</button>
+                    </div>
+
                     <div class="mt-4">
                         <label class="form-label d-block mb-0">Métodos de pago</label>
                         <small class="note-cyan d-block mb-2">Puedes marcar más de uno si el pago se dividió.</small>
@@ -532,6 +538,40 @@
             </div>
         </div>
 
+        <div id="grant-credit-modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1065; align-items:center; justify-content:center;">
+            <div class="card" style="width: 100%; max-width: 520px;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h4 class="mb-0">Otorgar saldo a favor</h4>
+                        <button type="button" class="btn-close" id="grant-credit-modal-close" aria-label="Cerrar"></button>
+                    </div>
+                    <p class="text-muted small mb-3">Registra este excedente como saldo a favor disponible para el inquilino, sin afectar el comprobante que estás llenando.</p>
+                    <div class="alert alert-danger d-none" id="grant-credit-error"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Monto a otorgar</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control" id="grant-credit-amount">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Moneda</label>
+                            <select class="form-select" id="grant-credit-currency">
+                                <option value="CRC">CRC</option>
+                                <option value="USD">USD</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Motivo (obligatorio)</label>
+                            <input type="text" class="form-control" id="grant-credit-reason" maxlength="500">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-outline-secondary" id="grant-credit-cancel">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="grant-credit-save">Otorgar saldo a favor</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 const cabysSearchUrl = @json(route('admin.cabys.search'));
@@ -544,10 +584,15 @@
                 const appliableConceptOptions = @json($appliableConceptOptions);
                 const billingTermsBaseUrl = @json(route('admin.agreements.billing-terms', ['agreementId' => '__ID__']));
                 const tenantBalanceBaseUrl = @json(route('admin.agreements.tenant-balance', ['agreementId' => '__ID__']));
+                const grantCreditUrl = @json(route('admin.credit-balance.grant'));
                 const agreementSelect = document.getElementById('agreement_id');
                 const documentTypeSelect = document.getElementById('document_type');
 
                 let lineItems = @json(old('items', []));
+                // Última respuesta de admin.agreements.tenant-balance, usada tanto para
+                // sugerir "Otorgar saldo a favor" en el panel (saldos negativos por concepto)
+                // como para calcular si el comprobante de pago embebido excede lo pendiente.
+                let lastTenantBalanceData = null;
                 let editingIndex = null;
                 // Unidad de medida sugerida según el tipo de servicio del contrato elegido
                 // (Catalogs::commonUnitsOfMeasure() — 'Al' habitacional / 'Alc' comercial),
@@ -936,6 +981,35 @@
                 const tenantBalanceTotalWrap = document.getElementById('tenant-balance-total-wrap');
                 const tenantBalanceNote = document.getElementById('tenant-balance-note');
 
+                const tbGrantBtn = document.getElementById('tb-grant-btn');
+
+                // Sugiere otorgar como saldo a favor la suma de los saldos negativos por
+                // concepto (ya sobrepagados) — no se ofrece por separado por concepto porque
+                // un movimiento "generated" siempre es un solo monto con un solo motivo (no
+                // queda ligado a un concepto en particular, ver CreditBalanceMovement).
+                function updateGrantSuggestion(data) {
+                    const concepts = [
+                        ['Alquiler', data.rent.balance],
+                        ['Depósito', data.deposit.balance],
+                        ['Morosidad alquiler', data.late_fee_rent.balance],
+                        ['Morosidad depósito', data.late_fee_deposit.balance],
+                    ];
+                    const negatives = concepts.filter(function(c) { return c[1] < 0; });
+
+                    if (!negatives.length) {
+                        tbGrantBtn.classList.add('d-none');
+                        return;
+                    }
+
+                    const total = negatives.reduce(function(sum, c) { return sum + Math.abs(c[1]); }, 0);
+                    const detail = negatives.map(function(c) { return `${c[0]} ${data.currency} ${Math.abs(c[1]).toFixed(2)}`; }).join(', ');
+
+                    tbGrantBtn.textContent = `Otorgar saldo a favor (${data.currency} ${total.toFixed(2)})`;
+                    tbGrantBtn.dataset.amount = total;
+                    tbGrantBtn.dataset.reason = `Sobrepago detectado: ${detail}`;
+                    tbGrantBtn.classList.remove('d-none');
+                }
+
                 function renderTenantBalance(data) {
                     if (!data) return;
 
@@ -953,6 +1027,10 @@
                     tenantBalanceFigures.classList.remove('d-none');
                     tenantBalanceTotalWrap.classList.remove('d-none');
                     tenantBalanceNote.classList.remove('d-none');
+
+                    lastTenantBalanceData = data;
+                    updateGrantSuggestion(data);
+                    prUpdateExcessBanner();
                 }
 
                 function resetTenantBalance() {
@@ -960,7 +1038,105 @@
                     tenantBalanceFigures.classList.add('d-none');
                     tenantBalanceTotalWrap.classList.add('d-none');
                     tenantBalanceNote.classList.add('d-none');
+                    tbGrantBtn.classList.add('d-none');
+                    lastTenantBalanceData = null;
+                    prUpdateExcessBanner();
                 }
+
+                // --- Modal "Otorgar saldo a favor", compartido por el botón del panel de
+                // Saldos y el aviso de excedente dentro del comprobante de pago embebido. Se
+                // envía por fetch (no como <form> normal) para no perder ni la factura ni el
+                // comprobante que el usuario ya esté llenando.
+                const grantModalBackdrop = document.getElementById('grant-credit-modal-backdrop');
+                const grantAmountField = document.getElementById('grant-credit-amount');
+                const grantCurrencyField = document.getElementById('grant-credit-currency');
+                const grantReasonField = document.getElementById('grant-credit-reason');
+                const grantErrorBox = document.getElementById('grant-credit-error');
+
+                function openGrantModal(amount, reason) {
+                    grantErrorBox.classList.add('d-none');
+                    grantAmountField.value = amount.toFixed(2);
+                    grantCurrencyField.value = document.getElementById('currency').value;
+                    grantReasonField.value = reason;
+                    grantModalBackdrop.style.display = 'flex';
+                }
+
+                function closeGrantModal() {
+                    grantModalBackdrop.style.display = 'none';
+                }
+
+                document.getElementById('grant-credit-modal-close').addEventListener('click', closeGrantModal);
+                document.getElementById('grant-credit-cancel').addEventListener('click', closeGrantModal);
+                grantModalBackdrop.addEventListener('click', function(event) {
+                    if (event.target === grantModalBackdrop) closeGrantModal();
+                });
+
+                tbGrantBtn.addEventListener('click', function() {
+                    openGrantModal(parseFloat(tbGrantBtn.dataset.amount) || 0, tbGrantBtn.dataset.reason || '');
+                });
+
+                document.getElementById('pr-excess-grant-btn').addEventListener('click', function() {
+                    openGrantModal(parseFloat(prExcessBanner.dataset.excessAmount) || 0, 'Excedente registrado en un comprobante de pago');
+                });
+
+                document.getElementById('grant-credit-save').addEventListener('click', function() {
+                    const agreementId = agreementSelect.value;
+
+                    if (!agreementId) {
+                        grantErrorBox.textContent = 'Selecciona un contrato primero.';
+                        grantErrorBox.classList.remove('d-none');
+                        return;
+                    }
+
+                    const amount = parseFloat(grantAmountField.value) || 0;
+                    if (amount <= 0) {
+                        grantErrorBox.textContent = 'El monto debe ser mayor a cero.';
+                        grantErrorBox.classList.remove('d-none');
+                        return;
+                    }
+
+                    if (!grantReasonField.value.trim()) {
+                        grantErrorBox.textContent = 'El motivo es obligatorio.';
+                        grantErrorBox.classList.remove('d-none');
+                        return;
+                    }
+
+                    grantErrorBox.classList.add('d-none');
+
+                    fetch(grantCreditUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            agreement_id: agreementId,
+                            amount: amount,
+                            currency: grantCurrencyField.value,
+                            reason: grantReasonField.value.trim(),
+                        }),
+                    })
+                        .then(function(response) {
+                            return response.json().then(function(data) { return {ok: response.ok, data: data}; });
+                        })
+                        .then(function(result) {
+                            if (!result.ok) {
+                                const firstError = result.data.errors ? Object.values(result.data.errors)[0][0] : (result.data.message || 'No se pudo otorgar el saldo a favor.');
+                                grantErrorBox.textContent = firstError;
+                                grantErrorBox.classList.remove('d-none');
+                                return;
+                            }
+
+                            closeGrantModal();
+                            refreshTenantBalance();
+                        })
+                        .catch(function() {
+                            grantErrorBox.textContent = 'No se pudo otorgar el saldo a favor. Intenta de nuevo.';
+                            grantErrorBox.classList.remove('d-none');
+                        });
+                });
 
                 function refreshTenantBalance() {
                     const agreementId = agreementSelect.value;
@@ -1012,6 +1188,49 @@
                         total += lineTotal;
                     });
                     prTotalDisplay.textContent = total.toFixed(2);
+                    prUpdateExcessBanner();
+                }
+
+                const prExcessBanner = document.getElementById('pr-excess-banner');
+                const prExcessText = document.getElementById('pr-excess-text');
+
+                // Mismo cálculo que updateExcessBanner() en payment-receipts/create.blade.php:
+                // por concepto (sin líneas "Aplicar saldo a favor", que no son dinero nuevo)
+                // contra el saldo pendiente de cada concepto antes de este comprobante.
+                function prUpdateExcessBanner() {
+                    if (!lastTenantBalanceData) {
+                        prExcessBanner.classList.add('d-none');
+                        return;
+                    }
+
+                    const paidByConcept = {};
+                    prItems.forEach(function(item) {
+                        if (item.is_credit_application) return;
+                        paidByConcept[item.concept] = (paidByConcept[item.concept] || 0) + prComputeLineTotal(item);
+                    });
+
+                    const balanceByConcept = {
+                        rent: lastTenantBalanceData.rent.balance,
+                        deposit: lastTenantBalanceData.deposit.balance,
+                        late_fee_rent: lastTenantBalanceData.late_fee_rent.balance,
+                        late_fee_deposit: lastTenantBalanceData.late_fee_deposit.balance,
+                    };
+
+                    let excess = 0;
+                    Object.keys(balanceByConcept).forEach(function(concept) {
+                        const paid = paidByConcept[concept] || 0;
+                        const pending = Math.max(balanceByConcept[concept], 0);
+                        if (paid > pending) excess += paid - pending;
+                    });
+                    excess = Math.round(excess * 100) / 100;
+
+                    if (excess > 0) {
+                        prExcessText.textContent = `Este comprobante registra ${lastTenantBalanceData.currency} ${excess.toFixed(2)} de más sobre lo pendiente.`;
+                        prExcessBanner.dataset.excessAmount = excess;
+                        prExcessBanner.classList.remove('d-none');
+                    } else {
+                        prExcessBanner.classList.add('d-none');
+                    }
                 }
 
                 function prRenderItems() {
@@ -1035,7 +1254,7 @@
                         if (isCreditApplication) {
                             row.innerHTML = `
                                 <td>
-                                    <input type="text" class="form-control form-control-sm pr-item-description" value="${item.description || 'Aplicación de saldo a favor'}" required>
+                                    <input type="hidden" class="pr-item-description" value="${item.description || 'Aplicación de saldo a favor'}">
                                     <span class="badge bg-info text-dark mt-1">Saldo a favor</span>
                                 </td>
                                 <td>
@@ -1303,7 +1522,10 @@
                             return {
                                 description: item.description || '',
                                 concept: item.concept || '',
-                                is_credit_application: !!item.is_credit_application,
+                                // old('payment_receipt') trae el valor del POST tal cual (string
+                                // "0"/"1"): "0" es truthy en JS, así que hay que comparar contra
+                                // el string en vez de castear con !! directamente.
+                                is_credit_application: item.is_credit_application === '1' || item.is_credit_application === true,
                                 unit_price: parseFloat(item.unit_price) || 0,
                                 evidence_file: null,
                             };

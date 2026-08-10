@@ -149,7 +149,7 @@
                                     <th>Descripción</th>
                                     <th>Concepto</th>
                                     <th class="text-end">Cant.</th>
-                                    <th class="text-end">Precio unit.</th>
+                                    <th class="text-end">Precio</th>
                                     <th class="text-end">Total línea</th>
                                     <th class="text-end">Saldo pendiente</th>
                                     <th></th>
@@ -188,7 +188,7 @@
                 </div>
 
                 <div class="row">
-                    <strong class="d-block col-8" style="text-align: right;">Total</strong>
+                    <strong class="d-block col-8" style="text-align: right;">Total pagado</strong>
                     <span class="col-4" style="text-align: right;" class="fw-bold">{{ $receipt->currency }} {{ number_format((float) $receipt->total, 2) }}</span>
                 </div>
 
